@@ -209,6 +209,65 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:99px}
+
+/* ── PRACTICE / ESSAY SHARED ── */
+.prac-hd{padding:54px 20px 16px;border-bottom:1px solid #131b2e;background:#0a0f1e;flex-shrink:0}
+.prac-hd h2{font-size:24px;font-weight:800;color:#f1f5f9}
+.prac-hd p{font-size:13px;color:#334155;margin-top:4px}
+.prac-body{padding:16px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+.prac-card{background:#0d1626;border:1px solid #1e293b;border-radius:18px;padding:20px;margin-bottom:12px}
+.prac-submit{width:100%;padding:15px;background:#2563eb;border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;margin-top:4px}
+.prac-submit:active{transform:scale(.98);background:#1d4ed8}
+.prac-submit:disabled{background:#1e293b;color:#334155;cursor:not-allowed;transform:none}
+.next-btn{width:100%;padding:15px;background:#0f2744;border:1px solid #2563eb;border-radius:13px;color:#60a5fa;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;transition:all .15s}
+.next-btn:active{background:#1e3a5f}
+
+/* ── 造句 ── */
+.prac-word-badge{display:inline-flex;align-items:center;gap:6px;background:#0f2744;border:1px solid #2563eb;color:#60a5fa;padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px}
+.prac-zh{font-size:21px;font-weight:700;color:#f1f5f9;line-height:1.5;margin-bottom:6px}
+.prac-hint{font-size:12px;color:#475569;margin-top:8px;padding:8px 12px;background:#0a0f1e;border-radius:8px}
+.prac-inp{width:100%;background:#0a0f1e;border:1.5px solid #1e293b;border-radius:14px;padding:14px;color:#e2e8f0;font-size:15px;outline:none;resize:none;min-height:110px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;line-height:1.6;transition:border-color .2s;margin-bottom:12px}
+.prac-inp:focus{border-color:#2563eb}
+.score-ring{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.score-num{font-size:52px;font-weight:900;color:#f1f5f9;line-height:1}
+.score-denom{font-size:14px;color:#334155;margin-top:4px}
+.score-badge{padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700}
+.score-excellent{background:#dcfce7;color:#15803d}
+.score-good{background:#dbeafe;color:#1e40af}
+.score-needs{background:#fff1f2;color:#be123c}
+.model-box{background:#0a0f1e;border-radius:12px;padding:14px;margin-bottom:12px}
+.model-lbl{font-size:10px;font-weight:800;color:#2563eb;letter-spacing:.8px;margin-bottom:6px}
+.model-t{font-size:15px;color:#e2e8f0;font-style:italic;line-height:1.6}
+.corr-item{padding:10px 0;border-bottom:1px solid #0a0f1e}
+.corr-item:last-child{border-bottom:none}
+.corr-err{font-size:13px;color:#f87171;margin-bottom:3px}
+.corr-fix{font-size:14px;color:#4ade80;font-weight:600;margin-bottom:3px}
+.corr-why{font-size:12px;color:#64748b}
+
+/* ── 寫作 ── */
+.essay-type{font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:10px}
+.essay-topic{font-size:17px;font-weight:700;color:#f1f5f9;line-height:1.6;margin-bottom:14px}
+.essay-tips{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:2px}
+.essay-tip{font-size:12px;color:#475569;padding-left:16px;position:relative;line-height:1.5}
+.essay-tip::before{content:'•';position:absolute;left:4px;color:#2563eb}
+.wc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.wc-lbl{font-size:12px;color:#334155;font-weight:600}
+.wc-ok{color:#4ade80;font-size:13px;font-weight:700}
+.wc-low{color:#f87171;font-size:13px;font-weight:700}
+.essay-inp{width:100%;background:#0a0f1e;border:1.5px solid #1e293b;border-radius:14px;padding:14px;color:#e2e8f0;font-size:15px;outline:none;resize:none;min-height:220px;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;line-height:1.7;transition:border-color .2s;margin-bottom:12px}
+.essay-inp:focus{border-color:#2563eb}
+.band-wrap{text-align:center;padding:20px 0 16px}
+.band-score{font-size:72px;font-weight:900;line-height:1}
+.band-label{font-size:13px;color:#334155;margin-top:6px}
+.ielts-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.ielts-box{background:#0a0f1e;border-radius:12px;padding:12px}
+.ielts-name{font-size:9px;font-weight:800;color:#334155;letter-spacing:.6px;margin-bottom:6px}
+.ielts-sc{font-size:24px;font-weight:800;color:#f1f5f9;margin-bottom:4px}
+.ielts-cm{font-size:11px;color:#64748b;line-height:1.5}
+.str-item,.imp-item{padding:8px 0;border-bottom:1px solid #0a0f1e;font-size:13px;color:#64748b;line-height:1.6;display:flex;gap:8px;align-items:flex-start}
+.str-item:last-child,.imp-item:last-child{border-bottom:none}
+.str-item::before{content:'✓';color:#4ade80;flex-shrink:0;font-weight:700}
+.imp-item::before{content:'→';color:#f59e0b;flex-shrink:0;font-weight:700}
 </style>
 </head>
 <body>
@@ -273,6 +332,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
       </div>
       <div class="err-box" id="errS"></div>
       <div class="result" id="resS"></div>
+    </div>
+
+    <!-- PRACTICE panel -->
+    <div id="pracPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="prac-hd">
+        <h2>✍️ 造句練習</h2>
+        <p>Claude 出題，優先使用你的單字本</p>
+      </div>
+      <div class="prac-body" id="pracBody">
+        <div class="empty">
+          <div class="empty-ico">✍️</div>
+          <div class="empty-h">準備好練習了嗎？</div>
+          <div class="empty-p">Claude 會根據你的單字本出題<br>練習中翻英造句，即時批改</div>
+          <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESSAY panel -->
+    <div id="essayPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="prac-hd">
+        <h2>📝 英文寫作</h2>
+        <p>IELTS Task 2 · 8 項評分</p>
+      </div>
+      <div class="prac-body" id="essayBody">
+        <div class="empty">
+          <div class="empty-ico">📝</div>
+          <div class="empty-h">今日作文練習</div>
+          <div class="empty-p">Claude 出題，寫完後獲得<br>IELTS 8 項詳細評分與 Band Score</div>
+          <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startEssay()">取得題目 →</button>
+        </div>
+      </div>
     </div>
 
     <!-- FAV panel -->
@@ -351,6 +442,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
   <div class="tab-bar">
     <button class="tab on" id="t-dict" onclick="switchTab('dict')">
       <span class="tab-ic">🔍</span><span class="tab-lb">字典</span>
+    </button>
+    <button class="tab" id="t-prac" onclick="switchTab('prac')">
+      <span class="tab-ic">✍️</span><span class="tab-lb">造句</span>
+    </button>
+    <button class="tab" id="t-essay" onclick="switchTab('essay')">
+      <span class="tab-ic">📝</span><span class="tab-lb">寫作</span>
     </button>
     <button class="tab" id="t-fav" onclick="switchTab('fav')">
       <span class="tab-ic">📚</span><span class="tab-lb">單字本</span>
@@ -569,7 +666,7 @@ async function searchCN(q){
 
 async function claudeCN(q){
   const txt=await callClaude(`你是專業英語詞典。針對中文「${q}」，找出最對應的英文單字或片語，以 JSON 格式回答（只輸出純 JSON，不要加 markdown 或其他文字）：
-{"results":[{"word":"英文單字","cefr":"等級","pos":"詞性","desc":"使用情境（繁體中文1句）","ex":"自然英文例句"}],"note":"中英文概念補充說明（可選，繁體中文）"}`);
+{"results":[{"word":"英文單字","cefr":"等級","pos":"詞性","desc":"使用情境（繁體中文1句）","ex":"自然英文例句"}],"note":"中英文概念補充說明（可選，繁體中文）"}`, 700);
   try{ return parseJSON(txt); }catch{ return null; }
 }
 
@@ -600,7 +697,7 @@ function renderCN(q,data){
 }
 
 /* ── CLAUDE API ── */
-async function callClaude(prompt){
+async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001'){
   const r=await fetch('https://api.anthropic.com/v1/messages',{
     method:'POST',
     headers:{
@@ -609,7 +706,7 @@ async function callClaude(prompt){
       'anthropic-version':'2023-06-01',
       'anthropic-dangerous-direct-browser-access':'true'
     },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
   });
   if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`API 錯誤 ${r.status}`); }
   const d=await r.json();
@@ -710,12 +807,14 @@ function renderRecent(){
 /* ── TABS ── */
 function switchTab(tab){
   curTab=tab;
-  ['dict','fav','set'].forEach(t=>{
+  ['dict','prac','essay','fav','set'].forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('on',t===tab);
   });
-  document.getElementById('dictPanel').style.display = tab==='dict' ? 'block' : 'none';
-  document.getElementById('favPanel').style.display  = tab==='fav'  ? 'flex'  : 'none';
-  document.getElementById('setPanel').style.display  = tab==='set'  ? 'flex'  : 'none';
+  document.getElementById('dictPanel').style.display  = tab==='dict'  ? 'block' : 'none';
+  document.getElementById('pracPanel').style.display  = tab==='prac'  ? 'flex'  : 'none';
+  document.getElementById('essayPanel').style.display = tab==='essay' ? 'flex'  : 'none';
+  document.getElementById('favPanel').style.display   = tab==='fav'   ? 'flex'  : 'none';
+  document.getElementById('setPanel').style.display   = tab==='set'   ? 'flex'  : 'none';
   document.getElementById('appHd').style.display = tab==='dict' ? 'block' : 'none';
   if(tab==='fav') renderFavs();
   if(tab==='set') document.getElementById('setKey').value=KEY;
@@ -738,6 +837,180 @@ function clearData(){
   lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache');
   renderRecent(); toast('✓ 已清除');
   syncToCloud();
+}
+
+/* ── 造句練習 ── */
+let curSentQ=null;
+
+async function startSent(){
+  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
+  document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  try{
+    const words=FAVS.slice(0,10).map(f=>f.word);
+    const wordList=words.length>0?words.join(', '):'common English vocabulary';
+    const txt=await callClaude(`你是英語口語練習老師。請從以下單字中選一個，給學生一個自然的中文日常句子讓他翻譯成英文。
+單字清單：${wordList}
+只輸出純 JSON（不要加 markdown 或其他文字）：
+{"word":"選用的單字","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）"}`,250);
+    curSentQ=parseJSON(txt);
+    renderSentQ();
+  }catch(e){
+    document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
+  }
+}
+
+function renderSentQ(){
+  if(!curSentQ)return;
+  document.getElementById('pracBody').innerHTML=`
+  <div class="prac-card">
+    <div class="card-lbl">✍️ 將以下中文翻譯成英文</div>
+    ${curSentQ.word?`<div class="prac-word-badge">📌 ${curSentQ.word}</div>`:''}
+    <div class="prac-zh">${curSentQ.zh_sentence}</div>
+    ${curSentQ.hint?`<div class="prac-hint">💡 提示：${curSentQ.hint}</div>`:''}
+  </div>
+  <textarea class="prac-inp" id="sentInp" placeholder="用英文寫出你的翻譯..."></textarea>
+  <button class="prac-submit" id="sentBtn" onclick="submitSent()">提交答案 →</button>`;
+}
+
+async function submitSent(){
+  const ans=document.getElementById('sentInp').value.trim();
+  if(!ans){toast('⚠️ 請先寫出翻譯');return;}
+  const btn=document.getElementById('sentBtn');
+  btn.disabled=true;btn.textContent='Claude 批改中...';
+  try{
+    const txt=await callClaude(`你是英語口語練習老師。
+中文原句：「${curSentQ.zh_sentence}」
+目標單字：${curSentQ.word}
+學生答案：「${ans}」
+只輸出純 JSON（不要加 markdown）：
+{"score":85,"level":"excellent/good/needs_work","model_answer":"最自然的英文翻譯","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）"}],"tip":"口語使用技巧（繁體中文1句）"}`,500);
+    renderSentResult(ans,parseJSON(txt));
+  }catch(e){
+    btn.disabled=false;btn.textContent='提交答案 →';
+    toast('❌ 批改失敗，請重試');
+  }
+}
+
+function renderSentResult(userAns,r){
+  const lvlCls=r.level==='excellent'?'score-excellent':r.level==='good'?'score-good':'score-needs';
+  const lvlTxt=r.level==='excellent'?'🎉 非常好！':r.level==='good'?'👍 不錯！':'💪 繼續加油';
+  document.getElementById('pracBody').innerHTML=`
+  <div class="prac-card">
+    <div class="card-lbl">📝 原題</div>
+    <div class="prac-zh" style="font-size:17px">${curSentQ.zh_sentence}</div>
+    <div style="font-size:13px;color:#475569;margin-top:8px">你的答案：<span style="color:#94a3b8;font-style:italic">${userAns}</span></div>
+  </div>
+  <div class="prac-card">
+    <div class="score-ring">
+      <div><div class="score-num">${r.score}</div><div class="score-denom">/ 100</div></div>
+      <span class="score-badge ${lvlCls}">${lvlTxt}</span>
+    </div>
+    <div class="model-box">
+      <div class="model-lbl">MODEL ANSWER</div>
+      <div class="model-t">${r.model_answer}</div>
+    </div>
+    ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">🔍 錯誤修正</div>
+    ${r.corrections.map(c=>`<div class="corr-item">
+      <div class="corr-err">✗ ${c.error}</div>
+      <div class="corr-fix">✓ ${c.fix}</div>
+      <div class="corr-why">${c.why}</div>
+    </div>`).join('')}`:`<div style="color:#4ade80;font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
+    ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
+  </div>
+  <button class="next-btn" onclick="startSent()">下一題 →</button>`;
+}
+
+/* ── 英文寫作 ── */
+let curEssayTopic=null;
+
+async function startEssay(){
+  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
+  document.getElementById('essayBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  try{
+    const txt=await callClaude(`你是 IELTS 寫作老師。請出一個 IELTS Task 2 題目，適合中高級英語學習者。
+只輸出純 JSON（不要加 markdown）：
+{"topic":"完整題目（英文，2-3句）","type":"Opinion Essay/Discussion Essay/Problem-Solution Essay/Two-part Question","tips":["結構提示（繁體中文）","詞彙提示（繁體中文）","論點提示（繁體中文）"]}`,350);
+    curEssayTopic=parseJSON(txt);
+    renderEssayQ();
+  }catch(e){
+    document.getElementById('essayBody').innerHTML=`<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startEssay()" style="margin-top:12px">重試</button>`;
+  }
+}
+
+function renderEssayQ(){
+  if(!curEssayTopic)return;
+  document.getElementById('essayBody').innerHTML=`
+  <div class="prac-card">
+    <div class="essay-type">${curEssayTopic.type}</div>
+    <div class="essay-topic">${curEssayTopic.topic}</div>
+    ${curEssayTopic.tips?.length?`<div class="card-lbl" style="margin-bottom:8px">💡 寫作提示</div>
+    <ul class="essay-tips">${curEssayTopic.tips.map(t=>`<li class="essay-tip">${t}</li>`).join('')}</ul>`:''}
+  </div>
+  <div class="wc-row">
+    <span class="wc-lbl">字數</span>
+    <span id="wcNum" class="wc-low">0 / 150+</span>
+  </div>
+  <textarea class="essay-inp" id="essayInp" placeholder="在此輸入你的英文作文..." oninput="updateWC()"></textarea>
+  <button class="prac-submit" id="essayBtn" onclick="submitEssay()">提交評分 →</button>`;
+}
+
+function updateWC(){
+  const t=document.getElementById('essayInp').value.trim();
+  const wc=t?t.split(/\s+/).length:0;
+  const el=document.getElementById('wcNum');
+  el.textContent=`${wc} / 150+`;
+  el.className=wc>=150?'wc-ok':'wc-low';
+}
+
+async function submitEssay(){
+  const essay=document.getElementById('essayInp').value.trim();
+  const wc=essay?essay.split(/\s+/).length:0;
+  if(wc<50){toast('⚠️ 請至少寫 50 個字');return;}
+  const btn=document.getElementById('essayBtn');
+  btn.disabled=true;btn.textContent='Claude 評分中，約需 10 秒...';
+  try{
+    const txt=await callClaude(`你是 IELTS 寫作評審。請嚴格且詳細地評分以下作文：
+題目：${curEssayTopic.topic}
+字數：${wc} words
+作文：
+${essay}
+
+只輸出純 JSON（不要加 markdown）：
+{"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,900,'claude-sonnet-4-6');
+    renderEssayResult(wc,parseJSON(txt));
+  }catch(e){
+    btn.disabled=false;btn.textContent='提交評分 →';
+    toast('❌ 評分失敗，請重試');
+  }
+}
+
+function renderEssayResult(wc,r){
+  const band=r.band||0;
+  const bandColor=band>=7?'#4ade80':band>=6?'#60a5fa':band>=5?'#f59e0b':'#f87171';
+  document.getElementById('essayBody').innerHTML=`
+  <div class="prac-card">
+    <div class="band-wrap">
+      <div class="band-score" style="color:${bandColor}">${band}</div>
+      <div class="band-label">IELTS Band Score</div>
+    </div>
+    <div class="card-lbl" style="margin-bottom:12px">📊 各項評分</div>
+    <div class="ielts-grid">
+      <div class="ielts-box"><div class="ielts-name">TASK ACHIEVEMENT</div><div class="ielts-sc">${r.scores?.task_achievement?.score??'—'}</div><div class="ielts-cm">${r.scores?.task_achievement?.comment||''}</div></div>
+      <div class="ielts-box"><div class="ielts-name">COHERENCE & COHESION</div><div class="ielts-sc">${r.scores?.coherence?.score??'—'}</div><div class="ielts-cm">${r.scores?.coherence?.comment||''}</div></div>
+      <div class="ielts-box"><div class="ielts-name">LEXICAL RESOURCE</div><div class="ielts-sc">${r.scores?.lexical?.score??'—'}</div><div class="ielts-cm">${r.scores?.lexical?.comment||''}</div></div>
+      <div class="ielts-box"><div class="ielts-name">GRAMMATICAL RANGE</div><div class="ielts-sc">${r.scores?.grammar?.score??'—'}</div><div class="ielts-cm">${r.scores?.grammar?.comment||''}</div></div>
+    </div>
+    <div class="ielts-box" style="margin-bottom:12px">
+      <div class="ielts-name">中式英文程度</div>
+      <div class="ielts-sc" style="font-size:20px">${r.scores?.chinese_style?.level||'—'}</div>
+      <div class="ielts-cm">${r.scores?.chinese_style?.comment||''}</div>
+    </div>
+    <div style="font-size:12px;color:#334155">字數：${wc} words</div>
+  </div>
+  ${r.strengths?.length?`<div class="prac-card"><div class="card-lbl">✨ 優點</div>${r.strengths.map(s=>`<div class="str-item">${s}</div>`).join('')}</div>`:''}
+  ${r.improvements?.length?`<div class="prac-card"><div class="card-lbl">🎯 改進建議</div>${r.improvements.map(s=>`<div class="imp-item">${s}</div>`).join('')}</div>`:''}
+  ${r.overall_comment?`<div class="prac-card"><div class="card-lbl">💬 整體評語</div><div class="use-t" style="line-height:1.8;color:#94a3b8">${r.overall_comment}</div></div>`:''}
+  <button class="next-btn" onclick="startEssay()">換一題 →</button>`;
 }
 
 /* ── UTILS ── */
