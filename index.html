@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="英語字典">
+<meta name="theme-color" content="#0a0f1e">
+<title>英語字典</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#0a0f1e;overflow:hidden}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;color:#e2e8f0;height:100dvh;display:flex;flex-direction:column}
+
+/* ── SETUP ── */
+#setupView{flex:1;display:flex;flex-direction:column;align-items:center;padding:60px 28px 60px;text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.su-logo{font-size:64px;margin-bottom:20px}
+.su-title{font-size:26px;font-weight:800;color:#f1f5f9;margin-bottom:8px}
+.su-sub{font-size:14px;color:#64748b;line-height:1.7;margin-bottom:32px}
+.su-group{width:100%;max-width:380px;margin-bottom:14px}
+.su-label{font-size:12px;color:#475569;text-align:left;margin-bottom:6px;font-weight:600;letter-spacing:.3px}
+.su-input{width:100%;padding:16px;background:#131b2e;border:1.5px solid #1e3a5f;border-radius:14px;color:#e2e8f0;font-size:14px;font-family:monospace;outline:none;transition:border-color .2s}
+.su-input:focus{border-color:#3b82f6}
+.su-input::placeholder{color:#334155}
+.su-hint{font-size:12px;color:#334155;text-align:left;margin-top:8px;line-height:1.6}
+.su-btn{width:100%;max-width:380px;padding:17px;background:#2563eb;border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:background .15s,transform .1s}
+.su-btn:active{transform:scale(.98);background:#1d4ed8}
+.su-link{margin-top:18px;font-size:13px;color:#334155}
+.su-link a{color:#60a5fa;text-decoration:none}
+
+/* ── MAIN APP ── */
+#app{flex:1;display:none;flex-direction:column;height:100dvh;overflow:hidden}
+
+/* Header */
+.app-hd{background:#0a0f1e;padding:54px 16px 10px;border-bottom:1px solid #131b2e;flex-shrink:0;transition:all .2s}
+.search-row{display:flex;gap:8px;align-items:center}
+.search-wrap{flex:1;position:relative}
+.search-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:#334155;pointer-events:none}
+.search-inp{width:100%;padding:13px 38px 13px 38px;background:#131b2e;border:1.5px solid #1e293b;border-radius:14px;color:#e2e8f0;font-size:16px;outline:none;transition:border-color .2s}
+.search-inp:focus{border-color:#2563eb}
+.search-inp::placeholder{color:#334155}
+.search-x{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:#1e293b;border:none;border-radius:50%;width:22px;height:22px;color:#64748b;font-size:11px;cursor:pointer;display:none;align-items:center;justify-content:center}
+.search-go{background:#2563eb;border:none;border-radius:12px;padding:13px 16px;color:#fff;font-size:16px;cursor:pointer;flex-shrink:0;transition:background .15s,transform .1s}
+.search-go:active{transform:scale(.93);background:#1d4ed8}
+.chips{display:flex;gap:7px;margin-top:10px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.chip:active{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
+
+/* Content panels */
+.panels{flex:1;overflow:hidden;position:relative}
+.panel{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:none}
+.panel.on{display:block}
+#favPanel.panel{padding:0}
+#setPanel.panel{padding:0}
+
+/* Empty */
+.empty{text-align:center;padding:64px 24px}
+.empty-ico{font-size:54px;margin-bottom:18px}
+.empty-h{font-size:17px;font-weight:700;color:#cbd5e1;margin-bottom:8px}
+.empty-p{font-size:14px;color:#334155;line-height:1.7}
+.recent-sec{margin-top:28px}
+.recent-lbl{font-size:11px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.recent-pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.r-pill{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .15s}
+.r-pill:active{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
+
+/* Loader */
+.loader{text-align:center;padding:64px 24px;display:none}
+.spin{width:38px;height:38px;border:3px solid #131b2e;border-top-color:#2563eb;border-radius:50%;animation:sp .7s linear infinite;margin:0 auto 14px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loader-t{font-size:14px;color:#334155}
+
+/* Error */
+.err-box{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:14px;padding:16px;text-align:center;color:#fca5a5;font-size:14px;display:none;margin-bottom:12px;line-height:1.6}
+
+/* Result */
+.result{display:none}
+
+/* Cards */
+.card{background:#0d1626;border:1px solid #1e293b;border-radius:18px;padding:20px;margin-bottom:12px}
+.card-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#334155;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+
+/* Word hero */
+.hero{background:#0d1626;border:1px solid #1e293b;border-radius:18px;padding:20px;margin-bottom:12px}
+.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.hero-left{flex:1;min-width:0}
+.hero-word{font-size:34px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1.1;margin-bottom:10px;word-break:break-word}
+.badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.cb{font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;letter-spacing:.5px}
+.A1{background:#dcfce7;color:#15803d}.A2{background:#d1fae5;color:#065f46}
+.B1{background:#dbeafe;color:#1e40af}.B2{background:#e0e7ff;color:#4338ca}
+.C1{background:#f3e8ff;color:#7e22ce}.C2{background:#fff1f2;color:#be123c}
+.pb{font-size:11px;font-weight:600;background:#0a1628;color:#60a5fa;border:1px solid #1e3a5f;padding:3px 9px;border-radius:6px}
+.btns{display:flex;gap:8px;flex-shrink:0}
+.btn{background:#0a1628;border:1px solid #1e293b;border-radius:11px;width:44px;height:44px;font-size:18px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.btn:active{transform:scale(.91)}
+.btn.play{background:#0f2744;border-color:#2563eb;color:#60a5fa}
+.btn.play.on{background:#2563eb;color:#fff}
+.btn.saved{background:#0f2744;border-color:#2563eb;color:#60a5fa}
+.phonetic-row{margin-top:14px;display:flex;align-items:center;gap:10px}
+.phonetic{font-size:19px;color:#60a5fa;font-family:'Lucida Sans Unicode','DejaVu Sans',monospace;background:#0a1628;padding:5px 14px;border-radius:9px;border:1px solid #1e3a5f}
+.phonetic-tag{font-size:10px;color:#334155;font-weight:600;letter-spacing:.5px}
+
+/* Translation card */
+.trans-card{background:linear-gradient(145deg,#0c1e3b,#0f1535);border:1px solid #1e3a8a;border-radius:18px;padding:20px;margin-bottom:12px}
+.trans-main{font-size:24px;font-weight:800;color:#e2e8f0;line-height:1.4;margin-bottom:4px}
+.trans-src{font-size:11px;color:#334155}
+
+/* Def card */
+.def-item{padding:10px 0;border-bottom:1px solid #0a0f1e}
+.def-item:first-child{padding-top:0}
+.def-item:last-child{border-bottom:none;padding-bottom:0}
+.def-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
+.def-n{background:#0f2744;color:#60a5fa;font-size:11px;font-weight:800;min-width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.def-t{font-size:14px;color:#94a3b8;line-height:1.6}
+.ex-box{margin-left:32px;padding:8px 12px;background:#0a0f1e;border-radius:8px;border-left:2px solid #1e3a5f}
+.ex-lbl{font-size:10px;color:#2563eb;font-weight:700;margin-bottom:3px;letter-spacing:.5px}
+.ex-t{font-size:13px;color:#475569;font-style:italic;line-height:1.5}
+
+/* Usage card */
+.use-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #0a0f1e;align-items:flex-start}
+.use-item:last-child{border-bottom:none;padding-bottom:0}
+.use-item:first-child{padding-top:0}
+.use-ico{font-size:20px;flex-shrink:0;margin-top:1px}
+.use-lbl{font-size:10px;font-weight:800;color:#f59e0b;margin-bottom:4px;letter-spacing:.3px}
+.use-t{font-size:13px;color:#64748b;line-height:1.6}
+
+/* Syn */
+.syn-pills{display:flex;flex-wrap:wrap;gap:8px}
+.syn-p{background:#0a1628;border:1px solid #1e3a5f;color:#60a5fa;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .15s}
+.syn-p:active{background:#1e3a5f}
+
+/* ZH result */
+.zh-item{padding:14px 0;border-bottom:1px solid #0a0f1e;cursor:pointer}
+.zh-item:first-child{padding-top:0}
+.zh-item:last-child{border-bottom:none;padding-bottom:0}
+.zh-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.zh-w{font-size:21px;font-weight:800;color:#f1f5f9}
+.zh-desc{font-size:13px;color:#475569;line-height:1.5}
+.zh-ex{font-size:13px;color:#334155;font-style:italic;margin-top:4px;line-height:1.5}
+.zh-tap{font-size:12px;color:#2563eb;margin-top:5px}
+
+/* ── FAVORITES ── */
+.fav-hd{padding:54px 20px 16px;border-bottom:1px solid #131b2e;background:#0a0f1e}
+.fav-hd h2{font-size:24px;font-weight:800;color:#f1f5f9}
+.fav-hd p{font-size:13px;color:#334155;margin-top:4px}
+.fav-filter{display:flex;gap:7px;margin-top:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.fav-filter::-webkit-scrollbar{display:none}
+.filt{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
+.filt.on{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
+.fav-body{padding:12px 16px;overflow-y:auto;flex:1}
+.fav-li{background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:14px 16px;margin-bottom:9px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s}
+.fav-li:active{border-color:#2563eb}
+.fav-info{flex:1;min-width:0}
+.fav-w{font-size:17px;font-weight:700;color:#f1f5f9;margin-bottom:3px}
+.fav-tr{font-size:13px;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fav-meta{display:flex;gap:7px;align-items:center;flex-shrink:0}
+.fav-del{background:none;border:none;color:#334155;font-size:18px;cursor:pointer;padding:4px;transition:color .15s}
+.fav-del:active{color:#ef4444}
+.fav-empty{text-align:center;padding:60px 20px}
+.fav-empty-ico{font-size:48px;margin-bottom:14px}
+.fav-empty-t{font-size:14px;color:#334155;line-height:1.7}
+
+/* ── SETTINGS ── */
+.set-hd{padding:54px 20px 16px;border-bottom:1px solid #131b2e;background:#0a0f1e}
+.set-hd h2{font-size:24px;font-weight:800;color:#f1f5f9}
+.set-body{padding:16px;overflow-y:auto}
+.set-sec-lbl{font-size:10px;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:1.2px;margin-bottom:10px;padding-left:4px}
+.set-card{background:#0d1626;border:1px solid #1e293b;border-radius:16px;overflow:hidden;margin-bottom:20px}
+.set-row{padding:14px 16px;border-bottom:1px solid #0a0f1e;display:flex;align-items:flex-start;gap:12px}
+.set-row:last-child{border-bottom:none}
+.set-ico{font-size:20px;flex-shrink:0;margin-top:2px}
+.set-body2{flex:1}
+.set-lbl{font-size:14px;color:#e2e8f0;font-weight:600}
+.set-sub{font-size:12px;color:#334155;margin-top:2px}
+.set-inp{width:100%;background:#0a0f1e;border:1px solid #1e293b;border-radius:9px;padding:11px 13px;color:#e2e8f0;font-size:13px;font-family:monospace;outline:none;margin-top:10px;transition:border-color .2s}
+.set-inp:focus{border-color:#2563eb}
+.set-save{width:100%;padding:15px;background:#2563eb;border:none;border-radius:13px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:12px;transition:background .15s,transform .1s}
+.set-save:active{transform:scale(.98);background:#1d4ed8}
+.set-info{font-size:12px;color:#334155;line-height:1.6;margin-top:8px;padding:0 4px}
+.set-danger{color:#ef4444!important}
+
+/* ── TAB BAR ── */
+.tab-bar{background:#0a0f1e;border-top:1px solid #131b2e;display:flex;padding:8px 0 22px;flex-shrink:0}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 0;border:none;background:none;transition:all .15s}
+.tab-ic{font-size:22px;line-height:1;transition:transform .15s}
+.tab-lb{font-size:10px;color:#334155;font-weight:600;letter-spacing:.3px}
+.tab.on .tab-lb{color:#2563eb}
+.tab.on .tab-ic{transform:scale(1.12)}
+
+/* Toast */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(12px);background:#0f2744;border:1px solid #2563eb;color:#93c5fd;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Back button */
+.back-btn{display:flex;align-items:center;gap:6px;background:#0f2744;border:1px solid #1e3a5f;color:#60a5fa;padding:9px 14px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;width:100%;transition:background .15s}
+.back-btn:active{background:#1e3a5f}
+
+/* Translation loading dots */
+.trans-loading{display:flex;gap:6px;align-items:center;height:32px;margin-bottom:4px}
+.tl-dot{width:8px;height:8px;background:#3b82f6;border-radius:50%;animation:tldot 1.2s ease-in-out infinite}
+.tl-dot:nth-child(2){animation-delay:.2s}
+.tl-dot:nth-child(3){animation-delay:.4s}
+@keyframes tldot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#1e293b;border-radius:99px}
+</style>
+</head>
+<body>
+
+<!-- ════ SETUP ════ -->
+<div id="setupView">
+  <div class="su-logo">📖</div>
+  <div class="su-title">英語字典</div>
+  <div class="su-sub">輸入你的 Claude API Key<br>只需設定一次，資料存在你的裝置上</div>
+  <div class="su-group">
+    <div class="su-label">Claude API Key</div>
+    <input id="suKey" type="password" class="su-input" placeholder="sk-ant-api03-..." onkeydown="if(event.key==='Enter'){setupSave();}">
+    <div class="su-hint">🔒 Key 僅儲存於本機，不會傳送至任何第三方。</div>
+  </div>
+  <button class="su-btn" onclick="setupSave()">開始使用 →</button>
+  <div class="su-link">還沒有 Key？<a href="https://console.anthropic.com" target="_blank">前往申請</a></div>
+</div>
+
+<!-- ════ APP ════ -->
+<div id="app">
+
+  <!-- Header (dict tab only) -->
+  <div class="app-hd" id="appHd">
+    <div class="search-row">
+      <div class="search-wrap">
+        <span class="search-ico">🔍</span>
+        <input id="si" type="text" class="search-inp"
+          placeholder="英文或中文..." autocomplete="off" autocorrect="off"
+          autocapitalize="none" spellcheck="false">
+        <button class="search-x" id="sx" onclick="clearSi()">✕</button>
+      </div>
+      <button class="search-go" onclick="go()">→</button>
+    </div>
+    <div class="chips">
+      <span class="chip" onclick="qs('eloquent')">eloquent</span>
+      <span class="chip" onclick="qs('resilient')">resilient</span>
+      <span class="chip" onclick="qs('subtle')">subtle</span>
+      <span class="chip" onclick="qs('awkward')">awkward</span>
+      <span class="chip" onclick="qs('尷尬')">尷尬</span>
+      <span class="chip" onclick="qs('後悔')">後悔</span>
+      <span class="chip" onclick="qs('委屈')">委屈</span>
+    </div>
+  </div>
+
+  <!-- Panels -->
+  <div class="panels">
+
+    <!-- DICT panel -->
+    <div id="dictPanel" class="panel on">
+      <div class="empty" id="emptyS">
+        <div class="empty-ico">🔤</div>
+        <div class="empty-h">查詢英文或中文</div>
+        <div class="empty-p">支援英↔中雙向查詢<br>含發音・定義・CEFR 等級</div>
+        <div class="recent-sec" id="recentSec" style="display:none">
+          <div class="recent-lbl">最近查詢</div>
+          <div class="recent-pills" id="recentPills"></div>
+        </div>
+      </div>
+      <div class="loader" id="loadS">
+        <div class="spin"></div>
+        <div class="loader-t" id="loadT">查詢中...</div>
+      </div>
+      <div class="err-box" id="errS"></div>
+      <div class="result" id="resS"></div>
+    </div>
+
+    <!-- FAV panel -->
+    <div id="favPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="fav-hd">
+        <h2>📚 單字本</h2>
+        <p id="favCnt">0 個單字</p>
+        <div class="fav-filter">
+          <span class="filt on" onclick="filterFav(this,'')">全部</span>
+          <span class="filt" onclick="filterFav(this,'A1')">A1</span>
+          <span class="filt" onclick="filterFav(this,'A2')">A2</span>
+          <span class="filt" onclick="filterFav(this,'B1')">B1</span>
+          <span class="filt" onclick="filterFav(this,'B2')">B2</span>
+          <span class="filt" onclick="filterFav(this,'C1')">C1</span>
+          <span class="filt" onclick="filterFav(this,'C2')">C2</span>
+        </div>
+      </div>
+      <div class="fav-body" id="favBody"></div>
+    </div>
+
+    <!-- SETTINGS panel -->
+    <div id="setPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="set-hd"><h2>⚙️ 設定</h2></div>
+      <div class="set-body">
+        <div class="set-sec-lbl">API 設定</div>
+        <div class="set-card">
+          <div class="set-row">
+            <span class="set-ico">🔑</span>
+            <div class="set-body2">
+              <div class="set-lbl">Claude API Key</div>
+              <div class="set-sub">翻譯・定義・CEFR 等級</div>
+              <input id="setKey" type="password" class="set-inp" placeholder="sk-ant-api03-...">
+            </div>
+          </div>
+        </div>
+        <button class="set-save" onclick="saveKey()">儲存 API Key</button>
+        <div class="set-info">🔒 Key 僅存於本機 LocalStorage，不傳至任何伺服器。</div>
+
+        <div class="set-sec-lbl" style="margin-top:28px">關於</div>
+        <div class="set-card">
+          <div class="set-row">
+            <span class="set-ico">📖</span>
+            <div class="set-body2">
+              <div class="set-lbl">英語字典 Phase 1</div>
+              <div class="set-sub">字典 · 單字本 · 雙向翻譯</div>
+            </div>
+          </div>
+          <div class="set-row">
+            <span class="set-ico">🤖</span>
+            <div class="set-body2">
+              <div class="set-lbl">翻譯引擎</div>
+              <div class="set-sub">Claude Haiku 4.5 + Dictionary API</div>
+            </div>
+          </div>
+          <div class="set-row" style="cursor:pointer" onclick="clearData()">
+            <span class="set-ico">🗑️</span>
+            <div class="set-body2">
+              <div class="set-lbl set-danger">清除所有資料</div>
+              <div class="set-sub">清除單字本與查詢記錄</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /panels -->
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <button class="tab on" id="t-dict" onclick="switchTab('dict')">
+      <span class="tab-ic">🔍</span><span class="tab-lb">字典</span>
+    </button>
+    <button class="tab" id="t-fav" onclick="switchTab('fav')">
+      <span class="tab-ic">📚</span><span class="tab-lb">單字本</span>
+    </button>
+    <button class="tab" id="t-set" onclick="switchTab('set')">
+      <span class="tab-ic">⚙️</span><span class="tab-lb">設定</span>
+    </button>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ── LOCALSTORAGE 安全存取（iOS 本機檔案可能封鎖）── */
+function lsGet(k,def=''){
+  try{ const v=localStorage.getItem(k); return v===null?def:v; }catch(e){ return def; }
+}
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+/* ── STATE ── */
+let KEY = lsGet('c_key');
+let FAVS = JSON.parse(lsGet('c_favs','[]'));
+let RECENT = JSON.parse(lsGet('c_recent','[]'));
+let searchCache = JSON.parse(lsGet('c_cache','{}'));
+let curAudio=null, curTab='dict', favFilter='';
+let lastCNQuery='', lastCNData=null;
+
+/* ── BOOT ── */
+(function(){
+  if(KEY){ boot(); }
+  else{ document.getElementById('setupView').style.display='flex'; }
+})();
+
+function boot(){
+  document.getElementById('setupView').style.display='none';
+  document.getElementById('app').style.display='flex';
+  document.getElementById('setKey').value=KEY;
+  renderRecent();
+}
+
+/* ── SETUP ── */
+function setupSave(){
+  document.getElementById('suKey').blur(); // 收起鍵盤
+  const k=document.getElementById('suKey').value.trim();
+  if(!k.startsWith('sk-ant-')){
+    alert('⚠️ API Key 格式不正確\n應以 sk-ant- 開頭，請確認貼上的內容正確。');
+    return;
+  }
+  KEY=k; lsSet('c_key',k); boot();
+}
+
+/* ── SEARCH ── */
+const SI=document.getElementById('si');
+let composing=false;
+SI.addEventListener('compositionstart',()=>composing=true);
+SI.addEventListener('compositionend',()=>{ composing=false; document.getElementById('sx').style.display=SI.value?'flex':'none'; });
+SI.addEventListener('input',function(){ if(!composing) document.getElementById('sx').style.display=this.value?'flex':'none'; });
+SI.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!composing){ SI.blur(); go(); } });
+
+function clearSi(){ SI.value=''; document.getElementById('sx').style.display='none'; setState('empty'); }
+
+function qs(w){ SI.value=w; document.getElementById('sx').style.display='flex'; go(); }
+
+async function go(){
+  const q=SI.value.trim();
+  if(!q) return;
+  if(!KEY){ toast('⚠️ 請先設定 API Key'); return; }
+  const isCN=/[一-鿿㐀-䶿\u{20000}-\u{2a6df}]/u.test(q);
+  setState('load');
+  document.getElementById('loadT').textContent=isCN?'AI 翻譯中，約需 2-3 秒...':'查詢中...';
+  try{
+    isCN ? await searchCN(q) : await searchEN(q);
+    addRecent(q);
+  }catch(e){ setErr('查詢失敗：'+e.message); }
+}
+
+/* ── EN → ZH ── */
+async function searchEN(w, fromCN=false){
+  // 快取命中：直接顯示，不呼叫 API
+  if(searchCache[w]){
+    renderEN(w, searchCache[w].dict, searchCache[w].cl, fromCN);
+    setState('result');
+    return;
+  }
+
+  // 兩個請求同時發出
+  const dictPromise = fetchDict(w);
+  const claudePromise = claudeEN(w);
+
+  // 字典 API 先回來就先顯示（通常 < 0.5s）
+  const dict = await dictPromise;
+  renderEN(w, dict, null, fromCN);
+  setState('result');
+
+  // Claude 回來後更新翻譯卡片
+  const cl = await claudePromise;
+  searchCache[w]={dict, cl}; saveCache();
+  renderEN(w, dict, cl, fromCN);
+}
+
+async function fetchDict(w){
+  try{
+    const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`);
+    if(!r.ok) return null;
+    const d=await r.json(); return d[0]||null;
+  }catch{ return null; }
+}
+
+async function claudeEN(w){
+  const txt=await callClaude(`你是專業英語詞典。針對英文單字「${w}」，以 JSON 格式回答（只輸出純 JSON，不要加 markdown 或其他文字）：
+{"translation":"精準繁體中文翻譯，多個意思用 / 分隔","cefr":"A1/A2/B1/B2/C1/C2 其中一個","pos":"詞性英文如 noun verb adjective","tip":"如何在英語對話中自然使用（繁體中文，1句）","colloc":"最常見的英文搭配短語（英文，1個）"}`);
+  try{ return parseJSON(txt); }catch{ return null; }
+}
+
+function renderEN(w,dict,cl,fromCN=false){
+  const ph=dict?.phonetics||[], ms=dict?.meanings||[];
+  const phoneticTxt=ph.find(p=>p.text)?.text||'';
+  const audioURL=ph.find(p=>p.audio)?.audio||'';
+  const pos=cl?.pos||ms[0]?.partOfSpeech||'';
+  const cefr=cl?.cefr||'';
+  const trans=cl?.translation||'—';
+  const tip=cl?.tip||'';
+  const colloc=cl?.colloc||'';
+  let defs=[]; let syns=new Set();
+  for(const m of ms){
+    for(const d of(m.definitions||[]).slice(0,3)){
+      defs.push({t:d.definition,ex:d.example||''});
+      (d.synonyms||[]).slice(0,2).forEach(s=>syns.add(s));
+      if(defs.length>=5) break;
+    }
+    (m.synonyms||[]).slice(0,3).forEach(s=>syns.add(s));
+    if(defs.length>=5) break;
+  }
+  const saved=FAVS.some(f=>f.word===w);
+  const audio64=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
+
+  document.getElementById('resS').innerHTML=`
+  ${fromCN && lastCNQuery ? `<button class="back-btn" onclick="goBackCN()">← 返回「${lastCNQuery}」的結果</button>` : ''}
+  <div class="hero">
+    <div class="hero-top">
+      <div class="hero-left">
+        <div class="hero-word">${w}</div>
+        <div class="badges">
+          ${cefr?`<span class="cb ${cefr}">${cefr}</span>`:''}
+          ${pos?`<span class="pb">${pos}</span>`:''}
+        </div>
+      </div>
+      <div class="btns">
+        <button class="btn play" id="pb" onclick="playW('${w}','${audio64}')">🔊</button>
+        <button class="btn" onclick="copyW('${w}')">📋</button>
+        <button class="btn ${saved?'saved':''}" id="sb" onclick="toggleFav('${w}',\`${trans}\`,'${cefr}')">
+          ${saved?'🔖':'＋'}
+        </button>
+      </div>
+    </div>
+    ${phoneticTxt?`<div class="phonetic-row"><span class="phonetic">${phoneticTxt}</span><span class="phonetic-tag">KK 音標</span></div>`:''}
+  </div>
+
+  <div class="trans-card" id="transCard">
+    <div class="card-lbl">🇹🇼 中文翻譯</div>
+    ${cl
+      ? `<div class="trans-main">${trans}</div><div class="trans-src">Claude Haiku · 繁體中文</div>`
+      : `<div class="trans-loading"><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span></div><div class="trans-src">翻譯中...</div>`
+    }
+  </div>
+
+  ${defs.length?`<div class="card">
+    <div class="card-lbl">📖 英文定義</div>
+    ${defs.map((d,i)=>`<div class="def-item">
+      <div class="def-row"><span class="def-n">${i+1}</span><span class="def-t">${d.t}</span></div>
+      ${d.ex?`<div class="ex-box"><div class="ex-lbl">EXAMPLE</div><div class="ex-t">${d.ex}</div></div>`:''}
+    </div>`).join('')}
+  </div>`:''}
+
+  ${tip||colloc?`<div class="card">
+    <div class="card-lbl">✨ 使用技巧</div>
+    ${tip?`<div class="use-item"><span class="use-ico">💡</span><div><div class="use-lbl">對話技巧</div><div class="use-t">${tip}</div></div></div>`:''}
+    ${colloc?`<div class="use-item"><span class="use-ico">💬</span><div><div class="use-lbl">常見搭配</div><div class="use-t">${colloc}</div></div></div>`:''}
+  </div>`:''}
+
+  ${syns.size?`<div class="card">
+    <div class="card-lbl">🔗 同義字</div>
+    <div class="syn-pills">
+      ${[...syns].slice(0,8).map(s=>`<span class="syn-p" onclick="qs('${s}')">${s}</span>`).join('')}
+    </div>
+  </div>`:''}`;
+
+  setState('result');
+}
+
+/* ── ZH → EN ── */
+async function searchCN(q){
+  // 快取命中
+  if(searchCache['CN:'+q]){
+    lastCNQuery=q; lastCNData=searchCache['CN:'+q];
+    renderCN(q, lastCNData);
+    return;
+  }
+  const data=await claudeCN(q);
+  searchCache['CN:'+q]=data; saveCache();
+  lastCNQuery=q; lastCNData=data;
+  renderCN(q,data);
+}
+
+async function claudeCN(q){
+  const txt=await callClaude(`你是專業英語詞典。針對中文「${q}」，找出最對應的英文單字或片語，以 JSON 格式回答（只輸出純 JSON，不要加 markdown 或其他文字）：
+{"results":[{"word":"英文單字","cefr":"等級","pos":"詞性","desc":"使用情境（繁體中文1句）","ex":"自然英文例句"}],"note":"中英文概念補充說明（可選，繁體中文）"}`);
+  try{ return parseJSON(txt); }catch{ return null; }
+}
+
+function renderCN(q,data){
+  if(!data?.results?.length){ setErr('找不到對應英文，請換個說法'); return; }
+  document.getElementById('resS').innerHTML=`
+  <div class="trans-card">
+    <div class="card-lbl">🔤「${q}」的英文</div>
+    <div class="trans-src">點擊單字可查看完整資訊</div>
+  </div>
+  <div class="card">
+    <div class="card-lbl">📖 英文對照</div>
+    ${data.results.map(r=>`<div class="zh-item" onclick="goFromCN('${r.word}')">
+      <div class="zh-top">
+        <span class="zh-w">${r.word}</span>
+        ${r.cefr?`<span class="cb ${r.cefr}">${r.cefr}</span>`:''}
+        ${r.pos?`<span class="pb">${r.pos}</span>`:''}
+      </div>
+      <div class="zh-desc">${r.desc||''}</div>
+      ${r.ex?`<div class="zh-ex">${r.ex}</div>`:''}
+      <div class="zh-tap">查看完整字典資訊 →</div>
+    </div>`).join('')}
+  </div>
+  ${data.note?`<div class="card"><div class="card-lbl">💡 補充說明</div>
+    <div class="use-item"><span class="use-ico">📝</span><div class="use-t">${data.note}</div></div>
+  </div>`:''}`;
+  setState('result');
+}
+
+/* ── CLAUDE API ── */
+async function callClaude(prompt){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'x-api-key':KEY,
+      'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:prompt}]})
+  });
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`API 錯誤 ${r.status}`); }
+  const d=await r.json();
+  return d.content[0].text;
+}
+
+/* ── AUDIO ── */
+function playW(w,url){
+  const b=document.getElementById('pb'); if(!b) return;
+  if(curAudio){curAudio.pause();curAudio=null;}
+  const start=()=>{b.classList.add('on');b.textContent='🔈';};
+  const stop=()=>{b.classList.remove('on');b.textContent='🔊';};
+  if(url){
+    curAudio=new Audio(url);
+    start();
+    curAudio.play().then(()=>{curAudio.onended=stop;}).catch(()=>useSpeech(w,start,stop));
+  } else { useSpeech(w,start,stop); }
+}
+function useSpeech(w,start,stop){
+  if(speechSynthesis.speaking) speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(w); u.lang='en-US'; u.rate=.85;
+  start(); u.onend=stop; speechSynthesis.speak(u);
+}
+
+/* ── COPY ── */
+function copyW(w){ navigator.clipboard.writeText(w).then(()=>toast(`✓ 已複製「${w}」`)); }
+
+/* ── FAVORITES ── */
+function toggleFav(w,tr,ce){
+  const i=FAVS.findIndex(f=>f.word===w);
+  const b=document.getElementById('sb');
+  if(i>=0){ FAVS.splice(i,1); b.classList.remove('saved'); b.textContent='＋'; toast('已從單字本移除'); }
+  else { FAVS.unshift({word:w,trans:tr,cefr:ce,ts:Date.now()}); b.classList.add('saved'); b.textContent='🔖'; toast('✓ 已加入單字本'); }
+  lsSet('c_favs',JSON.stringify(FAVS));
+}
+
+function filterFav(el,level){
+  document.querySelectorAll('.filt').forEach(f=>f.classList.remove('on'));
+  el.classList.add('on'); favFilter=level; renderFavs();
+}
+
+function renderFavs(){
+  const list=favFilter?FAVS.filter(f=>f.cefr===favFilter):FAVS;
+  document.getElementById('favCnt').textContent=`${FAVS.length} 個單字`;
+  const body=document.getElementById('favBody');
+  if(!list.length){
+    body.innerHTML=`<div class="fav-empty"><div class="fav-empty-ico">${favFilter?'🔍':'📭'}</div><div class="fav-empty-t">${favFilter?`沒有 ${favFilter} 等級的單字`:'單字本是空的<br>查詢單字後點「＋」加入'}</div></div>`;
+    return;
+  }
+  body.innerHTML=list.map((f,i)=>`
+    <div class="fav-li" onclick="favGo('${f.word}')">
+      <div class="fav-info">
+        <div class="fav-w">${f.word}</div>
+        <div class="fav-tr">${f.trans}</div>
+      </div>
+      <div class="fav-meta">
+        ${f.cefr?`<span class="cb ${f.cefr}">${f.cefr}</span>`:''}
+        <button class="fav-del" onclick="delFav(event,${FAVS.indexOf(f)})">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function favGo(w){ switchTab('dict'); qs(w); }
+function delFav(e,i){ e.stopPropagation(); FAVS.splice(i,1); localStorage.setItem('c_favs',JSON.stringify(FAVS)); renderFavs(); toast('已移除'); }
+
+/* ── CN NAVIGATION ── */
+function goFromCN(w){
+  // 從中文結果點進英文細節，標記來源為 CN
+  SI.value=w; document.getElementById('sx').style.display='flex';
+  setState('load');
+  document.getElementById('loadT').textContent='查詢中...';
+  searchEN(w, true).catch(e=>setErr('查詢失敗：'+e.message));
+  addRecent(w);
+}
+function goBackCN(){
+  // 返回上次中文查詢結果
+  if(!lastCNQuery||!lastCNData) return;
+  SI.value=lastCNQuery; document.getElementById('sx').style.display='flex';
+  renderCN(lastCNQuery, lastCNData);
+  setState('result');
+}
+
+/* ── RECENT ── */
+function addRecent(w){
+  RECENT=[w,...RECENT.filter(r=>r!==w)].slice(0,8);
+  lsSet('c_recent',JSON.stringify(RECENT));
+  renderRecent();
+}
+function renderRecent(){
+  const s=document.getElementById('recentSec');
+  if(!RECENT.length){s.style.display='none';return;}
+  s.style.display='block';
+  document.getElementById('recentPills').innerHTML=RECENT.map(w=>`<span class="r-pill" onclick="qs('${w}')">${w}</span>`).join('');
+}
+
+/* ── TABS ── */
+function switchTab(tab){
+  curTab=tab;
+  ['dict','fav','set'].forEach(t=>{
+    document.getElementById('t-'+t).classList.toggle('on',t===tab);
+  });
+  document.getElementById('dictPanel').style.display = tab==='dict' ? 'block' : 'none';
+  document.getElementById('favPanel').style.display  = tab==='fav'  ? 'flex'  : 'none';
+  document.getElementById('setPanel').style.display  = tab==='set'  ? 'flex'  : 'none';
+  document.getElementById('appHd').style.display = tab==='dict' ? 'block' : 'none';
+  if(tab==='fav') renderFavs();
+  if(tab==='set') document.getElementById('setKey').value=KEY;
+}
+
+/* ── SETTINGS ── */
+function saveKey(){
+  const k=document.getElementById('setKey').value.trim();
+  if(!k.startsWith('sk-ant-')){toast('⚠️ Key 格式不正確');return;}
+  KEY=k; lsSet('c_key',k); toast('✓ API Key 已儲存');
+}
+function saveCache(){
+  const keys=Object.keys(searchCache);
+  if(keys.length>200){ delete searchCache[keys[0]]; }
+  lsSet('c_cache',JSON.stringify(searchCache));
+}
+function clearData(){
+  if(!confirm('確定清除所有資料？')) return;
+  FAVS=[]; RECENT=[]; searchCache={};
+  lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache');
+  renderRecent(); toast('✓ 已清除');
+}
+
+/* ── UTILS ── */
+function parseJSON(txt){
+  // 去掉 Claude 有時加的 ```json ... ``` 包裝
+  return JSON.parse(txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim());
+}
+function setState(s){
+  document.getElementById('emptyS').style.display=s==='empty'?'block':'none';
+  document.getElementById('loadS').style.display=s==='load'?'block':'none';
+  document.getElementById('errS').style.display=s==='err'?'block':'none';
+  document.getElementById('resS').style.display=s==='result'?'block':'none';
+}
+function setErr(msg){document.getElementById('errS').textContent='⚠️ '+msg; setState('err');}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2300);}
+</script>
+</body>
+</html>
