@@ -316,8 +316,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <div class="set-row">
             <span class="set-ico">📖</span>
             <div class="set-body2">
-              <div class="set-lbl">英語字典 Phase 1</div>
-              <div class="set-sub">字典 · 單字本 · 雙向翻譯</div>
+              <div class="set-lbl">英語字典 Phase 2</div>
+              <div class="set-sub">字典 · 單字本 · 雙向翻譯 · 跨裝置同步</div>
             </div>
           </div>
           <div class="set-row">
@@ -325,6 +325,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <div class="set-body2">
               <div class="set-lbl">翻譯引擎</div>
               <div class="set-sub">Claude Haiku 4.5 + Dictionary API</div>
+            </div>
+          </div>
+          <div class="set-row" style="cursor:pointer" onclick="syncFromCloud().then(()=>toast('✓ 已同步'))">
+            <span class="set-ico">☁️</span>
+            <div class="set-body2">
+              <div class="set-lbl">立即同步</div>
+              <div class="set-sub">從雲端拉取最新資料（Supabase）</div>
             </div>
           </div>
           <div class="set-row" style="cursor:pointer" onclick="clearData()">
@@ -366,6 +373,14 @@ function lsGet(k,def=''){
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
 function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 
+/* ── SUPABASE SYNC ── */
+const SB_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co';
+const SB_KEY='sb_publishable_tQy4psmsUp46NtpFMQoz8g_n-ZEQKlS';
+async function sbGet(k){try{const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
+async function sbSet(k,v){try{await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
+async function syncFromCloud(){try{const[fv,rc]=await Promise.all([sbGet('favs'),sbGet('recent')]);let changed=false;if(fv){const remote=JSON.parse(fv);const merged=[...FAVS];for(const rf of remote){if(!merged.find(f=>f.word===rf.word))merged.push(rf);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(FAVS)){FAVS=merged;lsSet('c_favs',JSON.stringify(FAVS));changed=true;}}if(rc){const remote=JSON.parse(rc);const merged=[...new Set([...RECENT,...remote])].slice(0,8);if(JSON.stringify(merged)!==JSON.stringify(RECENT)){RECENT=merged;lsSet('c_recent',JSON.stringify(RECENT));renderRecent();}}if(changed&&curTab==='fav')renderFavs();}catch(e){console.log('sync:',e);}}
+function syncToCloud(){sbSet('favs',JSON.stringify(FAVS)).catch(()=>{});sbSet('recent',JSON.stringify(RECENT)).catch(()=>{});}
+
 /* ── STATE ── */
 let KEY = lsGet('c_key');
 let FAVS = JSON.parse(lsGet('c_favs','[]'));
@@ -385,6 +400,7 @@ function boot(){
   document.getElementById('app').style.display='flex';
   document.getElementById('setKey').value=KEY;
   renderRecent();
+  syncFromCloud();
 }
 
 /* ── SETUP ── */
@@ -628,6 +644,7 @@ function toggleFav(w,tr,ce){
   if(i>=0){ FAVS.splice(i,1); b.classList.remove('saved'); b.textContent='＋'; toast('已從單字本移除'); }
   else { FAVS.unshift({word:w,trans:tr,cefr:ce,ts:Date.now()}); b.classList.add('saved'); b.textContent='🔖'; toast('✓ 已加入單字本'); }
   lsSet('c_favs',JSON.stringify(FAVS));
+  syncToCloud();
 }
 
 function filterFav(el,level){
@@ -657,7 +674,7 @@ function renderFavs(){
 }
 
 function favGo(w){ switchTab('dict'); qs(w); }
-function delFav(e,i){ e.stopPropagation(); FAVS.splice(i,1); localStorage.setItem('c_favs',JSON.stringify(FAVS)); renderFavs(); toast('已移除'); }
+function delFav(e,i){ e.stopPropagation(); FAVS.splice(i,1); lsSet('c_favs',JSON.stringify(FAVS)); renderFavs(); toast('已移除'); syncToCloud(); }
 
 /* ── CN NAVIGATION ── */
 function goFromCN(w){
@@ -681,6 +698,7 @@ function addRecent(w){
   RECENT=[w,...RECENT.filter(r=>r!==w)].slice(0,8);
   lsSet('c_recent',JSON.stringify(RECENT));
   renderRecent();
+  syncToCloud();
 }
 function renderRecent(){
   const s=document.getElementById('recentSec');
@@ -719,6 +737,7 @@ function clearData(){
   FAVS=[]; RECENT=[]; searchCache={};
   lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache');
   renderRecent(); toast('✓ 已清除');
+  syncToCloud();
 }
 
 /* ── UTILS ── */
