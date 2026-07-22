@@ -243,6 +243,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .corr-err{font-size:13px;color:#f87171;margin-bottom:3px}
 .corr-fix{font-size:14px;color:#4ade80;font-weight:600;margin-bottom:3px}
 .corr-why{font-size:12px;color:#64748b}
+.cefr-badge{background:#0f2744;color:#60a5fa;border:1px solid #2563eb}
+.sent-def{font-size:12px;color:#64748b;font-style:italic;margin-bottom:10px}
+.hist-btn{background:#131b2e;border:1px solid #1e293b;color:#94a3b8;padding:7px 12px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:2px}
+.hist-btn:active{background:#1e293b}
+.hist-item{background:#0d1626;border:1px solid #1e293b;border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.hist-item:active{border-color:#2563eb}
+.hist-date{font-size:11px;color:#334155;margin-bottom:8px}
+.hist-zh{font-size:14px;color:#cbd5e1;font-weight:600;margin-bottom:4px}
+.hist-ans{font-size:12px;color:#64748b;font-style:italic;margin-bottom:8px}
+.hist-badges{display:flex;gap:6px}
+.hist-badges .score-badge{padding:3px 10px;font-size:11px}
 
 /* ── 寫作 ── */
 .essay-type{font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:10px}
@@ -336,9 +347,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 
     <!-- PRACTICE panel -->
     <div id="pracPanel" class="panel" style="display:none;flex-direction:column">
-      <div class="prac-hd">
-        <h2>✍️ 造句練習</h2>
-        <p>Claude 出題，優先使用你的單字本</p>
+      <div class="prac-hd" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <h2>✍️ 造句練習</h2>
+          <p>Claude 出題，優先使用你的單字本</p>
+        </div>
+        <button class="hist-btn" onclick="showSentHistory()">📜 歷史</button>
       </div>
       <div class="prac-body" id="pracBody">
         <div class="empty">
@@ -352,9 +366,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 
     <!-- ESSAY panel -->
     <div id="essayPanel" class="panel" style="display:none;flex-direction:column">
-      <div class="prac-hd">
-        <h2>📝 英文寫作</h2>
-        <p>IELTS Task 2 · 8 項評分</p>
+      <div class="prac-hd" style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+        <div>
+          <h2>📝 英文寫作</h2>
+          <p>IELTS Task 2 · 8 項評分</p>
+        </div>
+        <button class="hist-btn" onclick="showEssayHistory()">📜 歷史</button>
       </div>
       <div class="prac-body" id="essayBody">
         <div class="empty">
@@ -475,14 +492,17 @@ const SB_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co';
 const SB_KEY='sb_publishable_tQy4psmsUp46NtpFMQoz8g_n-ZEQKlS';
 async function sbGet(k){try{const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
 async function sbSet(k,v){try{await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[fv,rc]=await Promise.all([sbGet('favs'),sbGet('recent')]);let changed=false;if(fv){const remote=JSON.parse(fv);const merged=[...FAVS];for(const rf of remote){if(!merged.find(f=>f.word===rf.word))merged.push(rf);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(FAVS)){FAVS=merged;lsSet('c_favs',JSON.stringify(FAVS));changed=true;}}if(rc){const remote=JSON.parse(rc);const merged=[...new Set([...RECENT,...remote])].slice(0,8);if(JSON.stringify(merged)!==JSON.stringify(RECENT)){RECENT=merged;lsSet('c_recent',JSON.stringify(RECENT));renderRecent();}}if(changed&&curTab==='fav')renderFavs();}catch(e){console.log('sync:',e);}}
-function syncToCloud(){sbSet('favs',JSON.stringify(FAVS)).catch(()=>{});sbSet('recent',JSON.stringify(RECENT)).catch(()=>{});}
+async function syncFromCloud(){try{const[fv,rc,sh,eh]=await Promise.all([sbGet('favs'),sbGet('recent'),sbGet('senthist'),sbGet('essayhist')]);let changed=false;if(fv){const remote=JSON.parse(fv);const merged=[...FAVS];for(const rf of remote){if(!merged.find(f=>f.word===rf.word))merged.push(rf);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(FAVS)){FAVS=merged;lsSet('c_favs',JSON.stringify(FAVS));changed=true;}}if(rc){const remote=JSON.parse(rc);const merged=[...new Set([...RECENT,...remote])].slice(0,8);if(JSON.stringify(merged)!==JSON.stringify(RECENT)){RECENT=merged;lsSet('c_recent',JSON.stringify(RECENT));renderRecent();}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(changed&&curTab==='fav')renderFavs();}catch(e){console.log('sync:',e);}}
+function syncToCloud(){sbSet('favs',JSON.stringify(FAVS)).catch(()=>{});sbSet('recent',JSON.stringify(RECENT)).catch(()=>{});sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});}
 
 /* ── STATE ── */
 let KEY = lsGet('c_key');
 let FAVS = JSON.parse(lsGet('c_favs','[]'));
 let RECENT = JSON.parse(lsGet('c_recent','[]'));
 let searchCache = JSON.parse(lsGet('c_cache','{}'));
+let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
+let sentDaily = JSON.parse(lsGet('c_sent_daily','{}'));
+let ESSAY_HISTORY = JSON.parse(lsGet('c_essay_hist','[]'));
 let curAudio=null, curTab='dict', favFilter='';
 let lastCNQuery='', lastCNData=null;
 
@@ -833,8 +853,8 @@ function saveCache(){
 }
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  FAVS=[]; RECENT=[]; searchCache={};
-  lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache');
+  FAVS=[]; RECENT=[]; searchCache={}; SENT_HISTORY=[]; sentDaily={}; ESSAY_HISTORY=[];
+  lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache'); lsDel('c_sent_hist'); lsDel('c_sent_daily'); lsDel('c_essay_hist');
   renderRecent(); toast('✓ 已清除');
   syncToCloud();
 }
@@ -842,17 +862,43 @@ function clearData(){
 /* ── 造句練習 ── */
 let curSentQ=null;
 
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function ensureSentDaily(){
+  const t=todayStr();
+  if(sentDaily.date!==t){ sentDaily={date:t,counts:{},lastWord:null}; lsSet('c_sent_daily',JSON.stringify(sentDaily)); }
+}
+
+// 今天新加入單字本的字：最多重複練習3次/天，且不能連續兩次抽到同一個字。
+// 沒有符合資格的今日單字時（額度用完，或需要避免連續）就回傳 null，改由 AI 自由選字。
+function pickForcedWord(){
+  ensureSentDaily();
+  const t=todayStr();
+  const todayWords=[...new Set(FAVS.filter(f=>new Date(f.ts||0).toISOString().slice(0,10)===t).map(f=>f.word))];
+  const eligible=todayWords.filter(w=>(sentDaily.counts[w]||0)<3 && w!==sentDaily.lastWord);
+  if(eligible.length===0) return null;
+  return eligible[Math.floor(Math.random()*eligible.length)];
+}
+
 async function startSent(){
   if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
-    const words=FAVS.slice(0,10).map(f=>f.word);
-    const wordList=words.length>0?words.join(', '):'common English vocabulary';
-    const txt=await callClaude(`你是英語口語練習老師。請從以下單字中選一個，給學生一個自然的中文日常句子讓他翻譯成英文。
-單字清單：${wordList}
+    const forced=pickForcedWord();
+    const prompt=forced
+      ? `你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${forced}」
 只輸出純 JSON（不要加 markdown 或其他文字）：
-{"word":"選用的單字","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）"}`,250);
+{"word":"${forced}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）"}`
+      : `你是英語口語練習老師。請從以下單字中選一個，給學生一個自然的中文日常句子讓他翻譯成英文。
+單字清單：${FAVS.slice(0,10).map(f=>f.word).join(', ')||'common English vocabulary'}
+只輸出純 JSON（不要加 markdown 或其他文字）：
+{"word":"選用的單字","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）"}`;
+    const txt=await callClaude(prompt,300);
     curSentQ=parseJSON(txt);
+    ensureSentDaily();
+    sentDaily.counts[curSentQ.word]=(sentDaily.counts[curSentQ.word]||0)+1;
+    sentDaily.lastWord=curSentQ.word;
+    lsSet('c_sent_daily',JSON.stringify(sentDaily));
     renderSentQ();
   }catch(e){
     document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
@@ -865,6 +911,7 @@ function renderSentQ(){
   <div class="prac-card">
     <div class="card-lbl">✍️ 將以下中文翻譯成英文</div>
     ${curSentQ.word?`<div class="prac-word-badge">📌 ${curSentQ.word}</div>`:''}
+    ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
     <div class="prac-zh">${curSentQ.zh_sentence}</div>
     ${curSentQ.hint?`<div class="prac-hint">💡 提示：${curSentQ.hint}</div>`:''}
   </div>
@@ -882,32 +929,38 @@ async function submitSent(){
 中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
+請評估這句英文的 CEFR 等級（A1/A2/B1/B2/C1/C2）與中式英文（Chinglish，直譯中文語法/用詞習慣）的百分比（0-100）。
+「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格，只修正錯誤，不可以整句重新創作。
+「c1_example」是另外提供一個 C1 等級、更道地自然的範例句（可以跟學生原句結構不同）。
 只輸出純 JSON（不要加 markdown）：
-{"score":85,"level":"excellent/good/needs_work","model_answer":"最自然的英文翻譯","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）"}],"tip":"口語使用技巧（繁體中文1句）"}`,500);
-    renderSentResult(ans,parseJSON(txt));
+{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）"}],"c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
+    const r=parseJSON(txt);
+    renderSentResult(ans,r);
+    saveSentHistory(ans,r);
   }catch(e){
     btn.disabled=false;btn.textContent='提交答案 →';
     toast('❌ 批改失敗，請重試');
   }
 }
 
-function renderSentResult(userAns,r){
-  const lvlCls=r.level==='excellent'?'score-excellent':r.level==='good'?'score-good':'score-needs';
-  const lvlTxt=r.level==='excellent'?'🎉 非常好！':r.level==='good'?'👍 不錯！':'💪 繼續加油';
-  document.getElementById('pracBody').innerHTML=`
+function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score-needs'; }
+
+function sentResultHTML(zh,userAns,def,r){
+  return `
   <div class="prac-card">
     <div class="card-lbl">📝 原題</div>
-    <div class="prac-zh" style="font-size:17px">${curSentQ.zh_sentence}</div>
+    ${def?`<div class="sent-def">${def}</div>`:''}
+    <div class="prac-zh" style="font-size:17px">${zh}</div>
     <div style="font-size:13px;color:#475569;margin-top:8px">你的答案：<span style="color:#94a3b8;font-style:italic">${userAns}</span></div>
   </div>
   <div class="prac-card">
     <div class="score-ring">
-      <div><div class="score-num">${r.score}</div><div class="score-denom">/ 100</div></div>
-      <span class="score-badge ${lvlCls}">${lvlTxt}</span>
+      <span class="score-badge cefr-badge">${r.cefr}</span>
+      <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
     </div>
     <div class="model-box">
-      <div class="model-lbl">MODEL ANSWER</div>
-      <div class="model-t">${r.model_answer}</div>
+      <div class="model-lbl">修正版（基於你的句子）</div>
+      <div class="model-t">${r.corrected_sentence}</div>
     </div>
     ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">🔍 錯誤修正</div>
     ${r.corrections.map(c=>`<div class="corr-item">
@@ -915,9 +968,64 @@ function renderSentResult(userAns,r){
       <div class="corr-fix">✓ ${c.fix}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:`<div style="color:#4ade80;font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
+    <div class="model-box" style="margin-top:12px">
+      <div class="model-lbl">C1 範例句</div>
+      <div class="model-t">${r.c1_example}</div>
+    </div>
     ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
-  </div>
-  <button class="next-btn" onclick="startSent()">下一題 →</button>`;
+  </div>`;
+}
+
+function renderSentResult(userAns,r){
+  document.getElementById('pracBody').innerHTML=
+    sentResultHTML(curSentQ.zh_sentence,userAns,curSentQ.definition,r)
+    +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
+}
+
+/* ── 造句歷史 ── */
+function saveSentHistory(userAns,r){
+  SENT_HISTORY.unshift({
+    word:curSentQ.word, zh_sentence:curSentQ.zh_sentence, definition:curSentQ.definition||'',
+    userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent,
+    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], c1_example:r.c1_example, tip:r.tip||'',
+    ts:Date.now()
+  });
+  lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
+  syncToCloud();
+}
+
+function renderSentHome(){
+  document.getElementById('pracBody').innerHTML=`
+  <div class="empty">
+    <div class="empty-ico">✍️</div>
+    <div class="empty-h">準備好練習了嗎？</div>
+    <div class="empty-p">Claude 會根據你的單字本出題<br>練習中翻英造句，即時批改</div>
+    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
+  </div>`;
+}
+
+function showSentHistory(){
+  document.getElementById('pracBody').innerHTML=`
+  <button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button>
+  ${SENT_HISTORY.length===0?`<div class="empty"><div class="empty-ico">📜</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成造句練習後會顯示在這裡</div></div>`
+  :SENT_HISTORY.map((h,i)=>`
+  <div class="hist-item" onclick="showSentHistDetail(${i})">
+    <div class="hist-date">${new Date(h.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+    <div class="prac-word-badge" style="margin-bottom:8px">📌 ${h.word}</div>
+    <div class="hist-zh">${h.zh_sentence}</div>
+    <div class="hist-ans">你：${h.userAns}</div>
+    <div class="hist-badges">
+      <span class="score-badge cefr-badge">${h.cefr}</span>
+      <span class="score-badge ${chingClass(h.chinglish_percent)}">中式 ${h.chinglish_percent}%</span>
+    </div>
+  </div>`).join('')}`;
+}
+
+function showSentHistDetail(i){
+  const h=SENT_HISTORY[i];
+  document.getElementById('pracBody').innerHTML=
+    `<button class="next-btn" style="margin-bottom:14px" onclick="showSentHistory()">← 返回歷史</button>`
+    +sentResultHTML(h.zh_sentence,h.userAns,h.definition,h);
 }
 
 /* ── 英文寫作 ── */
@@ -977,20 +1085,27 @@ ${essay}
 
 只輸出純 JSON（不要加 markdown）：
 {"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,900,'claude-sonnet-4-6');
-    renderEssayResult(wc,parseJSON(txt));
+    const r=parseJSON(txt);
+    renderEssayResult(essay,wc,r);
+    saveEssayHistory(essay,wc,r);
   }catch(e){
     btn.disabled=false;btn.textContent='提交評分 →';
     toast('❌ 評分失敗，請重試');
   }
 }
 
-function renderEssayResult(wc,r){
+function bandColor(band){ return band>=7?'#4ade80':band>=6?'#60a5fa':band>=5?'#f59e0b':'#f87171'; }
+
+function essayResultHTML(topic,type,essay,wc,r){
   const band=r.band||0;
-  const bandColor=band>=7?'#4ade80':band>=6?'#60a5fa':band>=5?'#f59e0b':'#f87171';
-  document.getElementById('essayBody').innerHTML=`
+  return `
+  <div class="prac-card">
+    ${type?`<div class="essay-type">${type}</div>`:''}
+    ${topic?`<div class="essay-topic">${topic}</div>`:''}
+  </div>
   <div class="prac-card">
     <div class="band-wrap">
-      <div class="band-score" style="color:${bandColor}">${band}</div>
+      <div class="band-score" style="color:${bandColor(band)}">${band}</div>
       <div class="band-label">IELTS Band Score</div>
     </div>
     <div class="card-lbl" style="margin-bottom:12px">📊 各項評分</div>
@@ -1010,7 +1125,57 @@ function renderEssayResult(wc,r){
   ${r.strengths?.length?`<div class="prac-card"><div class="card-lbl">✨ 優點</div>${r.strengths.map(s=>`<div class="str-item">${s}</div>`).join('')}</div>`:''}
   ${r.improvements?.length?`<div class="prac-card"><div class="card-lbl">🎯 改進建議</div>${r.improvements.map(s=>`<div class="imp-item">${s}</div>`).join('')}</div>`:''}
   ${r.overall_comment?`<div class="prac-card"><div class="card-lbl">💬 整體評語</div><div class="use-t" style="line-height:1.8;color:#94a3b8">${r.overall_comment}</div></div>`:''}
-  <button class="next-btn" onclick="startEssay()">換一題 →</button>`;
+  ${essay?`<div class="prac-card"><div class="card-lbl">✍️ 你的作文</div><div class="use-t" style="line-height:1.8;color:#94a3b8;white-space:pre-wrap">${essay}</div></div>`:''}`;
+}
+
+function renderEssayResult(essay,wc,r){
+  document.getElementById('essayBody').innerHTML=
+    essayResultHTML(curEssayTopic.topic,curEssayTopic.type,essay,wc,r)
+    +`<button class="next-btn" onclick="startEssay()">換一題 →</button>`;
+}
+
+/* ── 寫作歷史 ── */
+function saveEssayHistory(essay,wc,r){
+  ESSAY_HISTORY.unshift({
+    topic:curEssayTopic.topic, type:curEssayTopic.type, tips:curEssayTopic.tips||[],
+    essay, wc, band:r.band, scores:r.scores||{}, strengths:r.strengths||[], improvements:r.improvements||[], overall_comment:r.overall_comment||'',
+    ts:Date.now()
+  });
+  lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));
+  syncToCloud();
+}
+
+function renderEssayHome(){
+  document.getElementById('essayBody').innerHTML=`
+  <div class="empty">
+    <div class="empty-ico">📝</div>
+    <div class="empty-h">今日作文練習</div>
+    <div class="empty-p">Claude 出題，寫完後獲得<br>IELTS 8 項詳細評分與 Band Score</div>
+    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startEssay()">取得題目 →</button>
+  </div>`;
+}
+
+function showEssayHistory(){
+  document.getElementById('essayBody').innerHTML=`
+  <button class="next-btn" style="margin-bottom:14px" onclick="renderEssayHome()">← 返回</button>
+  ${ESSAY_HISTORY.length===0?`<div class="empty"><div class="empty-ico">📜</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成作文評分後會顯示在這裡</div></div>`
+  :ESSAY_HISTORY.map((h,i)=>`
+  <div class="hist-item" onclick="showEssayHistDetail(${i})">
+    <div class="hist-date">${new Date(h.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+    <div class="essay-type" style="margin-bottom:6px">${h.type||''}</div>
+    <div class="hist-zh">${h.topic}</div>
+    <div class="hist-ans">${h.wc} words</div>
+    <div class="hist-badges">
+      <span class="score-badge cefr-badge" style="color:${bandColor(h.band)};border-color:${bandColor(h.band)}">Band ${h.band}</span>
+    </div>
+  </div>`).join('')}`;
+}
+
+function showEssayHistDetail(i){
+  const h=ESSAY_HISTORY[i];
+  document.getElementById('essayBody').innerHTML=
+    `<button class="next-btn" style="margin-bottom:14px" onclick="showEssayHistory()">← 返回歷史</button>`
+    +essayResultHTML(h.topic,h.type,h.essay,h.wc,h);
 }
 
 /* ── UTILS ── */
