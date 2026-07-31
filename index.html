@@ -32,27 +32,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 /* ── MAIN APP ── */
 #app{flex:1;display:none;flex-direction:column;height:100dvh;overflow:hidden}
 
-/* Header */
-.app-hd{background:#0a0f1e;padding:54px 16px 10px;border-bottom:1px solid #131b2e;flex-shrink:0;transition:all .2s}
-.search-row{display:flex;gap:8px;align-items:center}
-.search-wrap{flex:1;position:relative}
-.search-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:#334155;pointer-events:none}
-.search-inp{width:100%;padding:13px 38px 13px 38px;background:#131b2e;border:1.5px solid #1e293b;border-radius:14px;color:#e2e8f0;font-size:16px;outline:none;transition:border-color .2s}
-.search-inp:focus{border-color:#2563eb}
-.search-inp::placeholder{color:#334155}
-.search-x{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:#1e293b;border:none;border-radius:50%;width:22px;height:22px;color:#64748b;font-size:11px;cursor:pointer;display:none;align-items:center;justify-content:center}
-.search-go{background:#2563eb;border:none;border-radius:12px;padding:13px 16px;color:#fff;font-size:16px;cursor:pointer;flex-shrink:0;transition:background .15s,transform .1s}
-.search-go:active{transform:scale(.93);background:#1d4ed8}
-.chips{display:flex;gap:7px;margin-top:10px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-.chips::-webkit-scrollbar{display:none}
-.chip{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
-.chip:active{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
-
 /* Content panels */
 .panels{flex:1;overflow:hidden;position:relative}
 .panel{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px;display:none}
 .panel.on{display:block}
-#favPanel.panel{padding:0}
 #setPanel.panel{padding:0}
 
 /* Empty */
@@ -60,11 +43,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .empty-ico{font-size:54px;margin-bottom:18px}
 .empty-h{font-size:17px;font-weight:700;color:#cbd5e1;margin-bottom:8px}
 .empty-p{font-size:14px;color:#334155;line-height:1.7}
-.recent-sec{margin-top:28px}
-.recent-lbl{font-size:11px;color:#334155;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
-.recent-pills{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.r-pill{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .15s}
-.r-pill:active{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
 
 /* Loader */
 .loader{text-align:center;padding:64px 24px;display:none}
@@ -79,45 +57,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .result{display:none}
 
 /* Cards */
-.card{background:#0d1626;border:1px solid #1e293b;border-radius:18px;padding:20px;margin-bottom:12px}
 .card-lbl{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#334155;margin-bottom:12px;display:flex;align-items:center;gap:6px}
 
-/* Word hero */
-.hero{background:#0d1626;border:1px solid #1e293b;border-radius:18px;padding:20px;margin-bottom:12px}
-.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.hero-left{flex:1;min-width:0}
-.hero-word{font-size:34px;font-weight:900;color:#f8fafc;letter-spacing:-1px;line-height:1.1;margin-bottom:10px;word-break:break-word}
-.badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.cb{font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px;letter-spacing:.5px}
-.A1{background:#dcfce7;color:#15803d}.A2{background:#d1fae5;color:#065f46}
-.B1{background:#dbeafe;color:#1e40af}.B2{background:#e0e7ff;color:#4338ca}
-.C1{background:#f3e8ff;color:#7e22ce}.C2{background:#fff1f2;color:#be123c}
-.pb{font-size:11px;font-weight:600;background:#0a1628;color:#60a5fa;border:1px solid #1e3a5f;padding:3px 9px;border-radius:6px}
 .btns{display:flex;gap:8px;flex-shrink:0}
 .btn{background:#0a1628;border:1px solid #1e293b;border-radius:11px;width:44px;height:44px;font-size:18px;cursor:pointer;color:#64748b;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
 .btn:active{transform:scale(.91)}
 .btn.play{background:#0f2744;border-color:#2563eb;color:#60a5fa}
 .btn.play.on{background:#2563eb;color:#fff}
-.btn.saved{background:#0f2744;border-color:#2563eb;color:#60a5fa}
-.phonetic-row{margin-top:14px;display:flex;align-items:center;gap:10px}
-.phonetic{font-size:19px;color:#60a5fa;font-family:'Lucida Sans Unicode','DejaVu Sans',monospace;background:#0a1628;padding:5px 14px;border-radius:9px;border:1px solid #1e3a5f}
-.phonetic-tag{font-size:10px;color:#334155;font-weight:600;letter-spacing:.5px}
-
-/* Translation card */
-.trans-card{background:linear-gradient(145deg,#0c1e3b,#0f1535);border:1px solid #1e3a8a;border-radius:18px;padding:20px;margin-bottom:12px}
-.trans-main{font-size:24px;font-weight:800;color:#e2e8f0;line-height:1.4;margin-bottom:4px}
-.trans-src{font-size:11px;color:#334155}
-
-/* Def card */
-.def-item{padding:10px 0;border-bottom:1px solid #0a0f1e}
-.def-item:first-child{padding-top:0}
-.def-item:last-child{border-bottom:none;padding-bottom:0}
-.def-row{display:flex;gap:10px;align-items:flex-start;margin-bottom:6px}
-.def-n{background:#0f2744;color:#60a5fa;font-size:11px;font-weight:800;min-width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
-.def-t{font-size:14px;color:#94a3b8;line-height:1.6}
-.ex-box{margin-left:32px;padding:8px 12px;background:#0a0f1e;border-radius:8px;border-left:2px solid #1e3a5f}
-.ex-lbl{font-size:10px;color:#2563eb;font-weight:700;margin-bottom:3px;letter-spacing:.5px}
-.ex-t{font-size:13px;color:#475569;font-style:italic;line-height:1.5}
 
 /* Usage card */
 .use-item{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid #0a0f1e;align-items:flex-start}
@@ -127,41 +73,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .use-lbl{font-size:10px;font-weight:800;color:#f59e0b;margin-bottom:4px;letter-spacing:.3px}
 .use-t{font-size:13px;color:#64748b;line-height:1.6}
 
-/* Syn */
-.syn-pills{display:flex;flex-wrap:wrap;gap:8px}
-.syn-p{background:#0a1628;border:1px solid #1e3a5f;color:#60a5fa;padding:6px 14px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .15s}
-.syn-p:active{background:#1e3a5f}
-
-/* ZH result */
-.zh-item{padding:14px 0;border-bottom:1px solid #0a0f1e;cursor:pointer}
-.zh-item:first-child{padding-top:0}
-.zh-item:last-child{border-bottom:none;padding-bottom:0}
-.zh-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.zh-w{font-size:21px;font-weight:800;color:#f1f5f9}
-.zh-desc{font-size:13px;color:#475569;line-height:1.5}
-.zh-ex{font-size:13px;color:#334155;font-style:italic;margin-top:4px;line-height:1.5}
-.zh-tap{font-size:12px;color:#2563eb;margin-top:5px}
-
-/* ── FAVORITES ── */
-.fav-hd{padding:54px 20px 16px;border-bottom:1px solid #131b2e;background:#0a0f1e}
-.fav-hd h2{font-size:24px;font-weight:800;color:#f1f5f9}
-.fav-hd p{font-size:13px;color:#334155;margin-top:4px}
+/* 等級 chips（造句/字根共用）*/
 .fav-filter{display:flex;gap:7px;margin-top:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .fav-filter::-webkit-scrollbar{display:none}
 .filt{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
 .filt.on{background:#1e3a5f;border-color:#2563eb;color:#93c5fd}
-.fav-body{padding:12px 16px;overflow-y:auto;flex:1}
-.fav-li{background:#0d1626;border:1px solid #1e293b;border-radius:14px;padding:14px 16px;margin-bottom:9px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color .15s}
-.fav-li:active{border-color:#2563eb}
-.fav-info{flex:1;min-width:0}
-.fav-w{font-size:17px;font-weight:700;color:#f1f5f9;margin-bottom:3px}
-.fav-tr{font-size:13px;color:#334155;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fav-meta{display:flex;gap:7px;align-items:center;flex-shrink:0}
-.fav-del{background:none;border:none;color:#334155;font-size:18px;cursor:pointer;padding:4px;transition:color .15s}
-.fav-del:active{color:#ef4444}
-.fav-empty{text-align:center;padding:60px 20px}
-.fav-empty-ico{font-size:48px;margin-bottom:14px}
-.fav-empty-t{font-size:14px;color:#334155;line-height:1.7}
 
 /* ── SETTINGS ── */
 .set-hd{padding:54px 20px 16px;border-bottom:1px solid #131b2e;background:#0a0f1e}
@@ -193,17 +109,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 /* Toast */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(12px);background:#0f2744;border:1px solid #2563eb;color:#93c5fd;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* Back button */
-.back-btn{display:flex;align-items:center;gap:6px;background:#0f2744;border:1px solid #1e3a5f;color:#60a5fa;padding:9px 14px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;margin-bottom:12px;width:100%;transition:background .15s}
-.back-btn:active{background:#1e3a5f}
-
-/* Translation loading dots */
-.trans-loading{display:flex;gap:6px;align-items:center;height:32px;margin-bottom:4px}
-.tl-dot{width:8px;height:8px;background:#3b82f6;border-radius:50%;animation:tldot 1.2s ease-in-out infinite}
-.tl-dot:nth-child(2){animation-delay:.2s}
-.tl-dot:nth-child(3){animation-delay:.4s}
-@keyframes tldot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:3px}
@@ -261,9 +166,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 /* ── 寫作 ── */
 .essay-type{font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:10px}
 .essay-topic{font-size:17px;font-weight:700;color:#f1f5f9;line-height:1.6;margin-bottom:14px}
-.essay-tips{list-style:none;display:flex;flex-direction:column;gap:6px;margin-top:2px}
-.essay-tip{font-size:12px;color:#475569;padding-left:16px;position:relative;line-height:1.5}
-.essay-tip::before{content:'•';position:absolute;left:4px;color:#2563eb}
+.outline-item{margin-bottom:14px}
+.outline-item:last-child{margin-bottom:0}
+.outline-sec{font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:3px}
+.outline-hint{font-size:12px;color:#64748b;margin-bottom:6px}
+.outline-starter{font-size:13px;color:#e2e8f0;font-style:italic;background:#0a0f1e;border-radius:8px;padding:10px 12px;line-height:1.6}
 .wc-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .wc-lbl{font-size:12px;color:#334155;font-weight:600}
 .wc-ok{color:#4ade80;font-size:13px;font-weight:700}
@@ -303,50 +210,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 <!-- ════ APP ════ -->
 <div id="app">
 
-  <!-- Header (dict tab only) -->
-  <div class="app-hd" id="appHd">
-    <div class="search-row">
-      <div class="search-wrap">
-        <span class="search-ico">🔍</span>
-        <input id="si" type="text" class="search-inp"
-          placeholder="英文或中文..." autocomplete="off" autocorrect="off"
-          autocapitalize="none" spellcheck="false">
-        <button class="search-x" id="sx" onclick="clearSi()">✕</button>
-      </div>
-      <button class="search-go" onclick="go()">→</button>
-    </div>
-    <div class="chips">
-      <span class="chip" onclick="qs('eloquent')">eloquent</span>
-      <span class="chip" onclick="qs('resilient')">resilient</span>
-      <span class="chip" onclick="qs('subtle')">subtle</span>
-      <span class="chip" onclick="qs('awkward')">awkward</span>
-      <span class="chip" onclick="qs('尷尬')">尷尬</span>
-      <span class="chip" onclick="qs('後悔')">後悔</span>
-      <span class="chip" onclick="qs('委屈')">委屈</span>
-    </div>
-  </div>
-
   <!-- Panels -->
   <div class="panels">
-
-    <!-- DICT panel -->
-    <div id="dictPanel" class="panel on">
-      <div class="empty" id="emptyS">
-        <div class="empty-ico">🔤</div>
-        <div class="empty-h">查詢英文或中文</div>
-        <div class="empty-p">支援英↔中雙向查詢<br>含發音・定義・CEFR 等級</div>
-        <div class="recent-sec" id="recentSec" style="display:none">
-          <div class="recent-lbl">最近查詢</div>
-          <div class="recent-pills" id="recentPills"></div>
-        </div>
-      </div>
-      <div class="loader" id="loadS">
-        <div class="spin"></div>
-        <div class="loader-t" id="loadT">查詢中...</div>
-      </div>
-      <div class="err-box" id="errS"></div>
-      <div class="result" id="resS"></div>
-    </div>
 
     <!-- PRACTICE panel -->
     <div id="pracPanel" class="panel" style="display:none;flex-direction:column">
@@ -386,24 +251,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
       </div>
     </div>
 
-    <!-- FAV panel -->
-    <div id="favPanel" class="panel" style="display:none;flex-direction:column">
-      <div class="fav-hd">
-        <h2>📚 單字本</h2>
-        <p id="favCnt">0 個單字</p>
-        <div class="fav-filter">
-          <span class="filt on" onclick="filterFav(this,'')">全部</span>
-          <span class="filt" onclick="filterFav(this,'A1')">A1</span>
-          <span class="filt" onclick="filterFav(this,'A2')">A2</span>
-          <span class="filt" onclick="filterFav(this,'B1')">B1</span>
-          <span class="filt" onclick="filterFav(this,'B2')">B2</span>
-          <span class="filt" onclick="filterFav(this,'C1')">C1</span>
-          <span class="filt" onclick="filterFav(this,'C2')">C2</span>
-        </div>
-      </div>
-      <div class="fav-body" id="favBody"></div>
-    </div>
-
     <!-- ROOT panel -->
     <div id="rootPanel" class="panel" style="display:none;flex-direction:column">
       <div class="prac-hd">
@@ -416,6 +263,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <div class="empty-h">從字根拆解單字</div>
           <div class="empty-p">學會常見字首/字根/字尾<br>看到生字也能猜出大概意思</div>
           <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderRootHome()">開始學習 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRAMMAR panel -->
+    <div id="grammarPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="prac-hd">
+        <h2>📐 文法學習</h2>
+        <p>常見文法點，一個一個學一個一個練</p>
+      </div>
+      <div class="prac-body" id="grammarBody">
+        <div class="empty">
+          <div class="empty-ico">📐</div>
+          <div class="empty-h">釐清常見文法誤區</div>
+          <div class="empty-p">從最常見的中式文法錯誤開始<br>一個一個學、學完馬上練習</div>
+          <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderGrammarHome()">開始學習 →</button>
         </div>
       </div>
     </div>
@@ -443,15 +306,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <div class="set-row">
             <span class="set-ico">📖</span>
             <div class="set-body2">
-              <div class="set-lbl">英語字典 Phase 2</div>
-              <div class="set-sub">字典 · 單字本 · 雙向翻譯 · 跨裝置同步</div>
+              <div class="set-lbl">英語學習工具 Phase 4</div>
+              <div class="set-sub">造句 · 作文 · 字根 · 跨裝置同步</div>
             </div>
           </div>
           <div class="set-row">
             <span class="set-ico">🤖</span>
             <div class="set-body2">
-              <div class="set-lbl">翻譯引擎</div>
-              <div class="set-sub">Claude Haiku 4.5 + Dictionary API</div>
+              <div class="set-lbl">練習引擎</div>
+              <div class="set-sub">Claude Haiku 4.5 + Sonnet 4.6</div>
             </div>
           </div>
           <div class="set-row" style="cursor:pointer" onclick="syncFromCloud().then(()=>toast('✓ 已同步'))">
@@ -465,7 +328,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <span class="set-ico">🗑️</span>
             <div class="set-body2">
               <div class="set-lbl set-danger">清除所有資料</div>
-              <div class="set-sub">清除單字本與查詢記錄</div>
+              <div class="set-sub">清除造句/作文歷史、等級與字根進度</div>
             </div>
           </div>
         </div>
@@ -476,20 +339,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 
   <!-- Tab Bar -->
   <div class="tab-bar">
-    <button class="tab on" id="t-dict" onclick="switchTab('dict')">
-      <span class="tab-ic">🔍</span><span class="tab-lb">字典</span>
-    </button>
-    <button class="tab" id="t-prac" onclick="switchTab('prac')">
+    <button class="tab on" id="t-prac" onclick="switchTab('prac')">
       <span class="tab-ic">✍️</span><span class="tab-lb">造句</span>
     </button>
     <button class="tab" id="t-essay" onclick="switchTab('essay')">
       <span class="tab-ic">📝</span><span class="tab-lb">寫作</span>
     </button>
-    <button class="tab" id="t-fav" onclick="switchTab('fav')">
-      <span class="tab-ic">📚</span><span class="tab-lb">單字本</span>
-    </button>
     <button class="tab" id="t-root" onclick="switchTab('root')">
       <span class="tab-ic">🧩</span><span class="tab-lb">字根</span>
+    </button>
+    <button class="tab" id="t-grammar" onclick="switchTab('grammar')">
+      <span class="tab-ic">📐</span><span class="tab-lb">文法</span>
     </button>
     <button class="tab" id="t-set" onclick="switchTab('set')">
       <span class="tab-ic">⚙️</span><span class="tab-lb">設定</span>
@@ -514,21 +374,17 @@ const SB_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co';
 const SB_KEY='sb_publishable_tQy4psmsUp46NtpFMQoz8g_n-ZEQKlS';
 async function sbGet(k){try{const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
 async function sbSet(k,v){try{await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[fv,rc,sh,eh,lp,dl]=await Promise.all([sbGet('favs'),sbGet('recent'),sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel')]);let changed=false;if(fv){const remote=JSON.parse(fv);const merged=[...FAVS];for(const rf of remote){if(!merged.find(f=>f.word===rf.word))merged.push(rf);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(FAVS)){FAVS=merged;lsSet('c_favs',JSON.stringify(FAVS));changed=true;}}if(rc){const remote=JSON.parse(rc);const merged=[...new Set([...RECENT,...remote])].slice(0,8);if(JSON.stringify(merged)!==JSON.stringify(RECENT)){RECENT=merged;lsSet('c_recent',JSON.stringify(RECENT));renderRecent();}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);merged={date:dailyLevelCount.date,words:[...set]};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged=remote;}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}if(changed&&curTab==='fav')renderFavs();}catch(e){console.log('sync:',e);}}
-function syncToCloud(){sbSet('favs',JSON.stringify(FAVS)).catch(()=>{});sbSet('recent',JSON.stringify(RECENT)).catch(()=>{});sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});}
+async function syncFromCloud(){try{const[sh,eh,lp,dl,rp,gp,gs]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('rootprogress'),sbGet('grammarprogress'),sbGet('grammarstats')]);if(rp){const remote=JSON.parse(rp);if((remote.index||0)>curRootIdx){curRootIdx=remote.index;lsSet('c_root_progress',String(curRootIdx));}}if(gp){const remote=JSON.parse(gp);if((remote.index||0)>curGrammarIdx){curGrammarIdx=remote.index;lsSet('c_grammar_progress',String(curGrammarIdx));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);merged={date:dailyLevelCount.date,words:[...set]};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged=remote;}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('rootprogress',JSON.stringify({index:curRootIdx})).catch(()=>{});sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});}
 
 /* ── STATE ── */
 let KEY = lsGet('c_key');
-let FAVS = JSON.parse(lsGet('c_favs','[]'));
-let RECENT = JSON.parse(lsGet('c_recent','[]'));
-let searchCache = JSON.parse(lsGet('c_cache','{}'));
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
 let ESSAY_HISTORY = JSON.parse(lsGet('c_essay_hist','[]'));
 let curLevel = lsGet('c_cur_level','B1');
 let levelProgress = JSON.parse(lsGet('c_level_progress','{}'));
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
-let curAudio=null, curTab='dict', favFilter='';
-let lastCNQuery='', lastCNData=null;
+let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
 (function(){
@@ -540,7 +396,7 @@ function boot(){
   document.getElementById('setupView').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('setKey').value=KEY;
-  renderRecent();
+  switchTab('prac');
   renderSentHome();
   syncFromCloud();
 }
@@ -556,189 +412,13 @@ function setupSave(){
   KEY=k; lsSet('c_key',k); boot();
 }
 
-/* ── SEARCH ── */
-const SI=document.getElementById('si');
-let composing=false;
-SI.addEventListener('compositionstart',()=>composing=true);
-SI.addEventListener('compositionend',()=>{ composing=false; document.getElementById('sx').style.display=SI.value?'flex':'none'; });
-SI.addEventListener('input',function(){ if(!composing) document.getElementById('sx').style.display=this.value?'flex':'none'; });
-SI.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!composing){ SI.blur(); go(); } });
-
-function clearSi(){ SI.value=''; document.getElementById('sx').style.display='none'; setState('empty'); }
-
-function qs(w){ SI.value=w; document.getElementById('sx').style.display='flex'; go(); }
-
-async function go(){
-  const q=SI.value.trim();
-  if(!q) return;
-  if(!KEY){ toast('⚠️ 請先設定 API Key'); return; }
-  const isCN=/[一-鿿㐀-䶿\u{20000}-\u{2a6df}]/u.test(q);
-  setState('load');
-  document.getElementById('loadT').textContent=isCN?'AI 翻譯中，約需 2-3 秒...':'查詢中...';
-  try{
-    isCN ? await searchCN(q) : await searchEN(q);
-    addRecent(q);
-  }catch(e){ setErr('查詢失敗：'+e.message); }
-}
-
-/* ── EN → ZH ── */
-async function searchEN(w, fromCN=false){
-  // 快取命中：直接顯示，不呼叫 API
-  if(searchCache[w]){
-    renderEN(w, searchCache[w].dict, searchCache[w].cl, fromCN);
-    setState('result');
-    return;
-  }
-
-  // 兩個請求同時發出
-  const dictPromise = fetchDict(w);
-  const claudePromise = claudeEN(w);
-
-  // 字典 API 先回來就先顯示（通常 < 0.5s）
-  const dict = await dictPromise;
-  renderEN(w, dict, null, fromCN);
-  setState('result');
-
-  // Claude 回來後更新翻譯卡片
-  const cl = await claudePromise;
-  searchCache[w]={dict, cl}; saveCache();
-  renderEN(w, dict, cl, fromCN);
-}
-
+/* ── DICTIONARY API（僅供發音查詢使用，沒有獨立字典 UI）── */
 async function fetchDict(w){
   try{
     const r=await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`);
     if(!r.ok) return null;
     const d=await r.json(); return d[0]||null;
   }catch{ return null; }
-}
-
-async function claudeEN(w){
-  const txt=await callClaude(`你是專業英語詞典。針對英文單字「${w}」，以 JSON 格式回答（只輸出純 JSON，不要加 markdown 或其他文字）：
-{"translation":"精準繁體中文翻譯，多個意思用 / 分隔","cefr":"A1/A2/B1/B2/C1/C2 其中一個","pos":"詞性英文如 noun verb adjective","tip":"如何在英語對話中自然使用（繁體中文，1句）","colloc":"最常見的英文搭配短語（英文，1個）"}`);
-  try{ return parseJSON(txt); }catch{ return null; }
-}
-
-function renderEN(w,dict,cl,fromCN=false){
-  const ph=dict?.phonetics||[], ms=dict?.meanings||[];
-  const phoneticTxt=ph.find(p=>p.text)?.text||'';
-  const audioURL=ph.find(p=>p.audio)?.audio||'';
-  const pos=cl?.pos||ms[0]?.partOfSpeech||'';
-  const cefr=cl?.cefr||'';
-  const trans=cl?.translation||'—';
-  const tip=cl?.tip||'';
-  const colloc=cl?.colloc||'';
-  let defs=[]; let syns=new Set();
-  for(const m of ms){
-    for(const d of(m.definitions||[]).slice(0,3)){
-      defs.push({t:d.definition,ex:d.example||''});
-      (d.synonyms||[]).slice(0,2).forEach(s=>syns.add(s));
-      if(defs.length>=5) break;
-    }
-    (m.synonyms||[]).slice(0,3).forEach(s=>syns.add(s));
-    if(defs.length>=5) break;
-  }
-  const saved=FAVS.some(f=>f.word===w);
-  const audio64=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
-
-  document.getElementById('resS').innerHTML=`
-  ${fromCN && lastCNQuery ? `<button class="back-btn" onclick="goBackCN()">← 返回「${lastCNQuery}」的結果</button>` : ''}
-  <div class="hero">
-    <div class="hero-top">
-      <div class="hero-left">
-        <div class="hero-word">${w}</div>
-        <div class="badges">
-          ${cefr?`<span class="cb ${cefr}">${cefr}</span>`:''}
-          ${pos?`<span class="pb">${pos}</span>`:''}
-        </div>
-      </div>
-      <div class="btns">
-        <button class="btn play" id="pb" onclick="playW('${w}','${audio64}')">🔊</button>
-        <button class="btn" onclick="copyW('${w}')">📋</button>
-        <button class="btn ${saved?'saved':''}" id="sb" onclick="toggleFav('${w}',\`${trans}\`,'${cefr}')">
-          ${saved?'🔖':'＋'}
-        </button>
-      </div>
-    </div>
-    ${phoneticTxt?`<div class="phonetic-row"><span class="phonetic">${phoneticTxt}</span><span class="phonetic-tag">KK 音標</span></div>`:''}
-  </div>
-
-  <div class="trans-card" id="transCard">
-    <div class="card-lbl">🇹🇼 中文翻譯</div>
-    ${cl
-      ? `<div class="trans-main">${trans}</div><div class="trans-src">Claude Haiku · 繁體中文</div>`
-      : `<div class="trans-loading"><span class="tl-dot"></span><span class="tl-dot"></span><span class="tl-dot"></span></div><div class="trans-src">翻譯中...</div>`
-    }
-  </div>
-
-  ${defs.length?`<div class="card">
-    <div class="card-lbl">📖 英文定義</div>
-    ${defs.map((d,i)=>`<div class="def-item">
-      <div class="def-row"><span class="def-n">${i+1}</span><span class="def-t">${d.t}</span></div>
-      ${d.ex?`<div class="ex-box"><div class="ex-lbl">EXAMPLE</div><div class="ex-t">${d.ex}</div></div>`:''}
-    </div>`).join('')}
-  </div>`:''}
-
-  ${tip||colloc?`<div class="card">
-    <div class="card-lbl">✨ 使用技巧</div>
-    ${tip?`<div class="use-item"><span class="use-ico">💡</span><div><div class="use-lbl">對話技巧</div><div class="use-t">${tip}</div></div></div>`:''}
-    ${colloc?`<div class="use-item"><span class="use-ico">💬</span><div><div class="use-lbl">常見搭配</div><div class="use-t">${colloc}</div></div></div>`:''}
-  </div>`:''}
-
-  ${syns.size?`<div class="card">
-    <div class="card-lbl">🔗 同義字</div>
-    <div class="syn-pills">
-      ${[...syns].slice(0,8).map(s=>`<span class="syn-p" onclick="qs('${s}')">${s}</span>`).join('')}
-    </div>
-  </div>`:''}`;
-
-  setState('result');
-}
-
-/* ── ZH → EN ── */
-async function searchCN(q){
-  // 快取命中
-  if(searchCache['CN:'+q]){
-    lastCNQuery=q; lastCNData=searchCache['CN:'+q];
-    renderCN(q, lastCNData);
-    return;
-  }
-  const data=await claudeCN(q);
-  searchCache['CN:'+q]=data; saveCache();
-  lastCNQuery=q; lastCNData=data;
-  renderCN(q,data);
-}
-
-async function claudeCN(q){
-  const txt=await callClaude(`你是專業英語詞典。針對中文「${q}」，找出最對應的英文單字或片語，以 JSON 格式回答（只輸出純 JSON，不要加 markdown 或其他文字）：
-{"results":[{"word":"英文單字","cefr":"等級","pos":"詞性","desc":"使用情境（繁體中文1句）","ex":"自然英文例句"}],"note":"中英文概念補充說明（可選，繁體中文）"}`, 700);
-  try{ return parseJSON(txt); }catch{ return null; }
-}
-
-function renderCN(q,data){
-  if(!data?.results?.length){ setErr('找不到對應英文，請換個說法'); return; }
-  document.getElementById('resS').innerHTML=`
-  <div class="trans-card">
-    <div class="card-lbl">🔤「${q}」的英文</div>
-    <div class="trans-src">點擊單字可查看完整資訊</div>
-  </div>
-  <div class="card">
-    <div class="card-lbl">📖 英文對照</div>
-    ${data.results.map(r=>`<div class="zh-item" onclick="goFromCN('${r.word}')">
-      <div class="zh-top">
-        <span class="zh-w">${r.word}</span>
-        ${r.cefr?`<span class="cb ${r.cefr}">${r.cefr}</span>`:''}
-        ${r.pos?`<span class="pb">${r.pos}</span>`:''}
-      </div>
-      <div class="zh-desc">${r.desc||''}</div>
-      ${r.ex?`<div class="zh-ex">${r.ex}</div>`:''}
-      <div class="zh-tap">查看完整字典資訊 →</div>
-    </div>`).join('')}
-  </div>
-  ${data.note?`<div class="card"><div class="card-lbl">💡 補充說明</div>
-    <div class="use-item"><span class="use-ico">📝</span><div class="use-t">${data.note}</div></div>
-  </div>`:''}`;
-  setState('result');
 }
 
 /* ── CLAUDE API ── */
@@ -779,90 +459,17 @@ function useSpeech(w,start,stop){
 /* ── COPY ── */
 function copyW(w){ navigator.clipboard.writeText(w).then(()=>toast(`✓ 已複製「${w}」`)); }
 
-/* ── FAVORITES ── */
-function toggleFav(w,tr,ce){
-  const i=FAVS.findIndex(f=>f.word===w);
-  const b=document.getElementById('sb');
-  if(i>=0){ FAVS.splice(i,1); b.classList.remove('saved'); b.textContent='＋'; toast('已從單字本移除'); }
-  else { FAVS.unshift({word:w,trans:tr,cefr:ce,ts:Date.now()}); b.classList.add('saved'); b.textContent='🔖'; toast('✓ 已加入單字本'); }
-  lsSet('c_favs',JSON.stringify(FAVS));
-  syncToCloud();
-}
-
-function filterFav(el,level){
-  document.querySelectorAll('.filt').forEach(f=>f.classList.remove('on'));
-  el.classList.add('on'); favFilter=level; renderFavs();
-}
-
-function renderFavs(){
-  const list=favFilter?FAVS.filter(f=>f.cefr===favFilter):FAVS;
-  document.getElementById('favCnt').textContent=`${FAVS.length} 個單字`;
-  const body=document.getElementById('favBody');
-  if(!list.length){
-    body.innerHTML=`<div class="fav-empty"><div class="fav-empty-ico">${favFilter?'🔍':'📭'}</div><div class="fav-empty-t">${favFilter?`沒有 ${favFilter} 等級的單字`:'單字本是空的<br>查詢單字後點「＋」加入'}</div></div>`;
-    return;
-  }
-  body.innerHTML=list.map((f,i)=>`
-    <div class="fav-li" onclick="favGo('${f.word}')">
-      <div class="fav-info">
-        <div class="fav-w">${f.word}</div>
-        <div class="fav-tr">${f.trans}</div>
-      </div>
-      <div class="fav-meta">
-        ${f.cefr?`<span class="cb ${f.cefr}">${f.cefr}</span>`:''}
-        <button class="fav-del" onclick="delFav(event,${FAVS.indexOf(f)})">🗑</button>
-      </div>
-    </div>`).join('');
-}
-
-function favGo(w){ switchTab('dict'); qs(w); }
-function delFav(e,i){ e.stopPropagation(); FAVS.splice(i,1); lsSet('c_favs',JSON.stringify(FAVS)); renderFavs(); toast('已移除'); syncToCloud(); }
-
-/* ── CN NAVIGATION ── */
-function goFromCN(w){
-  // 從中文結果點進英文細節，標記來源為 CN
-  SI.value=w; document.getElementById('sx').style.display='flex';
-  setState('load');
-  document.getElementById('loadT').textContent='查詢中...';
-  searchEN(w, true).catch(e=>setErr('查詢失敗：'+e.message));
-  addRecent(w);
-}
-function goBackCN(){
-  // 返回上次中文查詢結果
-  if(!lastCNQuery||!lastCNData) return;
-  SI.value=lastCNQuery; document.getElementById('sx').style.display='flex';
-  renderCN(lastCNQuery, lastCNData);
-  setState('result');
-}
-
-/* ── RECENT ── */
-function addRecent(w){
-  RECENT=[w,...RECENT.filter(r=>r!==w)].slice(0,8);
-  lsSet('c_recent',JSON.stringify(RECENT));
-  renderRecent();
-  syncToCloud();
-}
-function renderRecent(){
-  const s=document.getElementById('recentSec');
-  if(!RECENT.length){s.style.display='none';return;}
-  s.style.display='block';
-  document.getElementById('recentPills').innerHTML=RECENT.map(w=>`<span class="r-pill" onclick="qs('${w}')">${w}</span>`).join('');
-}
-
 /* ── TABS ── */
 function switchTab(tab){
   curTab=tab;
-  ['dict','prac','essay','fav','root','set'].forEach(t=>{
+  ['prac','essay','root','grammar','set'].forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('on',t===tab);
   });
-  document.getElementById('dictPanel').style.display  = tab==='dict'  ? 'block' : 'none';
-  document.getElementById('pracPanel').style.display  = tab==='prac'  ? 'flex'  : 'none';
-  document.getElementById('essayPanel').style.display = tab==='essay' ? 'flex'  : 'none';
-  document.getElementById('favPanel').style.display   = tab==='fav'   ? 'flex'  : 'none';
-  document.getElementById('rootPanel').style.display  = tab==='root'  ? 'flex'  : 'none';
-  document.getElementById('setPanel').style.display   = tab==='set'   ? 'flex'  : 'none';
-  document.getElementById('appHd').style.display = tab==='dict' ? 'block' : 'none';
-  if(tab==='fav') renderFavs();
+  document.getElementById('pracPanel').style.display    = tab==='prac'    ? 'flex' : 'none';
+  document.getElementById('essayPanel').style.display   = tab==='essay'   ? 'flex' : 'none';
+  document.getElementById('rootPanel').style.display     = tab==='root'    ? 'flex' : 'none';
+  document.getElementById('grammarPanel').style.display  = tab==='grammar' ? 'flex' : 'none';
+  document.getElementById('setPanel').style.display      = tab==='set'    ? 'flex' : 'none';
   if(tab==='set') document.getElementById('setKey').value=KEY;
 }
 
@@ -872,16 +479,11 @@ function saveKey(){
   if(!k.startsWith('sk-ant-')){toast('⚠️ Key 格式不正確');return;}
   KEY=k; lsSet('c_key',k); toast('✓ API Key 已儲存');
 }
-function saveCache(){
-  const keys=Object.keys(searchCache);
-  if(keys.length>200){ delete searchCache[keys[0]]; }
-  lsSet('c_cache',JSON.stringify(searchCache));
-}
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  FAVS=[]; RECENT=[]; searchCache={}; SENT_HISTORY=[]; ESSAY_HISTORY=[]; levelProgress={}; dailyLevelCount={};
-  lsDel('c_favs'); lsDel('c_recent'); lsDel('c_cache'); lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily');
-  renderRecent(); toast('✓ 已清除');
+  SENT_HISTORY=[]; ESSAY_HISTORY=[]; levelProgress={}; dailyLevelCount={}; curRootIdx=0; curGrammarIdx=0; grammarStats={};
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_root_progress'); lsDel('c_grammar_progress'); lsDel('c_grammar_stats');
+  toast('✓ 已清除');
   syncToCloud();
 }
 
@@ -982,7 +584,7 @@ async function renderSentQ(){
     <div class="card-lbl">✍️ 將以下中文翻譯成英文</div>
     <div class="prac-word-row">
       <div class="prac-word-badge">📌 ${curSentQ.word}</div>
-      <button class="btn play" onclick="playW('${curSentQ.word}','${curSentQ.audioURL}')">🔊</button>
+      <button class="btn play" id="pb" onclick="playW('${curSentQ.word}','${curSentQ.audioURL}')">🔊</button>
     </div>
     ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
     ${curSentQ.translation?`<div class="sent-def">🇹🇼 ${curSentQ.translation}</div>`:''}
@@ -1005,15 +607,22 @@ async function submitSent(){
 學生答案：「${ans}」
 請評估這句英文的 CEFR 等級（A1/A2/B1/B2/C1/C2）與中式英文（Chinglish，直譯中文語法/用詞習慣）的百分比（0-100）。
 「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格，只修正錯誤，不可以整句重新創作。
-「c1_example」是另外提供一個 C1 等級、更道地自然的範例句（可以跟學生原句結構不同）。
+「b2_example」跟「c1_example」都必須實際用到目標單字「${curSentQ.word}」（或其自然變化形，如時態、單複數變化），不可以完全不使用這個字。b2_example 是 B2 程度、c1_example 是更道地自然的 C1 程度，讓學生可以看到從 B2 到 C1 的程度差異。
+「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）"}],"c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
+{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
     const r=parseJSON(txt);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
       if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
       if(!levelProgress[curSentQ.level].mastered.includes(curSentQ.word)) levelProgress[curSentQ.level].mastered.push(curSentQ.word);
       lsSet('c_level_progress',JSON.stringify(levelProgress));
+    }
+    if(r.corrections?.length){
+      for(const c of r.corrections){
+        if(c.category) grammarStats[c.category]=(grammarStats[c.category]||0)+1;
+      }
+      lsSet('c_grammar_stats',JSON.stringify(grammarStats));
     }
     ensureDailyLevelCount();
     if(!dailyLevelCount.words.includes(curSentQ.word)) dailyLevelCount.words.push(curSentQ.word);
@@ -1055,6 +664,10 @@ function sentResultHTML(zh,userAns,def,translation,level,r){
       <div class="corr-fix">✓ ${c.fix}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:`<div style="color:#4ade80;font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
+    ${r.b2_example?`<div class="model-box" style="margin-top:12px">
+      <div class="model-lbl">B2 範例句</div>
+      <div class="model-t">${r.b2_example}</div>
+    </div>`:''}
     <div class="model-box" style="margin-top:12px">
       <div class="model-lbl">C1 範例句</div>
       <div class="model-t">${r.c1_example}</div>
@@ -1076,7 +689,7 @@ function saveSentHistory(userAns,r){
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent,
-    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], c1_example:r.c1_example, tip:r.tip||'',
+    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
   });
   lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
@@ -1127,8 +740,14 @@ async function startEssay(){
   document.getElementById('essayBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const txt=await callClaude(`你是 IELTS 寫作老師。請出一個 IELTS Task 2 題目，適合中高級英語學習者。
+請提供一個段落式大綱，每段給一句可以讓學生「直接接著往下寫」的英文起手句（不是抽象建議），幫助不知道怎麼下筆的學生。
 只輸出純 JSON（不要加 markdown）：
-{"topic":"完整題目（英文，2-3句）","type":"Opinion Essay/Discussion Essay/Problem-Solution Essay/Two-part Question","tips":["結構提示（繁體中文）","詞彙提示（繁體中文）","論點提示（繁體中文）"]}`,350);
+{"topic":"完整題目（英文，2-3句）","type":"Opinion Essay/Discussion Essay/Problem-Solution Essay/Two-part Question","outline":[
+  {"section":"開頭","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"第一個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"第二個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"結論","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"}
+]}`,500);
     curEssayTopic=parseJSON(txt);
     renderEssayQ();
   }catch(e){
@@ -1142,15 +761,44 @@ function renderEssayQ(){
   <div class="prac-card">
     <div class="essay-type">${curEssayTopic.type}</div>
     <div class="essay-topic">${curEssayTopic.topic}</div>
-    ${curEssayTopic.tips?.length?`<div class="card-lbl" style="margin-bottom:8px">💡 寫作提示</div>
-    <ul class="essay-tips">${curEssayTopic.tips.map(t=>`<li class="essay-tip">${t}</li>`).join('')}</ul>`:''}
+    ${curEssayTopic.outline?.length?`<div class="card-lbl" style="margin-bottom:8px">💡 段落起手式（可以直接接著往下寫）</div>
+    ${curEssayTopic.outline.map(o=>`<div class="outline-item">
+      <div class="outline-sec">${o.section}</div>
+      ${o.hint?`<div class="outline-hint">${o.hint}</div>`:''}
+      <div class="outline-starter">${o.starter}</div>
+    </div>`).join('')}`:''}
   </div>
   <div class="wc-row">
     <span class="wc-lbl">字數</span>
     <span id="wcNum" class="wc-low">0 / 150+</span>
   </div>
   <textarea class="essay-inp" id="essayInp" placeholder="在此輸入你的英文作文..." oninput="updateWC()"></textarea>
-  <button class="prac-submit" id="essayBtn" onclick="submitEssay()">提交評分 →</button>`;
+  <div id="progressCheckBox"></div>
+  <div style="display:flex;gap:10px">
+    <button class="prac-submit" id="checkBtn" style="background:#131b2e;color:#94a3b8;flex:1" onclick="checkEssayProgress()">✓ 檢查目前進度</button>
+    <button class="prac-submit" id="essayBtn" style="flex:1" onclick="submitEssay()">提交評分 →</button>
+  </div>`;
+}
+
+async function checkEssayProgress(){
+  const essay=document.getElementById('essayInp').value.trim();
+  if(!essay){toast('⚠️ 先寫一點東西再檢查吧');return;}
+  const btn=document.getElementById('checkBtn');
+  const origText=btn.textContent;
+  btn.disabled=true; btn.textContent='檢查中...';
+  try{
+    const txt=await callClaude(`你是英語寫作教練。以下是學生「還在寫、尚未完成」的作文草稿，不是最終版本，不需要整體評分。請只針對目前已經寫的部分，簡短告訴學生：1) 目前方向對不對，2) 有沒有明顯的文法或用字問題，給1-2句鼓勵+具體建議即可。
+題目：${curEssayTopic.topic}
+目前草稿：
+${essay}
+
+只輸出純文字，不要 JSON、不要 markdown，用繁體中文回覆，控制在 3-4 句以內。`,300);
+    document.getElementById('progressCheckBox').innerHTML=`<div class="prac-card"><div class="use-item" style="border:none;padding:0"><span class="use-ico">✓</span><div><div class="use-lbl">目前進度檢查</div><div class="use-t">${txt.trim()}</div></div></div></div>`;
+  }catch(e){
+    toast('❌ 檢查失敗，請重試');
+  }finally{
+    btn.disabled=false; btn.textContent=origText;
+  }
 }
 
 function updateWC(){
@@ -1228,7 +876,7 @@ function renderEssayResult(essay,wc,r){
 /* ── 寫作歷史 ── */
 function saveEssayHistory(essay,wc,r){
   ESSAY_HISTORY.unshift({
-    topic:curEssayTopic.topic, type:curEssayTopic.type, tips:curEssayTopic.tips||[],
+    topic:curEssayTopic.topic, type:curEssayTopic.type, outline:curEssayTopic.outline||[],
     essay, wc, band:r.band, scores:r.scores||{}, strengths:r.strengths||[], improvements:r.improvements||[], overall_comment:r.overall_comment||'',
     ts:Date.now()
   });
@@ -1363,29 +1011,32 @@ const ROOTS=[
 {type:'root',form:'gen-',meaning:'產生、起源',origin:'希臘文/拉丁文',examples:['generate','genetic','origin']},
 {type:'root',form:'form-',meaning:'形狀、形成',origin:'拉丁文',examples:['transform','uniform','information']},
 ];
-let rootMode='learn';
-let curRootIdx=0;
+let curRootIdx=parseInt(lsGet('c_root_progress','0'),10)||0;
+let viewRootIdx=curRootIdx;
 let curRootQ=null;
 
-function rootModeBarHTML(){
-  return `<div class="fav-filter" style="margin-bottom:14px">
-    <span class="filt ${rootMode==='learn'?'on':''}" onclick="switchRootMode('learn')">📖 學習</span>
-    <span class="filt ${rootMode==='quiz'?'on':''}" onclick="switchRootMode('quiz')">✏️ 練習</span>
-  </div>`;
+function rootProgressHTML(){
+  return `<div class="level-progress" style="margin-bottom:14px"><span>字根字首字尾進度</span><span>${Math.min(curRootIdx,ROOTS.length)}/${ROOTS.length}</span></div>`;
 }
-
-function switchRootMode(m){ rootMode=m; renderRootHome(); }
 
 function renderRootHome(){
-  document.getElementById('rootBody').innerHTML = rootModeBarHTML() + (rootMode==='learn' ? rootLearnCardHTML(curRootIdx) : rootQuizStartHTML());
+  if(curRootIdx>=ROOTS.length){ renderRootDone(); return; }
+  viewRootIdx=curRootIdx;
+  renderRootCard();
 }
 
-function rootLearnCardHTML(i){
+function renderRootCard(){
+  const i=viewRootIdx;
+  const isCurrent=i===curRootIdx;
+  document.getElementById('rootBody').innerHTML = rootProgressHTML() + rootLearnCardHTML(i,isCurrent);
+}
+
+function rootLearnCardHTML(i,isCurrent){
   const r=ROOTS[i];
   const typeLabel={prefix:'字首',suffix:'字尾',root:'字根'}[r.type];
   return `
   <div class="prac-card">
-    <div class="essay-type">${typeLabel} · ${i+1}/${ROOTS.length}</div>
+    <div class="essay-type">${typeLabel} · ${i+1}/${ROOTS.length}${isCurrent?'':' · 複習'}</div>
     <div class="essay-topic" style="font-size:28px">${r.form}</div>
     <div class="prac-hint" style="margin-top:12px;display:inline-block">來源：${r.origin}</div>
     <div class="card-lbl" style="margin:16px 0 8px">意思</div>
@@ -1393,46 +1044,36 @@ function rootLearnCardHTML(i){
     <div class="card-lbl" style="margin:16px 0 8px">例字</div>
     ${r.examples.map(w=>`<div class="corr-fix" style="margin-bottom:4px">• ${w}</div>`).join('')}
   </div>
-  <div style="display:flex;gap:10px;margin-top:4px">
-    <button class="next-btn" style="flex:1" onclick="rootNav(-1)">← 上一個</button>
-    <button class="next-btn" style="flex:1" onclick="rootNav(1)">下一個 →</button>
-  </div>`;
+  ${i>0?`<button class="next-btn" style="margin-bottom:10px" onclick="rootBrowse(-1)">← 複習上一個</button>`:''}
+  <button class="prac-submit" onclick="startRootQuiz(${i})">${isCurrent?'考考自己這一項 →':'再練習一次這一項 →'}</button>
+  ${!isCurrent?`<button class="next-btn" style="margin-top:10px" onclick="renderRootHome()">回到目前進度 →</button>`:''}`;
 }
 
-function rootNav(d){
-  curRootIdx=(curRootIdx+d+ROOTS.length)%ROOTS.length;
-  renderRootHome();
+function rootBrowse(d){
+  viewRootIdx=Math.max(0,Math.min(curRootIdx,viewRootIdx+d));
+  renderRootCard();
 }
 
-function rootQuizStartHTML(){
-  return `<div class="empty">
-    <div class="empty-ico">✏️</div>
-    <div class="empty-h">測驗一下</div>
-    <div class="empty-p">Claude 會從常見字根清單裡<br>隨機出一題選擇題考考你</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startRootQuiz()">出題 →</button>
-  </div>`;
-}
-
-async function startRootQuiz(){
+async function startRootQuiz(i){
   if(!KEY){toast('⚠️ 請先設定 API Key');return;}
-  document.getElementById('rootBody').innerHTML = rootModeBarHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
-    const r=ROOTS[Math.floor(Math.random()*ROOTS.length)];
+    const r=ROOTS[i];
     const typeLabel={prefix:'字首',suffix:'字尾',root:'字根'}[r.type];
     const txt=await callClaude(`你是英語字根教學老師。這個${typeLabel}是「${r.form}」，意思是「${r.meaning}」，例字包含：${r.examples.join(', ')}。
 請出一題選擇題，考學生是否理解這個${typeLabel}的意思（例如給一個含有這個${typeLabel}但沒出現過的單字，讓學生選出最接近的中文意思；或反過來給中文意思讓學生選出正確的單字）。
 只輸出純 JSON（不要加 markdown）：
 {"question":"題目敘述（中文）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`,400);
     curRootQ=parseJSON(txt);
-    curRootQ.root=r;
+    curRootQ.root=r; curRootQ.idx=i;
     renderRootQuiz();
   }catch(e){
-    document.getElementById('rootBody').innerHTML = rootModeBarHTML() + `<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startRootQuiz()" style="margin-top:12px">重試</button>`;
+    document.getElementById('rootBody').innerHTML = rootProgressHTML() + `<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startRootQuiz(${i})" style="margin-top:12px">重試</button>`;
   }
 }
 
 function renderRootQuiz(){
-  document.getElementById('rootBody').innerHTML = rootModeBarHTML() + `
+  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `
   <div class="prac-card">
     <div class="prac-word-badge">${curRootQ.root.form}</div>
     <div class="prac-zh" style="font-size:16px">${curRootQ.question}</div>
@@ -1442,7 +1083,12 @@ function renderRootQuiz(){
 
 function submitRootQuiz(i){
   const correct=i===curRootQ.answerIndex;
-  document.getElementById('rootBody').innerHTML = rootModeBarHTML() + `
+  if(curRootQ.idx===curRootIdx){
+    curRootIdx++;
+    lsSet('c_root_progress',String(curRootIdx));
+    sbSet('rootprogress',JSON.stringify({index:curRootIdx})).catch(()=>{});
+  }
+  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `
   <div class="prac-card">
     <div class="prac-word-badge">${curRootQ.root.form}</div>
     <div class="prac-zh" style="font-size:16px">${curRootQ.question}</div>
@@ -1455,7 +1101,185 @@ function submitRootQuiz(i){
     </div>
     <div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">說明</div><div class="use-t">${curRootQ.explain}</div></div></div>
   </div>
-  <button class="next-btn" onclick="startRootQuiz()">下一題 →</button>`;
+  <button class="next-btn" onclick="renderRootHome()">下一個 →</button>`;
+}
+
+function renderRootDone(){
+  document.getElementById('rootBody').innerHTML = `
+  <div class="empty">
+    <div class="empty-ico">🎉</div>
+    <div class="empty-h">已經學完全部字根字首字尾！</div>
+    <div class="empty-p">你把 ${ROOTS.length} 條常見字首/字根/字尾都學過一遍了</div>
+    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="resetRootProgress()">從頭複習 →</button>
+  </div>`;
+}
+
+function resetRootProgress(){
+  curRootIdx=0;
+  lsSet('c_root_progress','0');
+  sbSet('rootprogress',JSON.stringify({index:0})).catch(()=>{});
+  renderRootHome();
+}
+
+/* ── 文法學習：固定教材 ── */
+const GRAMMAR_POINTS=[
+{category:'時態',topic:'現在簡單式 vs 現在進行式',explanation:'現在簡單式用於習慣、事實、長期狀態；現在進行式用於當下正在發生的動作。中文沒有這種時態區分，容易混用。',commonMistake:'中文「我在吃飯」跟「我每天吃飯」動詞形式一樣，導致忘記英文要分開表達。',examples:[{wrong:'I am eating breakfast every day.',right:'I eat breakfast every day.'},{wrong:'Look, he walk to school now.',right:'Look, he is walking to school now.'}]},
+{category:'時態',topic:'過去簡單式 vs 現在完成式',explanation:'過去簡單式描述已結束、有明確過去時間點的動作；現在完成式強調過去動作對現在的影響，或沒有明確時間點。',commonMistake:'中文的「了」「過」對應到過去式或完成式都可以，導致英文選錯時態。',examples:[{wrong:'I have watched this movie yesterday.',right:'I watched this movie yesterday.'},{wrong:'I lost my keys and still can not find them.',right:'I have lost my keys and still can not find them.'}]},
+{category:'時態',topic:'未來式：will vs be going to',explanation:'will 常用於臨時決定、預測；be going to 常用於已經計畫好的事。',commonMistake:'中文的「將要」「會」不分場合，導致兩者混用不分。',examples:[{wrong:'I will go to Japan next month. (已訂好機票)',right:'I am going to Japan next month.'},{wrong:'A: The phone is ringing. B: I am going to answer it.',right:'A: The phone is ringing. B: I will answer it.'}]},
+{category:'時態',topic:'過去完成式',explanation:'過去完成式（had + p.p.）描述「過去某件事發生之前」已經完成的動作，用來釐清兩個過去事件的先後順序。',commonMistake:'中文常靠「已經」「早就」等詞表達先後，而不是靠動詞變化，容易忘記使用 had。',examples:[{wrong:'When I arrived, the meeting already started.',right:'When I arrived, the meeting had already started.'}]},
+{category:'冠詞',topic:'冠詞 a/an/the 的基本用法',explanation:'第一次提到、不特定的可數單數名詞用 a/an；雙方都知道指哪個、或第二次提到用 the。',commonMistake:'中文完全沒有冠詞系統，中文母語者最容易整句忘記加冠詞，或該用 the 時用 a。',examples:[{wrong:'I bought book yesterday.',right:'I bought a book yesterday.'},{wrong:'Please close door.',right:'Please close the door.'}]},
+{category:'冠詞',topic:'零冠詞（不可數名詞、複數泛指）',explanation:'講不可數名詞或複數名詞的「泛指」概念時，前面不用加冠詞。',commonMistake:'因為想「補一個冠詞」的習慣，反而在不該加的地方多加了 the 或 a。',examples:[{wrong:'The money can not buy happiness.',right:'Money can not buy happiness.'},{wrong:'I like the dogs.（泛指所有狗）',right:'I like dogs.'}]},
+{category:'介系詞',topic:'介系詞 in/on/at（時間）',explanation:'年/月/季節用 in，日期/星期用 on，精確時刻用 at。',commonMistake:'中文的「在」對應所有時間介系詞，導致隨意套用同一個字。',examples:[{wrong:'I was born at 1995.',right:'I was born in 1995.'},{wrong:'See you in Monday.',right:'See you on Monday.'}]},
+{category:'介系詞',topic:'介系詞 in/on/at（地點）',explanation:'大範圍空間用 in，表面/街道用 on，精確地點用 at。',commonMistake:'同樣因為中文「在」不分，容易三個介系詞混著用。',examples:[{wrong:'I live at Taipei.',right:'I live in Taipei.'},{wrong:'The book is in the table.',right:'The book is on the table.'}]},
+{category:'介系詞',topic:'常見動詞固定搭配介系詞',explanation:'很多英文動詞/形容詞有固定搭配的介系詞（depend on、interested in、good at），不能用中文邏輯推導。',commonMistake:'直接照中文語感猜介系詞，例如「對…感興趣」猜成 interested to。',examples:[{wrong:'I am interested to learn English.',right:'I am interested in learning English.'},{wrong:'It depends of the weather.',right:'It depends on the weather.'}]},
+{category:'單複數',topic:'可數與不可數名詞',explanation:'不可數名詞（information、advice、furniture 等）沒有複數形，也不能加 a/an。',commonMistake:'中文名詞沒有可數不可數的區別，容易把不可數名詞當可數名詞用。',examples:[{wrong:'I need some informations.',right:'I need some information.'},{wrong:'She gave me an advice.',right:'She gave me some advice.'}]},
+{category:'單複數',topic:'不規則複數形',explanation:'部分名詞的複數形不是加 s（child→children、person→people、foot→feet）。',commonMistake:'習慣性在所有名詞後面加 s，忽略不規則變化。',examples:[{wrong:'There are many childs in the park.',right:'There are many children in the park.'}]},
+{category:'主詞動詞一致',topic:'主詞動詞一致（第三人稱單數）',explanation:'主詞是第三人稱單數（he/she/it 或單數名詞）時，現在式動詞要加 s/es。',commonMistake:'中文動詞不會因主詞改變形式，容易忘記幫動詞加 s。',examples:[{wrong:'She like coffee.',right:'She likes coffee.'},{wrong:'My brother work in a bank.',right:'My brother works in a bank.'}]},
+{category:'主詞動詞一致',topic:'集合名詞的單複數一致',explanation:'像 family、team、the police 這類集合名詞，依語境當作單數或複數，動詞要對應一致。',commonMistake:'不確定該把集合名詞當一個整體（單數）還是一群人（複數），動詞常配錯。',examples:[{wrong:'The police is investigating the case.',right:'The police are investigating the case.'}]},
+{category:'詞序',topic:'形容詞順序（大小新舊顏色國籍材質）',explanation:'多個形容詞修飾同一個名詞時有固定順序，大致是：意見 → 大小 → 新舊 → 顏色 → 國籍 → 材質。',commonMistake:'中文形容詞順序較自由，容易照直覺排列導致英文語序不自然。',examples:[{wrong:'a red big house',right:'a big red house'},{wrong:'a plastic small red bag',right:'a small red plastic bag'}]},
+{category:'詞序',topic:'疑問句/間接問句語序',explanation:'一般疑問句主詞動詞要倒裝（Do you...?），但間接問句（放在句子裡的問句）要恢復成正常語序。',commonMistake:'把間接問句也倒裝，變成 "I don not know what is he doing"。',examples:[{wrong:'I do not know what is he doing.',right:'I do not know what he is doing.'},{wrong:'Can you tell me where is the station?',right:'Can you tell me where the station is?'}]},
+{category:'詞序',topic:'副詞位置',explanation:'頻率副詞（always/usually/often/never）通常放在一般動詞前、be動詞後；地方/時間副詞通常放句尾。',commonMistake:'把副詞硬套進中文語序的位置，變成不自然的英文語序。',examples:[{wrong:'I always am busy.',right:'I am always busy.'},{wrong:'I go always to school by bus.',right:'I always go to school by bus.'}]},
+{category:'關係子句',topic:'關係代名詞 who/which/that',explanation:'who 指人、which 指事物、that 兩者皆可（限定子句），用來引導修飾名詞的子句。',commonMistake:'不確定該用哪一個，或忘記關係子句裡不能重複出現原本的主詞/受詞。',examples:[{wrong:'The man which called you is my boss.',right:'The man who called you is my boss.'},{wrong:'This is the book that I bought it yesterday.',right:'This is the book that I bought yesterday.'}]},
+{category:'關係子句',topic:'限定 vs 非限定關係子句',explanation:'限定子句（無逗號）用來界定範圍，非限定子句（有逗號，通常用 which/who）用來補充額外資訊。',commonMistake:'不清楚兩者差別，導致該加逗號時沒加，改變了句意。',examples:[{wrong:'My brother who lives in Tokyo is a doctor.（只有一個哥哥時應加逗號）',right:'My brother, who lives in Tokyo, is a doctor.'}]},
+{category:'被動語態',topic:'被動語態基本結構',explanation:'被動語態用 be 動詞 + 過去分詞，強調動作的承受者而不是執行者。',commonMistake:'忘記加 be 動詞，或過去分詞用錯形式。',examples:[{wrong:'The window broke by the wind.',right:'The window was broken by the wind.'}]},
+{category:'被動語態',topic:'被動語態常見誤用（中文直翻）',explanation:'中文很多句子字面上是主動，但英文語感上習慣用被動（例如 be made of、be born）。',commonMistake:'直接照中文主動語序翻譯，忽略英文的慣用被動表達。',examples:[{wrong:'I born in 1998.',right:'I was born in 1998.'},{wrong:'This table makes of wood.',right:'This table is made of wood.'}]},
+{category:'動名詞或不定詞',topic:'動名詞當主詞/受詞',explanation:'動名詞（V-ing）可以當主詞或某些動詞（enjoy、finish、avoid...）的受詞。',commonMistake:'該用動名詞的地方用了不定詞（to V），或忘記將動詞改成 V-ing 形式。',examples:[{wrong:'I enjoy to read books.',right:'I enjoy reading books.'},{wrong:'Swim is good for health.',right:'Swimming is good for health.'}]},
+{category:'動名詞或不定詞',topic:'不定詞 vs 動名詞（want to do vs enjoy doing）',explanation:'某些動詞後面固定接不定詞（want、hope、decide），某些固定接動名詞（enjoy、avoid、finish），需要個別記憶。',commonMistake:'把兩種用法搞混，或憑中文語感亂猜該接哪一種。',examples:[{wrong:'I want going home.',right:'I want to go home.'},{wrong:'She avoids to eat sugar.',right:'She avoids eating sugar.'}]},
+{category:'連接詞',topic:'連接詞 although/because/so',explanation:'although 和 because 不能同時跟 but/so 一起用在同一個句子裡表達因果或轉折（英文只需要一個連接詞）。',commonMistake:'受中文「雖然…但是…」「因為…所以…」成對使用的習慣影響，英文也寫成兩個連接詞。',examples:[{wrong:'Although it was raining, but we still went out.',right:'Although it was raining, we still went out.'},{wrong:'Because he was tired, so he went to bed early.',right:'Because he was tired, he went to bed early.'}]},
+{category:'連接詞',topic:'對等連接詞 and/but/or 的句子平衡',explanation:'and/but/or 前後連接的成分（詞性、時態、句型）應該對等平衡。',commonMistake:'前後兩邊結構不對稱，例如一邊是動詞片語、一邊是名詞片語。',examples:[{wrong:'She likes swimming and to run.',right:'She likes swimming and running.'}]},
+{category:'情態助動詞',topic:'情態助動詞 can/could/may/might/must',explanation:'情態助動詞後面直接接原形動詞，不需要 to，也不需要因主詞變化而變形。',commonMistake:'習慣性在情態助動詞後面加 to，或幫動詞加 s。',examples:[{wrong:'She can to speak French.',right:'She can speak French.'},{wrong:'He must goes now.',right:'He must go now.'}]},
+{category:'條件句',topic:'第一/第二/第三類條件句',explanation:'第一類（if + 現在式, will + 原形）表示可能發生的未來；第二類（if + 過去式, would + 原形）表示假設不太可能發生；第三類（if + 過去完成式, would have + p.p.）表示與過去事實相反。',commonMistake:'三種條件句的時態混用，尤其容易把假設語氣寫成現在式。',examples:[{wrong:'If I have more money, I would travel more.',right:'If I had more money, I would travel more.'},{wrong:'If I studied harder, I would have passed the exam.（描述過去的事）',right:'If I had studied harder, I would have passed the exam.'}]},
+{category:'條件句',topic:'假設語氣 wish + 過去式/過去完成式',explanation:'wish 後面接過去式表示對現在的假設，接過去完成式表示對過去的假設，兩者都表達「事實並非如此」的遺憾。',commonMistake:'wish 後面直接接現在式，沒有意識到這是假設語氣需要「時態倒退」。',examples:[{wrong:'I wish I am taller.',right:'I wish I were taller.'},{wrong:'I wish I studied harder when I was young.（應該用過去完成式）',right:'I wish I had studied harder when I was young.'}]},
+{category:'其他',topic:'中式英文常見直翻陷阱',explanation:'某些中文表達方式直接翻譯成英文會不自然或文法錯誤，需要換成英文慣用的說法。',commonMistake:'例如「我非常喜歡」直翻成 "I very like"，正確應該是 "I like it very much" 或 "I really like it"。',examples:[{wrong:'I very like this song.',right:'I really like this song.'},{wrong:'My English is not very good, but I will try my best to said it.',right:'My English is not very good, but I will try my best to say it.'}]}
+];
+let curGrammarIdx=parseInt(lsGet('c_grammar_progress','0'),10)||0;
+let viewGrammarIdx=curGrammarIdx;
+let curGrammarQ=null;
+let grammarStats=JSON.parse(lsGet('c_grammar_stats','{}'));
+
+function grammarProgressHTML(){
+  return `<div class="level-progress" style="margin-bottom:14px"><span>文法學習進度</span><span>${Math.min(curGrammarIdx,GRAMMAR_POINTS.length)}/${GRAMMAR_POINTS.length}</span></div>`;
+}
+
+function grammarWeaknessHTML(){
+  const entries=Object.entries(grammarStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  if(!entries.length) return '';
+  return `<div class="prac-card">
+    <div class="card-lbl">📊 根據你的造句紀錄，最常出錯的文法點</div>
+    ${entries.map(([cat,count])=>{
+      const idx=GRAMMAR_POINTS.findIndex(g=>g.category===cat);
+      if(idx<0) return '';
+      return `<div class="hist-item" onclick="jumpToGrammar(${idx})">
+        <div class="hist-zh">${cat}</div>
+        <div class="hist-ans">已出現 ${count} 次錯誤 · 點擊前往學習 →</div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function jumpToGrammar(idx){ viewGrammarIdx=idx; renderGrammarCard(); }
+
+function renderGrammarHome(){
+  if(curGrammarIdx>=GRAMMAR_POINTS.length){ renderGrammarDone(); return; }
+  viewGrammarIdx=curGrammarIdx;
+  document.getElementById('grammarBody').innerHTML = grammarWeaknessHTML() + grammarProgressHTML() + grammarLearnCardHTML(viewGrammarIdx,true);
+}
+
+function renderGrammarCard(){
+  const i=viewGrammarIdx;
+  const isCurrent=i===curGrammarIdx;
+  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + grammarLearnCardHTML(i,isCurrent);
+}
+
+function grammarLearnCardHTML(i,isCurrent){
+  const g=GRAMMAR_POINTS[i];
+  return `
+  <div class="prac-card">
+    <div class="essay-type">${g.category} · ${i+1}/${GRAMMAR_POINTS.length}${isCurrent?'':' · 複習'}</div>
+    <div class="essay-topic" style="font-size:20px">${g.topic}</div>
+    <div class="card-lbl" style="margin:16px 0 8px">說明</div>
+    <div class="model-t" style="font-style:normal">${g.explanation}</div>
+    ${g.commonMistake?`<div class="prac-hint" style="margin-top:12px">💡 中文母語者常見誤區：${g.commonMistake}</div>`:''}
+    <div class="card-lbl" style="margin:16px 0 8px">範例</div>
+    ${g.examples.map(ex=>`<div class="corr-item">
+      <div class="corr-err">✗ ${ex.wrong}</div>
+      <div class="corr-fix">✓ ${ex.right}</div>
+    </div>`).join('')}
+  </div>
+  ${i>0?`<button class="next-btn" style="margin-bottom:10px" onclick="grammarBrowse(-1)">← 複習上一個</button>`:''}
+  <button class="prac-submit" onclick="startGrammarQuiz(${i})">${isCurrent?'考考自己這一項 →':'再練習一次這一項 →'}</button>
+  ${!isCurrent?`<button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回到目前進度 →</button>`:''}`;
+}
+
+function grammarBrowse(d){
+  viewGrammarIdx=Math.max(0,Math.min(curGrammarIdx,viewGrammarIdx+d));
+  renderGrammarCard();
+}
+
+async function startGrammarQuiz(i){
+  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
+  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  try{
+    const g=GRAMMAR_POINTS[i];
+    const txt=await callClaude(`你是英語文法教學老師。這個文法點是「${g.topic}」（分類：${g.category}），說明：${g.explanation}
+請針對這個文法點出一題選擇題，考學生是否理解（例如給一個句子讓學生選出文法正確的版本，或給一個錯誤句子讓學生選出正確的修正方式）。
+只輸出純 JSON（不要加 markdown）：
+{"question":"題目敘述（可包含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`,400);
+    curGrammarQ=parseJSON(txt);
+    curGrammarQ.point=g; curGrammarQ.idx=i;
+    renderGrammarQuiz();
+  }catch(e){
+    document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startGrammarQuiz(${i})" style="margin-top:12px">重試</button>`;
+  }
+}
+
+function renderGrammarQuiz(){
+  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `
+  <div class="prac-card">
+    <div class="essay-type">${curGrammarQ.point.category}</div>
+    <div class="prac-zh" style="font-size:16px">${curGrammarQ.question}</div>
+  </div>
+  ${curGrammarQ.options.map((op,i)=>`<button class="prac-submit" style="background:#131b2e;color:#e2e8f0;text-align:left;margin-bottom:8px" onclick="submitGrammarQuiz(${i})">${String.fromCharCode(65+i)}. ${op}</button>`).join('')}`;
+}
+
+function submitGrammarQuiz(i){
+  const correct=i===curGrammarQ.answerIndex;
+  if(curGrammarQ.idx===curGrammarIdx){
+    curGrammarIdx++;
+    lsSet('c_grammar_progress',String(curGrammarIdx));
+    sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});
+  }
+  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `
+  <div class="prac-card">
+    <div class="essay-type">${curGrammarQ.point.category}</div>
+    <div class="prac-zh" style="font-size:16px">${curGrammarQ.question}</div>
+  </div>
+  <div class="prac-card">
+    <span class="score-badge ${correct?'score-excellent':'score-needs'}">${correct?'🎉 答對了':'✗ 答錯了'}</span>
+    <div class="model-box" style="margin-top:12px">
+      <div class="model-lbl">正確答案</div>
+      <div class="model-t">${String.fromCharCode(65+curGrammarQ.answerIndex)}. ${curGrammarQ.options[curGrammarQ.answerIndex]}</div>
+    </div>
+    <div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">說明</div><div class="use-t">${curGrammarQ.explain}</div></div></div>
+  </div>
+  <button class="next-btn" onclick="renderGrammarHome()">下一個 →</button>`;
+}
+
+function renderGrammarDone(){
+  document.getElementById('grammarBody').innerHTML = `
+  <div class="empty">
+    <div class="empty-ico">🎉</div>
+    <div class="empty-h">已經學完全部文法點！</div>
+    <div class="empty-p">你把 ${GRAMMAR_POINTS.length} 個常見文法點都學過一遍了</div>
+    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="resetGrammarProgress()">從頭複習 →</button>
+  </div>`;
+}
+
+function resetGrammarProgress(){
+  curGrammarIdx=0;
+  lsSet('c_grammar_progress','0');
+  sbSet('grammarprogress',JSON.stringify({index:0})).catch(()=>{});
+  renderGrammarHome();
 }
 
 /* ── UTILS ── */
@@ -1463,13 +1287,6 @@ function parseJSON(txt){
   // 去掉 Claude 有時加的 ```json ... ``` 包裝
   return JSON.parse(txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim());
 }
-function setState(s){
-  document.getElementById('emptyS').style.display=s==='empty'?'block':'none';
-  document.getElementById('loadS').style.display=s==='load'?'block':'none';
-  document.getElementById('errS').style.display=s==='err'?'block':'none';
-  document.getElementById('resS').style.display=s==='result'?'block':'none';
-}
-function setErr(msg){document.getElementById('errS').textContent='⚠️ '+msg; setState('err');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2300);}
 </script>
 </body>
