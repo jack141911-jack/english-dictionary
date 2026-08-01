@@ -606,10 +606,27 @@ async function submitSent(){
 中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
-請評估這句英文的 CEFR 等級（A1/A2/B1/B2/C1/C2）與中式英文（Chinglish，直譯中文語法/用詞習慣）的百分比（0-100）。
-學生是被要求必須使用目標單字「${curSentQ.word}」造句的，所以只要學生對這個字的文法用法正確（時態、介系詞搭配、句型都對），就不能因為「母語者在這個情境下其實更常用其他同義字（例如用 tell 而不是 say）」而判定為中式英文或扣分——這不是學生的錯，中式英文只能用來標記真正的文法錯誤、字序錯誤、或不通順的直譯語法，不能是單字選擇跟出題要求不同的同義字。
+
+【CEFR 等級評估標準】
+A1/A2：只用最基礎字彙跟簡單句型（單一子句、現在式/簡單過去式）。
+B1：能用常見字彙寫出完整句子，可能有一兩個簡單子句用 and/but/because 連接。
+B2：句型較多樣（子句、被動、條件句等），用字精準，文法大致正確。
+C1：文法幾乎沒有錯誤，用字道地自然，句型靈活，語感貼近母語者。
+C2：近乎母語者水準，用字精準且有語感上的細膩差異。
+請根據學生答案「實際展現出來的語言能力」評等級，不是看句子多複雜——簡單但正確道地的句子也可以拿到對應的高分，不要因為句子短就自動判低分。
+
+【中式英文（Chinglish）判斷標準】
+只有「直譯中文語法或用詞習慣、英文母語者不會這樣講」才算中式英文，例如：字面直譯中文片語、把中文語序直接套用到英文、遺漏英文語法必要元素（冠詞/介系詞/主詞動詞一致）、用了中文使用者常見的錯誤固定搭配。
+以下狀況一律「不算」中式英文，不能因此扣分：
+- 用縮寫或全寫都可以，兩者一樣自然（例如 I am / I'm、do not / don't、it is / it's），不能因為沒縮寫就判定不自然或扣分。
+- 學生正確使用了被要求的目標單字「${curSentQ.word}」，即使某些情境下另有更常見的同義字。
+- 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
+
+【範例句規則（很重要）】
+「b2_example」跟「c1_example」都必須是翻譯「同一個中文原句」「${curSentQ.zh_sentence}」的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字「${curSentQ.word}」（或其自然變化形），不可以換成同義字。
+這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
+
 「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
-「b2_example」跟「c1_example」都必須實際用到目標單字「${curSentQ.word}」（或其自然變化形，如時態、單複數變化），絕對不可以換成其他同義字（例如目標單字是 say 就不能換成 tell），也不可以完全不使用這個字。b2_example 是 B2 程度、c1_example 是更道地自然的 C1 程度，讓學生可以看到從 B2 到 C1 的程度差異——但兩句都要保留使用目標單字本身。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
 只輸出純 JSON（不要加 markdown）：
 {"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
@@ -640,11 +657,12 @@ async function submitSent(){
 
 function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score-needs'; }
 
-function sentResultHTML(zh,userAns,def,translation,level,r){
+function sentResultHTML(word,zh,userAns,def,translation,level,r){
   const mastered=cefrRank(r.cefr)>=cefrRank(level)&&r.chinglish_percent<=30;
   return `
   <div class="prac-card">
     <div class="card-lbl">📝 原題</div>
+    ${word?`<div class="prac-word-badge" style="margin-bottom:8px">📌 ${word}</div>`:''}
     ${def?`<div class="sent-def">${def}</div>`:''}
     ${translation?`<div class="sent-def">🇹🇼 ${translation}</div>`:''}
     <div class="prac-zh" style="font-size:17px">${zh}</div>
@@ -681,7 +699,7 @@ function sentResultHTML(zh,userAns,def,translation,level,r){
 async function renderSentResult(userAns,r){
   const bar=await levelBarHTML();
   document.getElementById('pracBody').innerHTML=bar
-    +sentResultHTML(curSentQ.zh_sentence,userAns,curSentQ.definition,curSentQ.translation,curSentQ.level,r)
+    +sentResultHTML(curSentQ.word,curSentQ.zh_sentence,userAns,curSentQ.definition,curSentQ.translation,curSentQ.level,r)
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
 
@@ -731,7 +749,7 @@ function showSentHistDetail(i){
   const h=SENT_HISTORY[i];
   document.getElementById('pracBody').innerHTML=
     `<button class="next-btn" style="margin-bottom:14px" onclick="showSentHistory()">← 返回歷史</button>`
-    +sentResultHTML(h.zh_sentence,h.userAns,h.definition,h.translation,h.level,h);
+    +sentResultHTML(h.word,h.zh_sentence,h.userAns,h.definition,h.translation,h.level,h);
 }
 
 /* ── 英文寫作 ── */
