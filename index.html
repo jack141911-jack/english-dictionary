@@ -562,6 +562,7 @@ async function startSent(){
     const word=await pickLevelWord();
     if(!word) throw new Error('no word available for level');
     const prompt=`你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${word}」
+這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。
 只輸出純 JSON（不要加 markdown 或其他文字）：
 {"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
     const[txt,dict]=await Promise.all([callClaude(prompt,300),fetchDict(word)]);
@@ -606,8 +607,9 @@ async function submitSent(){
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
 請評估這句英文的 CEFR 等級（A1/A2/B1/B2/C1/C2）與中式英文（Chinglish，直譯中文語法/用詞習慣）的百分比（0-100）。
-「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格，只修正錯誤，不可以整句重新創作。
-「b2_example」跟「c1_example」都必須實際用到目標單字「${curSentQ.word}」（或其自然變化形，如時態、單複數變化），不可以完全不使用這個字。b2_example 是 B2 程度、c1_example 是更道地自然的 C1 程度，讓學生可以看到從 B2 到 C1 的程度差異。
+學生是被要求必須使用目標單字「${curSentQ.word}」造句的，所以只要學生對這個字的文法用法正確（時態、介系詞搭配、句型都對），就不能因為「母語者在這個情境下其實更常用其他同義字（例如用 tell 而不是 say）」而判定為中式英文或扣分——這不是學生的錯，中式英文只能用來標記真正的文法錯誤、字序錯誤、或不通順的直譯語法，不能是單字選擇跟出題要求不同的同義字。
+「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
+「b2_example」跟「c1_example」都必須實際用到目標單字「${curSentQ.word}」（或其自然變化形，如時態、單複數變化），絕對不可以換成其他同義字（例如目標單字是 say 就不能換成 tell），也不可以完全不使用這個字。b2_example 是 B2 程度、c1_example 是更道地自然的 C1 程度，讓學生可以看到從 B2 到 C1 的程度差異——但兩句都要保留使用目標單字本身。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
 只輸出純 JSON（不要加 markdown）：
 {"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
