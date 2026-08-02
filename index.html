@@ -301,6 +301,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
         <button class="set-save" onclick="saveKey()">儲存 API Key</button>
         <div class="set-info">🔒 Key 僅存於本機 LocalStorage，不傳至任何伺服器。</div>
 
+        <div class="set-sec-lbl" style="margin-top:28px">學習設定</div>
+        <div class="set-card">
+          <div class="set-row">
+            <span class="set-ico">🎯</span>
+            <div class="set-body2">
+              <div class="set-lbl">每日目標（單字數）</div>
+              <div class="set-sub">造句練習首頁「今日進度」的目標數字</div>
+              <input id="setDailyGoal" type="number" inputmode="numeric" min="1" class="set-inp" placeholder="450">
+            </div>
+          </div>
+        </div>
+        <button class="set-save" onclick="saveDailyGoal()">儲存每日目標</button>
+
         <div class="set-sec-lbl" style="margin-top:28px">關於</div>
         <div class="set-card">
           <div class="set-row">
@@ -385,6 +398,7 @@ let REPORTS = JSON.parse(lsGet('c_reports','[]'));
 let curLevel = lsGet('c_cur_level','B1');
 let levelProgress = JSON.parse(lsGet('c_level_progress','{}'));
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
+let dailyGoal = parseInt(lsGet('c_daily_goal','450'),10)||450;
 let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
@@ -397,6 +411,7 @@ function boot(){
   document.getElementById('setupView').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('setKey').value=KEY;
+  document.getElementById('setDailyGoal').value=dailyGoal;
   switchTab('prac');
   renderSentHome();
   syncFromCloud();
@@ -480,6 +495,11 @@ function saveKey(){
   if(!k.startsWith('sk-ant-')){toast('⚠️ Key 格式不正確');return;}
   KEY=k; lsSet('c_key',k); toast('✓ API Key 已儲存');
 }
+function saveDailyGoal(){
+  const n=parseInt(document.getElementById('setDailyGoal').value,10);
+  if(!n||n<1){toast('⚠️ 請輸入大於 0 的數字');return;}
+  dailyGoal=n; lsSet('c_daily_goal',String(n)); toast('✓ 每日目標已儲存');
+}
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
   SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; curRootIdx=0; curGrammarIdx=0; grammarStats={};
@@ -551,7 +571,7 @@ async function levelBarHTML(){
   return `
   <div class="fav-filter" style="margin-bottom:14px">${chips}</div>
   <div class="level-progress">
-    <span>今日進度 ${dailyLevelCount.words?.length||0}/450</span>
+    <span>今日進度 ${dailyLevelCount.words?.length||0}/${dailyGoal}</span>
     <span>${curLevel} 精通 ${masteredCount}/${total||'—'}</span>
   </div>`;
 }
@@ -609,13 +629,20 @@ async function submitSent(){
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
 
+【自然英文原則（最高原則，適用於整份評分）】
+評分的核心標準是「母語者會不會自然這樣講」，不是「有沒有跟某個範本或中文原句的結構一模一樣」。列出任何一項 corrections 之前，先確認這真的是英文母語者不會這樣講的錯誤，不能只因為跟你預設的版本不同就判定為錯。
+最容易犯的一種誤判：多個句子之間先講哪句、後講哪句，是話題安排的自然選擇，不是文法錯誤——例如先問對方「有什麼計畫」再補充自己的情況當背景，或反過來先講自己的情況再問對方，兩種順序在英文對話裡都完全自然，不能因為順序跟中文原句不同就標成「詞序」錯誤或說「邏輯不清」。
+同樣的標準也適用於 corrected_sentence 跟每一項 correction 的 fix：你給的修正本身也必須是母語者真的會這樣講的自然英文，不能為了「修正」而給出一個文法上勉強說得通、但實際上也不夠道地的版本。
+
 【CEFR 等級評估標準】
-A1/A2：只用最基礎字彙跟簡單句型（單一子句、現在式/簡單過去式）。
-B1：能用常見字彙寫出完整句子，可能有一兩個簡單子句用 and/but/because 連接。
-B2：句型較多樣（子句、被動、條件句等），用字精準，文法大致正確。
-C1：文法幾乎沒有錯誤，用字道地自然，句型靈活，語感貼近母語者。
-C2：近乎母語者水準，用字精準且有語感上的細膩差異。
-請根據學生答案「實際展現出來的句型複雜度、子句數量、用字精準度」評等級，不是看句子長度或有沒有錯誤。簡單但正確道地的單一子句直述句，等級對應其句型本身的複雜度（通常是 B1/B2）——不要因為句子短就判低分，也不要因為零修正就直接拉到 C1/C2；C1/C2 保留給確實包含複雜子句、精準用字或母語者式表達技巧的句子。
+逐項對照學生答案「實際出現的文法結構」判斷，不要看整體印象，也不要預設任何等級是安全的中間值：
+A1：只有一個最簡單的子句，動詞只用現在簡單式，沒有任何連接詞或從屬子句（例如：I like coffee. / I work here.）。
+A2：可能用 and/but/because/or 連接兩個簡單子句，開始出現過去簡單式、現在進行式、will/going to 表示未來、can/could 等基本情態助動詞，字彙仍侷限在日常基礎詞彙。
+B1：出現現在完成式或過去進行式，能用 when/although/since 等連接詞表達較細緻的時間或因果關係，可能有簡單的關係子句（who/which 當主詞）或第一類條件句（if + will），字彙比 A2 更精準但仍以常見字為主。
+B2：出現被動語態、較複雜的關係子句（whom/whose，或當受詞）、第二/第三類條件句（if + would/if + would have）、間接引述（reported speech），或連接詞串起三個以上子句的長句，用字選擇比 B1 更精準、更少見的常用字。
+C1：文法幾乎沒有錯誤，句型靈活自然切換（倒裝句、分詞構句、插入語、混合條件句等母語者常用的技巧），用字道地精準，語感貼近母語者的自然表達。
+C2：近乎母語者水準，能運用細膩的語氣、慣用語、文化背景相關表達，用字精準度跟母語者無異。
+嚴格根據上面每個等級「有沒有出現」對應的具體文法結構判斷：一個只有單一子句、用字基礎的正確句子該判 A1，不是自動落在 B1；只有真的出現 when/although 這類連接詞或現在完成式，才算 B1。同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上——只要真的出現被動語態、關係子句等對應結構，就該給對應等級。
 
 【中式英文（Chinglish）判斷標準】
 只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
@@ -635,6 +662,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
+「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西。
 只輸出純 JSON（不要加 markdown）：
 {"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
     const r=parseJSON(txt);
@@ -702,23 +730,37 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <div class="model-t">${r.c1_example}</div>
     </div>
     ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
-    <button class="next-btn" id="reportBtn" style="margin-top:12px;font-size:12px;padding:8px" onclick="reportSentIssue()">🚩 這題評分有問題？回報給我</button>
+    <div id="reportBox" style="margin-top:12px">
+      <button class="next-btn" id="reportBtn" style="font-size:12px;padding:8px" onclick="showReportForm()">🚩 這題評分有問題？回報給我</button>
+    </div>
   </div>`;
 }
 
+function showReportForm(){
+  const box=document.getElementById('reportBox');
+  if(!box) return;
+  box.innerHTML=`
+    <textarea class="prac-inp" id="reportReason" style="min-height:60px;margin-bottom:8px;font-size:13px" placeholder="這題哪裡有問題？（選填，寫清楚一點比較好排查，例如：這句修正不自然、中式英文分數不合理...）"></textarea>
+    <button class="next-btn" style="font-size:12px;padding:8px" onclick="reportSentIssue()">送出回報</button>`;
+  document.getElementById('reportReason').focus();
+}
+
 function reportSentIssue(){
-  const btn=document.getElementById('reportBtn');
-  if(!curResultCtx||(btn&&btn.dataset.reported==='1')) return;
+  if(!curResultCtx) return;
+  const reasonEl=document.getElementById('reportReason');
+  const reason=reasonEl?reasonEl.value.trim():'';
   const{word,zh,userAns,level,r}=curResultCtx;
   REPORTS.unshift({
     word,level,zh_sentence:zh,userAns,
     cefr:r.cefr,chinglish_percent:r.chinglish_percent,corrected_sentence:r.corrected_sentence,
     corrections:r.corrections||[],b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
+    reason,
     ts:Date.now()
   });
   lsSet('c_reports',JSON.stringify(REPORTS));
   syncToCloud();
-  if(btn){btn.textContent='✓ 已回報，謝謝！';btn.disabled=true;btn.dataset.reported='1';}
+  const box=document.getElementById('reportBox');
+  if(box) box.innerHTML=`<div style="font-size:12px;color:#4ade80">✓ 已回報，謝謝！</div>`;
   toast('✓ 已回報');
 }
 
