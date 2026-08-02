@@ -628,10 +628,10 @@ C2：近乎母語者水準，用字精準且有語感上的細膩差異。
 「b2_example」跟「c1_example」都必須是翻譯「同一個中文原句」「${curSentQ.zh_sentence}」的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字「${curSentQ.word}」（或其自然變化形），不可以換成同義字。
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
-「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
+如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
+{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
     const r=parseJSON(txt);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
@@ -678,10 +678,10 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
       ${mastered?`<span class="score-badge score-excellent">🎉 已精通</span>`:''}
     </div>
-    <div class="model-box">
+    ${r.corrected_sentence?`<div class="model-box">
       <div class="model-lbl">修正版（基於你的句子）</div>
       <div class="model-t">${r.corrected_sentence}</div>
-    </div>
+    </div>`:''}
     ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">🔍 錯誤修正</div>
     ${r.corrections.map(c=>`<div class="corr-item">
       <div class="corr-err">✗ ${c.error}</div>
