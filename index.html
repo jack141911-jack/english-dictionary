@@ -440,11 +440,11 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
 
 /* ── OPENAI API（透過 Cloudflare Worker 代理，key 存在伺服器端）── */
 const PROXY_URL='https://english-app-proxy.jack141911.workers.dev';
-async function callOpenAIProxy(prompt, maxTokens=1000, model='gpt-5-mini'){
+async function callOpenAIProxy(prompt, maxTokens=1000, model='gpt-5-mini', effort='low'){
   const r=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({provider:'openai',model,max_completion_tokens:maxTokens,reasoning_effort:'low',messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify({provider:'openai',model,max_completion_tokens:maxTokens,reasoning_effort:effort,messages:[{role:'user',content:prompt}]})
   });
   if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`API 錯誤 ${r.status}`); }
   const d=await r.json();
@@ -579,7 +579,7 @@ async function startSent(){
 這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。
 只輸出純 JSON（不要加 markdown 或其他文字）：
 {"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
-    const[txt,dict]=await Promise.all([callOpenAIProxy(prompt,1000),fetchDict(word)]);
+    const[txt,dict]=await Promise.all([callOpenAIProxy(prompt,1000,'gpt-5-mini','minimal'),fetchDict(word)]);
     curSentQ=parseJSON(txt);
     curSentQ.level=curLevel;
     const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
