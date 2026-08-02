@@ -314,7 +314,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <span class="set-ico">🤖</span>
             <div class="set-body2">
               <div class="set-lbl">練習引擎</div>
-              <div class="set-sub">造句：GPT-5-mini／作文·字根·文法：Claude</div>
+              <div class="set-sub">Claude Haiku 4.5 + Sonnet 4.6</div>
             </div>
           </div>
           <div class="set-row" style="cursor:pointer" onclick="syncFromCloud().then(()=>toast('✓ 已同步'))">
@@ -438,21 +438,6 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   return d.content[0].text;
 }
 
-/* ── OPENAI API（透過 Cloudflare Worker 代理，key 存在伺服器端）── */
-const PROXY_URL='https://english-app-proxy.jack141911.workers.dev';
-async function callOpenAIProxy(prompt, maxTokens=1000, model='gpt-5-mini', effort='low'){
-  const r=await fetch(PROXY_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({provider:'openai',model,max_completion_tokens:maxTokens,reasoning_effort:effort,messages:[{role:'user',content:prompt}]})
-  });
-  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`API 錯誤 ${r.status}`); }
-  const d=await r.json();
-  const content=d.choices?.[0]?.message?.content;
-  if(!content) throw new Error(`回應內容是空的 (finish_reason=${d.choices?.[0]?.finish_reason}, usage=${JSON.stringify(d.usage||{})})`);
-  return content;
-}
-
 /* ── AUDIO ── */
 function playW(w,url){
   const b=document.getElementById('pb'); if(!b) return;
@@ -571,7 +556,8 @@ async function levelBarHTML(){
 }
 
 async function startSent(){
-  document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">AI 出題中...</div></div>`;
+  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
+  document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const word=await pickLevelWord();
     if(!word) throw new Error('no word available for level');
@@ -579,7 +565,7 @@ async function startSent(){
 這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。
 只輸出純 JSON（不要加 markdown 或其他文字）：
 {"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
-    const[txt,dict]=await Promise.all([callOpenAIProxy(prompt,1000,'gpt-5-mini','minimal'),fetchDict(word)]);
+    const[txt,dict]=await Promise.all([callClaude(prompt,1000),fetchDict(word)]);
     curSentQ=parseJSON(txt);
     curSentQ.level=curLevel;
     const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
@@ -611,12 +597,13 @@ async function renderSentQ(){
 }
 
 async function submitSent(){
+  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   const ans=document.getElementById('sentInp').value.trim();
   if(!ans){toast('⚠️ 請先寫出翻譯');return;}
   const btn=document.getElementById('sentBtn');
-  btn.disabled=true;btn.textContent='AI 批改中...';
+  btn.disabled=true;btn.textContent='Claude 批改中...';
   try{
-    const txt=await callOpenAIProxy(`你是英語口語練習老師。
+    const txt=await callClaude(`你是英語口語練習老師。
 中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
@@ -643,7 +630,7 @@ C2：近乎母語者水準，用字精準且有語感上的細膩差異。
 「corrected_sentence」必須是基於「學生自己寫的這句話」去修正，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,2500);
+{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
     const r=parseJSON(txt);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
