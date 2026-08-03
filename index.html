@@ -109,6 +109,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 /* Toast */
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(12px);background:#0f2744;border:1px solid #2563eb;color:#93c5fd;padding:10px 22px;border-radius:22px;font-size:13px;font-weight:600;opacity:0;transition:all .25s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.wrap{white-space:normal;max-width:82vw;text-align:left;border-radius:14px;line-height:1.5}
+.lookup-word{cursor:pointer;border-bottom:1px dotted #64748b;transition:color .15s}
+.lookup-word:active{color:#93c5fd}
 
 /* Scrollbar */
 ::-webkit-scrollbar{width:3px}
@@ -226,7 +229,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
         <div class="empty">
           <div class="empty-ico">✍️</div>
           <div class="empty-h">準備好練習了嗎？</div>
-          <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 10 個單字</div>
+          <div class="empty-p">選好等級後開始造句練習<br>養成每天練習的好習慣</div>
           <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
         </div>
       </div>
@@ -314,6 +317,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
         </div>
         <button class="set-save" onclick="saveDailyGoal()">儲存每日目標</button>
 
+        <div class="set-card" style="margin-top:16px">
+          <div class="set-row">
+            <span class="set-ico">🇹🇼</span>
+            <div class="set-body2">
+              <div class="set-lbl">中文翻譯</div>
+              <div class="set-sub">出題/結果畫面要不要顯示單字的中文翻譯</div>
+              <div id="translationChips" style="margin-top:10px;display:flex;gap:8px">
+                <span class="filt" onclick="setTranslationPref(true)">顯示</span>
+                <span class="filt" onclick="setTranslationPref(false)">隱藏</span>
+              </div>
+            </div>
+          </div>
+          <div class="set-row">
+            <span class="set-ico">📊</span>
+            <div class="set-body2">
+              <div class="set-lbl">範例句等級</div>
+              <div class="set-sub">批改結果要顯示 B2、C1，還是兩個都顯示</div>
+              <div id="exampleChips" style="margin-top:10px;display:flex;gap:8px">
+                <span class="filt" onclick="setExamplePref('both')">都顯示</span>
+                <span class="filt" onclick="setExamplePref('b2')">只顯示 B2</span>
+                <span class="filt" onclick="setExamplePref('c1')">只顯示 C1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="set-sec-lbl" style="margin-top:28px">關於</div>
         <div class="set-card">
           <div class="set-row">
@@ -399,6 +428,8 @@ let curLevel = lsGet('c_cur_level','B1');
 let levelProgress = JSON.parse(lsGet('c_level_progress','{}'));
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
 let dailyGoal = parseInt(lsGet('c_daily_goal','450'),10)||450;
+let showTranslation = lsGet('c_show_translation','1')==='1';
+let examplePref = lsGet('c_example_pref','both'); // 'both'|'b2'|'c1'
 let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
@@ -412,6 +443,7 @@ function boot(){
   document.getElementById('app').style.display='flex';
   document.getElementById('setKey').value=KEY;
   document.getElementById('setDailyGoal').value=dailyGoal;
+  refreshSettingChips();
   switchTab('prac');
   renderSentHome();
   syncFromCloud();
@@ -500,6 +532,22 @@ function saveDailyGoal(){
   if(!n||n<1){toast('⚠️ 請輸入大於 0 的數字');return;}
   dailyGoal=n; lsSet('c_daily_goal',String(n)); toast('✓ 每日目標已儲存');
 }
+function setTranslationPref(v){
+  showTranslation=v; lsSet('c_show_translation',v?'1':'0'); refreshSettingChips(); toast('✓ 已儲存');
+}
+function setExamplePref(v){
+  examplePref=v; lsSet('c_example_pref',v); refreshSettingChips(); toast('✓ 已儲存');
+}
+function refreshSettingChips(){
+  const tBox=document.getElementById('translationChips');
+  if(tBox) tBox.querySelectorAll('.filt').forEach((el,i)=>el.classList.toggle('on',(i===0)===showTranslation));
+  const eBox=document.getElementById('exampleChips');
+  if(eBox) eBox.querySelectorAll('.filt').forEach(el=>el.classList.remove('on'));
+  if(eBox){
+    const idx={both:0,b2:1,c1:2}[examplePref]??0;
+    eBox.querySelectorAll('.filt')[idx]?.classList.add('on');
+  }
+}
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
   SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; curRootIdx=0; curGrammarIdx=0; grammarStats={};
@@ -583,7 +631,7 @@ async function startSent(){
     const word=await pickLevelWord();
     if(!word) throw new Error('no word available for level');
     const prompt=`你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${word}」
-這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。
+這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。也要避免選到會逼學生把單字硬轉換成不自然詞性/詞形的情境——例如單字是名詞 birth，不要選「某人出生了」這種中文情境，因為母語者這種情境會直接用 born（birth 的不同詞形，但意思上是不同的字），不會把 birth 硬動詞化寫成 be birthed；birth 應該選會自然用到名詞形式的情境（例如「自從她出生以來」「出生的消息」）。
 只輸出純 JSON（不要加 markdown 或其他文字）：
 {"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
     const[txt,dict]=await Promise.all([callClaude(prompt,1000),fetchDict(word)]);
@@ -609,11 +657,11 @@ async function renderSentQ(){
       <button class="btn play" id="pb" onclick="playW('${curSentQ.word}','${curSentQ.audioURL}')">🔊</button>
     </div>
     ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
-    ${curSentQ.translation?`<div class="sent-def">🇹🇼 ${curSentQ.translation}</div>`:''}
+    ${(showTranslation&&curSentQ.translation)?`<div class="sent-def">🇹🇼 ${curSentQ.translation}</div>`:''}
     <div class="prac-zh">${curSentQ.zh_sentence}</div>
     ${curSentQ.hint?`<div class="prac-hint">💡 提示：${curSentQ.hint}</div>`:''}
   </div>
-  <textarea class="prac-inp" id="sentInp" placeholder="用英文寫出你的翻譯..."></textarea>
+  <textarea class="prac-inp" id="sentInp" placeholder="用英文寫出你的翻譯..." onkeydown="submitOnCmdEnter(event,submitSent)"></textarea>
   <button class="prac-submit" id="sentBtn" onclick="submitSent()">提交答案 →</button>`;
 }
 
@@ -650,6 +698,7 @@ C2：近乎母語者水準，能運用細膩的語氣、慣用語、文化背景
 - 如果答案是不會（這個錯誤明顯集中出現在中文母語者身上）→ 才算中式英文。例如：漏掉冠詞或主詞動詞不一致（中文沒有冠詞、動詞也不隨人稱變化，中文母語者特別容易忽略，但母語有這些概念的語言如西班牙文、法文的學習者較少犯這種錯）、把中文語序直接套用到英文（例如中文「我很喜歡」的「很」放在動詞前面，寫成「I very like this」而不是「I like this very much」）、字面直譯中文片語或固定搭配、混用中文裡意思相近但英文要分開的介系詞（例如中文「在」同時對應到 in/at/during/on，中文母語者常常選錯）。
 
 chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔比，不是看 corrections 列了幾項就跳分數；如果句子裡的修正全部都不是源自中文思維，chinglish_percent 應該給很低甚至 0%，即使 corrections 裡列了好幾項。
+把一項錯誤算進中式英文之前，你必須能在心裡具體指出「中文原句裡對應的哪個字/哪個語法結構」被直譯了——只能泛泛地說「反映中文的習慣」但講不出具體對應到中文原句哪個部分，就不算中式英文，那通常代表這其實是英文本身的文法規則（該歸類到上面「答案是會」那一類）。
 
 以下狀況一律「不算」中式英文，不能因此扣分：
 - 用縮寫或全寫都可以，兩者一樣自然（例如 I am / I'm、do not / don't、it is / it's），不能因為沒縮寫就判定不自然或扣分。
@@ -661,10 +710,19 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。
-「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。
+「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
+每一項 corrections 寫完後務必自我檢查這三件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡。
+
+【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
+以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
+- 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
+- 用字比中文原意更籠統：中文講「高壓鍋」，學生只寫泛稱的 cooker；中文講「隔壁班」，學生寫成範圍更廣的 another class。
+- 省略了中文原句裡有意義的資訊：中文講「在菜市場買」，學生沒提到地點；中文講「買回家煮」，學生沒提到帶回家這個動作。
+只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西。
+寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,700);
+{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句）"}`,750);
     const r=parseJSON(txt);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
@@ -701,7 +759,7 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
     <div class="card-lbl">📝 原題</div>
     ${word?`<div class="prac-word-badge" style="margin-bottom:8px">📌 ${word}</div>`:''}
     ${def?`<div class="sent-def">${def}</div>`:''}
-    ${translation?`<div class="sent-def">🇹🇼 ${translation}</div>`:''}
+    ${(showTranslation&&translation)?`<div class="sent-def">🇹🇼 ${translation}</div>`:''}
     <div class="prac-zh" style="font-size:17px">${zh}</div>
     <div style="font-size:13px;color:#475569;margin-top:8px">你的答案：<span style="color:#94a3b8;font-style:italic">${userAns}</span></div>
   </div>
@@ -721,15 +779,19 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <div class="corr-fix">✓ ${c.fix}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:`<div style="color:#4ade80;font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
-    ${r.b2_example?`<div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">B2 範例句</div>
-      <div class="model-t">${r.b2_example}</div>
+    ${r.precision_note?`<div class="use-item" style="margin-top:12px"><span class="use-ico">🎯</span><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
+    ${(examplePref!=='c1'&&r.b2_example)?`<div class="model-box" style="margin-top:12px">
+      <div class="model-lbl">B2 範例句 <span style="font-weight:400;color:#475569">（點單字可查意思）</span></div>
+      <div class="model-t">${linkifyWords(r.b2_example)}</div>
     </div>`:''}
-    <div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">C1 範例句</div>
-      <div class="model-t">${r.c1_example}</div>
-    </div>
+    ${examplePref!=='b2'?`<div class="model-box" style="margin-top:12px">
+      <div class="model-lbl">C1 範例句 <span style="font-weight:400;color:#475569">（點單字可查意思）</span></div>
+      <div class="model-t">${linkifyWords(r.c1_example)}</div>
+    </div>`:''}
     ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
+    <div id="followUpBox" style="margin-top:12px">
+      <button class="next-btn" style="font-size:12px;padding:8px" onclick="showFollowUpForm()">❓ 針對這題問文法問題</button>
+    </div>
     <div id="reportBox" style="margin-top:12px">
       <button class="next-btn" id="reportBtn" style="font-size:12px;padding:8px" onclick="showReportForm()">🚩 這題評分有問題？回報給我</button>
     </div>
@@ -740,9 +802,43 @@ function showReportForm(){
   const box=document.getElementById('reportBox');
   if(!box) return;
   box.innerHTML=`
-    <textarea class="prac-inp" id="reportReason" style="min-height:60px;margin-bottom:8px;font-size:13px" placeholder="這題哪裡有問題？（選填，寫清楚一點比較好排查，例如：這句修正不自然、中式英文分數不合理...）"></textarea>
+    <textarea class="prac-inp" id="reportReason" style="min-height:60px;margin-bottom:8px;font-size:13px" placeholder="這題哪裡有問題？（選填，寫清楚一點比較好排查，例如：這句修正不自然、中式英文分數不合理...）" onkeydown="submitOnCmdEnter(event,reportSentIssue)"></textarea>
     <button class="next-btn" style="font-size:12px;padding:8px" onclick="reportSentIssue()">送出回報</button>`;
   document.getElementById('reportReason').focus();
+}
+
+function showFollowUpForm(){
+  const box=document.getElementById('followUpBox');
+  if(!box) return;
+  box.innerHTML=`
+    <textarea class="prac-inp" id="followUpQ" style="min-height:50px;margin-bottom:8px;font-size:13px" placeholder="針對這題還有什麼文法問題想問？" onkeydown="submitOnCmdEnter(event,askFollowUp)"></textarea>
+    <button class="next-btn" style="font-size:12px;padding:8px" onclick="askFollowUp()">送出提問</button>`;
+  document.getElementById('followUpQ').focus();
+}
+
+async function askFollowUp(){
+  if(!curResultCtx) return;
+  const qEl=document.getElementById('followUpQ');
+  const q=qEl?qEl.value.trim():'';
+  if(!q){toast('⚠️ 請先輸入問題');return;}
+  const box=document.getElementById('followUpBox');
+  box.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">思考中...</div></div>`;
+  try{
+    const{word,zh,userAns,r}=curResultCtx;
+    const ans=await callClaude(`你是英語文法教學老師。學生正在練習造句，以下是這題的完整脈絡：
+中文原句：「${zh}」
+目標單字：${word}
+學生答案：「${userAns}」
+批改結果：CEFR ${r.cefr}，修正版：${r.corrected_sentence||'（無需修正）'}
+
+學生現在有個文法問題想問：「${q}」
+請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。只輸出純文字，不要 JSON、不要 markdown。`,500);
+    box.innerHTML=`<div class="use-item" style="border:none;padding:0"><span class="use-ico">❓</span><div><div class="use-lbl">你的提問：${q}</div><div class="use-t" style="margin-top:4px">${ans.trim()}</div></div></div>
+    <button class="next-btn" style="margin-top:8px;font-size:12px;padding:8px" onclick="showFollowUpForm()">再問一次</button>`;
+  }catch(e){
+    toast('❌ 提問失敗，請重試');
+    showFollowUpForm();
+  }
 }
 
 function reportSentIssue(){
@@ -753,8 +849,8 @@ function reportSentIssue(){
   REPORTS.unshift({
     word,level,zh_sentence:zh,userAns,
     cefr:r.cefr,chinglish_percent:r.chinglish_percent,corrected_sentence:r.corrected_sentence,
-    corrections:r.corrections||[],b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
-    reason,
+    corrections:r.corrections||[],precision_note:r.precision_note||'',b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
+    reason,reviewed:false,
     ts:Date.now()
   });
   lsSet('c_reports',JSON.stringify(REPORTS));
@@ -777,7 +873,7 @@ function saveSentHistory(userAns,r){
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent,
-    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
+    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
   });
   lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
@@ -790,7 +886,7 @@ async function renderSentHome(){
   <div class="empty">
     <div class="empty-ico">✍️</div>
     <div class="empty-h">準備好練習了嗎？</div>
-    <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 10 個單字</div>
+    <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 ${dailyGoal} 個單字</div>
     <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
   </div>`;
 }
@@ -860,7 +956,7 @@ function renderEssayQ(){
     <span class="wc-lbl">字數</span>
     <span id="wcNum" class="wc-low">0 / 150+</span>
   </div>
-  <textarea class="essay-inp" id="essayInp" placeholder="在此輸入你的英文作文..." oninput="updateWC()"></textarea>
+  <textarea class="essay-inp" id="essayInp" placeholder="在此輸入你的英文作文..." oninput="updateWC()" onkeydown="submitOnCmdEnter(event,submitEssay)"></textarea>
   <div id="progressCheckBox"></div>
   <div style="display:flex;gap:10px">
     <button class="prac-submit" id="checkBtn" style="background:#131b2e;color:#94a3b8;flex:1" onclick="checkEssayProgress()">✓ 檢查目前進度</button>
@@ -1413,6 +1509,30 @@ function parseJSON(txt){
   return JSON.parse(txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim());
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2300);}
+function submitOnCmdEnter(e,fn){ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); fn(); } }
+
+/* ── 範例句單字點擊查意思 ── */
+function linkifyWords(text){
+  if(!text) return text;
+  return text.split(/(\s+)/).map(tok=>{
+    const clean=tok.replace(/^[^a-zA-Z']+|[^a-zA-Z']+$/g,'');
+    if(!clean||clean.length<2) return tok;
+    const esc=clean.replace(/'/g,"\\'");
+    return tok.replace(clean,`<span class="lookup-word" onclick="quickLookup('${esc}')">${clean}</span>`);
+  }).join('');
+}
+function lookupToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('on','wrap');
+  clearTimeout(t._hideTimer);
+  t._hideTimer=setTimeout(()=>t.classList.remove('on','wrap'),4500);
+}
+async function quickLookup(word){
+  lookupToast(`🔍 查詢中：${word}...`);
+  const d=await fetchDict(word.toLowerCase());
+  const def=d?.meanings?.[0]?.definitions?.[0]?.definition;
+  lookupToast(def?`${word}：${def}`:`找不到「${word}」的解釋`);
+}
 </script>
 </body>
 </html>
