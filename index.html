@@ -931,6 +931,7 @@ function showSentHistory(){
     <div class="hist-badges">
       ${h.level?`<span class="score-badge cefr-badge">Lv ${h.level}</span>`:''}
       <span class="score-badge cefr-badge">${h.cefr}</span>
+      ${typeof h.grammar_accuracy==='number'?`<span class="score-badge ${gAccClass(h.grammar_accuracy)}">文法 ${h.grammar_accuracy}%</span>`:''}
       <span class="score-badge ${chingClass(h.chinglish_percent)}">中式 ${h.chinglish_percent}%</span>
     </div>
   </div>`).join('')}`;
