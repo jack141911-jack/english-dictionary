@@ -634,6 +634,8 @@ async function startSent(){
     const pos=picked.pos;
     const prompt=`你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${word}」
 這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。也要避免選到會逼學生把單字硬轉換成不自然詞性/詞形的情境——例如單字是名詞 birth，不要選「某人出生了」這種中文情境，因為母語者這種情境會直接用 born（birth 的不同詞形，但意思上是不同的字），不會把 birth 硬動詞化寫成 be birthed；birth 應該選會自然用到名詞形式的情境（例如「自從她出生以來」「出生的消息」）。
+這個原則同樣適用於「同一個字根、不同詞性變化形」的情況，不只是換成完全不同的字：例如單字是形容詞 continuous，不要選「持續不斷地做某事」這種情境，因為母語者這種情境會用副詞 continuously 修飾動詞（例如 improving continuously），不會用形容詞 continuous；continuous 應該選形容詞自然修飾名詞的情境（例如「持續的努力」「不間斷的過程」）。單字是名詞 economy，不要選「維持經濟效益」這種需要形容詞 economic 修飾名詞的情境，economy 應該選這個字本身以名詞身份自然出現的情境（例如「這個國家的經濟」「省錢」義的 economy）。
+這個單字的詞性是「${posLabel(pos)}」。選好情境後自我檢查一次：母語者翻譯這句中文時，會不會自然用到「${word}」這個字、而且詞性剛好是「${posLabel(pos)}」——如果自然翻譯出來的其實是這個字的其他詞性變化形（形容詞→副詞、名詞→形容詞、名詞→動詞等），就要換一個情境重選。
 這個單字目前的練習等級是「${curLevel}」，中文句子的「情境」複雜度要跟著這個等級走，但目標是「自然翻譯出來就會用到對應句型」，不是「硬性要求句型」：
 - A1/A2：維持現況，單一子句、簡單直述情境。
 - B1：情境自然包含時間/原因/對比關係（例如「他到職之後...」「因為...所以...」「雖然...但...」），讓母語者翻譯時自然會用連接詞或現在完成式，不是刻意湊長句。
@@ -713,13 +715,21 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 - 學生正確使用了被要求的目標單字「${curSentQ.word}」，即使某些情境下另有更常見的同義字。
 - 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
 
+【文法正確度（grammar_accuracy）】
+這是一個獨立的百分比，純粹反映「這句英文文法對不對、錯多嚴重」，跟上面的 CEFR 等級（句型複雜度，句子簡單也可以是滿分）、chinglish_percent（錯誤是不是源自中文思維）完全分開，不能互相影響。
+從 100 分開始計算：corrections 是空陣列（完全沒有文法錯誤）就是 100 分。如果 corrections 非空，依每一項錯誤對「文法對不對」的影響程度扣分，不是看列了幾項就跳分數：
+- 輕微（母語者聽了完全聽得懂，只是形式上不夠嚴謹，例如慣用搭配的介系詞選擇、可數/不可數名詞的細節）：每項扣 5-10 分。
+- 中度（有明確文法錯誤，母語者聽了會注意到，但整句意思還是聽得懂，例如時態誤用、冠詞遺漏、單複數或主詞動詞不一致）：每項扣 10-20 分。
+- 嚴重（違反核心文法規則或影響理解，母語者聽了會覺得不通順甚至誤解語意，例如動詞形式錯到改變句意、句子結構破碎不成句）：每項扣 20-35 分。
+把所有 corrections 項目依上面標準扣完加總，結果不能低於 0。precision_note 裡的內容不算文法錯誤，不影響這個分數。
+
 【範例句規則（很重要）】
 「b2_example」跟「c1_example」都必須是翻譯「同一個中文原句」「${curSentQ.zh_sentence}」的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字「${curSentQ.word}」（或其自然變化形），不可以換成同義字。
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
-每一項 corrections 寫完後務必自我檢查這三件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡。
+每一項 corrections 寫完後務必自我檢查這四件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好。
 
 【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
 以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
@@ -730,7 +740,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${curSentQ.word}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
 寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`,750);
+{"cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`,750);
     const r=parseJSON(txt);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
@@ -757,6 +767,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 }
 
 function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score-needs'; }
+function gAccClass(p){ return p>=90?'score-excellent':p>=70?'score-good':'score-needs'; }
 
 let curResultCtx=null;
 function sentResultHTML(word,zh,userAns,def,translation,level,r){
@@ -774,6 +785,7 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
   <div class="prac-card">
     <div class="score-ring">
       <span class="score-badge cefr-badge">${r.cefr}</span>
+      ${typeof r.grammar_accuracy==='number'?`<span class="score-badge ${gAccClass(r.grammar_accuracy)}">文法正確度 ${r.grammar_accuracy}%</span>`:''}
       <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
       ${mastered?`<span class="score-badge score-excellent">🎉 已精通</span>`:''}
     </div>
@@ -856,7 +868,7 @@ function reportSentIssue(){
   const{word,zh,userAns,level,r}=curResultCtx;
   REPORTS.unshift({
     word,level,zh_sentence:zh,userAns,
-    cefr:r.cefr,chinglish_percent:r.chinglish_percent,corrected_sentence:r.corrected_sentence,
+    cefr:r.cefr,chinglish_percent:r.chinglish_percent,grammar_accuracy:r.grammar_accuracy,corrected_sentence:r.corrected_sentence,
     corrections:r.corrections||[],precision_note:r.precision_note||'',b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
     reason,reviewed:false,
     ts:Date.now()
@@ -880,7 +892,7 @@ function saveSentHistory(userAns,r){
   SENT_HISTORY.unshift({
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
-    userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent,
+    userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
   });
