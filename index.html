@@ -166,6 +166,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .prac-word-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .prac-word-row .prac-word-badge{margin-bottom:0}
 .level-progress{display:flex;justify-content:space-between;font-size:12px;color:#64748b;margin-bottom:14px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
+.stat-tile{background:#0a0f1e;border-radius:12px;padding:12px 8px;text-align:center}
+.stat-label{font-size:10px;color:#64748b;margin-bottom:5px;letter-spacing:.3px}
+.stat-value{font-size:21px;font-weight:700;color:#e2e8f0}
+.dash-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.dash-bar-date{font-size:11px;color:#64748b;width:38px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.dash-bar-track{flex:1;background:#0a0f1e;border-radius:10px;height:18px;position:relative;overflow:hidden}
+.dash-bar-fill{height:100%;border-radius:10px;min-width:3px}
+.dash-bar-val{font-size:11px;color:#94a3b8;width:64px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
 
 /* ── 寫作 ── */
 .essay-type{font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:.5px;margin-bottom:10px}
@@ -224,7 +233,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <h2>✍️ 造句練習</h2>
           <p>選 CEFR 等級，依常用單字出題</p>
         </div>
-        <button class="hist-btn" onclick="showSentHistory()">📜 歷史</button>
+        <div style="display:flex;gap:8px">
+          <button class="hist-btn" onclick="showDashboard()">📊 進度</button>
+          <button class="hist-btn" onclick="showSentHistory()">📜 歷史</button>
+        </div>
       </div>
       <div class="prac-body" id="pracBody">
         <div class="empty">
@@ -734,14 +746,14 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
-每一項 corrections 寫完後務必自我檢查這四件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好。
+每一項 corrections 寫完後務必自我檢查這五件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）。
 
 【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
 以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
 - 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
 - 用字比中文原意更籠統：中文講「高壓鍋」，學生只寫泛稱的 cooker；中文講「隔壁班」，學生寫成範圍更廣的 another class。
 - 省略了中文原句裡有意義的資訊：中文講「在菜市場買」，學生沒提到地點；中文講「買回家煮」，學生沒提到帶回家這個動作。
-只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。
+只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${curSentQ.word}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
 寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 只輸出純 JSON（不要加 markdown）：
@@ -916,6 +928,154 @@ async function renderSentHome(){
     <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 ${dailyGoal} 個單字</div>
     <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
   </div>`;
+}
+
+function gAccColor(p){ return p>=90?'#22c55e':p>=70?'#3b82f6':'#ef4444'; }
+
+async function dashboardHTML(){
+  ensureDailyLevelCount();
+  if(!SENT_HISTORY.length) return `<div class="empty"><div class="empty-ico">📊</div><div class="empty-h">還沒有資料</div><div class="empty-p">完成幾題造句練習後，這裡會顯示你的進度分析</div></div>`;
+
+  const dayKey=h=>new Date(h.ts).toISOString().slice(0,10);
+  const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
+  const t=todayStr();
+  const todayEntries=SENT_HISTORY.filter(h=>dayKey(h)===t);
+  const todayAvgGA=avg(todayEntries,'grammar_accuracy');
+  const todayAvgCH=avg(todayEntries,'chinglish_percent');
+  const todayByLevel=CEFR_LEVELS.map(l=>`${l}:${dailyLevelCount.byLevel?.[l]?.length||0}`).join(' ');
+
+  const levelRows=CEFR_LEVELS.map(l=>{
+    const arr=SENT_HISTORY.filter(h=>h.level===l);
+    return {level:l,count:arr.length,ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
+  }).filter(r=>r.count>0);
+  const rankedByGA=levelRows.filter(r=>r.ga!=null).sort((a,b)=>b.ga-a.ga);
+  const bestLevel=rankedByGA[0], worstLevel=rankedByGA[rankedByGA.length-1];
+
+  const catRanking=Object.entries(grammarStats).sort((a,b)=>b[1]-a[1]);
+  const worstCats=catRanking.slice(0,5);
+  const bestCats=[...catRanking].reverse().slice(0,3);
+  const topWeakCat=catRanking[0];
+
+  // 至今整體進度：各等級精通字數 / 該等級總字庫（平行查 Supabase，有快取）
+  const totals=await Promise.all(CEFR_LEVELS.map(l=>getLevelTotal(l)));
+  const masteredRows=CEFR_LEVELS.map((l,i)=>({level:l,mastered:(levelProgress[l]?.mastered||[]).length,total:totals[i]}));
+  const totalMastered=masteredRows.reduce((s,r)=>s+r.mastered,0);
+  const totalWords=masteredRows.reduce((s,r)=>s+r.total,0);
+
+  // 哪些錯誤沒有改善：練習紀錄依時間切前半/後半，比較每題錯誤發生率有沒有下降
+  const sorted=[...SENT_HISTORY].sort((a,b)=>a.ts-b.ts);
+  let noImprove=[];
+  if(sorted.length>=6){
+    const mid=Math.floor(sorted.length/2);
+    const rateOf=arr=>{ const n=arr.length||1; const r={}; for(const h of arr){ for(const c of (h.corrections||[])){ if(c.category) r[c.category]=(r[c.category]||0)+1; } } const out={}; for(const k in r) out[k]=r[k]/n; return out; };
+    const oldRate=rateOf(sorted.slice(0,mid)), newRate=rateOf(sorted.slice(mid));
+    noImprove=Object.keys(oldRate)
+      .filter(cat=>oldRate[cat]>0 && (newRate[cat]||0)>=oldRate[cat])
+      .map(cat=>({cat,older:oldRate[cat],newer:newRate[cat]||0}))
+      .sort((a,b)=>b.newer-a.newer);
+  }
+
+  // 最近 14 天趨勢
+  const days=[]; for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  const trend=days.map(ds=>{ const arr=SENT_HISTORY.filter(h=>dayKey(h)===ds); return {date:ds,count:arr.length,ga:avg(arr,'grammar_accuracy')}; });
+  const maxCount=Math.max(1,...trend.map(d=>d.count));
+  const todayDs=todayStr(), yestDs=new Date(Date.now()-86400000).toISOString().slice(0,10);
+
+  const summary=[];
+  summary.push(`<div class="use-item"><span class="use-ico">📅</span><div><div class="use-lbl">今天</div><div class="use-t">已練習 ${todayEntries.length} 題${todayAvgGA!=null?`，平均文法正確度 ${todayAvgGA}%`:''}</div></div></div>`);
+  if(bestLevel) summary.push(`<div class="use-item"><span class="use-ico">👍</span><div><div class="use-lbl" style="color:#4ade80">表現最好</div><div class="use-t">${bestLevel.level} 等級，文法正確度 ${bestLevel.ga}%</div></div></div>`);
+  if(worstLevel&&(!bestLevel||worstLevel.level!==bestLevel.level)) summary.push(`<div class="use-item"><span class="use-ico">⚠️</span><div><div class="use-lbl" style="color:#f87171">待加強</div><div class="use-t">${worstLevel.level} 等級，文法正確度 ${worstLevel.ga}%</div></div></div>`);
+  if(topWeakCat) summary.push(`<div class="use-item"><span class="use-ico">🎯</span><div><div class="use-lbl" style="color:#f59e0b">最常出錯</div><div class="use-t">「${topWeakCat[0]}」已出現 ${topWeakCat[1]} 次</div></div></div>`);
+  if(noImprove.length) summary.push(`<div class="use-item"><span class="use-ico">📉</span><div><div class="use-lbl" style="color:#f87171">沒有改善</div><div class="use-t">「${noImprove[0].cat}」最近沒有變少（近期每題 ${noImprove[0].newer.toFixed(1)} 次，之前每題 ${noImprove[0].older.toFixed(1)} 次）</div></div></div>`);
+
+  return `
+  <div class="prac-card">
+    <div class="card-lbl">📌 總結</div>
+    ${summary.join('')}
+  </div>
+
+  <div class="prac-card">
+    <div class="card-lbl">📊 至今整體進度</div>
+    <div class="stat-grid" style="margin-bottom:12px">
+      <div class="stat-tile"><div class="stat-label">累計練習</div><div class="stat-value">${SENT_HISTORY.length}</div></div>
+      <div class="stat-tile"><div class="stat-label">總精通字數</div><div class="stat-value">${totalMastered}</div></div>
+      <div class="stat-tile"><div class="stat-label">總字庫</div><div class="stat-value">${totalWords||'—'}</div></div>
+    </div>
+    ${masteredRows.map(r=>`<div class="use-item">
+      <span class="use-ico">${r.level}</span>
+      <div style="flex:1"><div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div></div>
+    </div>`).join('')}
+  </div>
+
+  <div class="prac-card">
+    <div class="card-lbl">📅 今日表現</div>
+    <div class="stat-grid">
+      <div class="stat-tile"><div class="stat-label">今日題數</div><div class="stat-value">${todayEntries.length}</div></div>
+      <div class="stat-tile"><div class="stat-label">平均文法正確度</div><div class="stat-value">${todayAvgGA!=null?todayAvgGA+'%':'—'}</div></div>
+      <div class="stat-tile"><div class="stat-label">平均中式英文</div><div class="stat-value">${todayAvgCH!=null?todayAvgCH+'%':'—'}</div></div>
+    </div>
+    <div class="use-t" style="margin-top:10px">今日各等級：${todayByLevel}</div>
+  </div>
+
+  ${levelRows.length?`<div class="prac-card">
+    <div class="card-lbl">🎯 各等級表現（累計）</div>
+    ${levelRows.map(r=>`<div class="use-item">
+      <span class="use-ico">${r.level}</span>
+      <div style="flex:1">
+        <div class="use-lbl">練習 ${r.count} 題</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          ${r.ga!=null?`<span class="score-badge ${gAccClass(r.ga)}" style="padding:3px 10px;font-size:11px">文法 ${r.ga}%</span>`:''}
+          ${r.ch!=null?`<span class="score-badge ${chingClass(r.ch)}" style="padding:3px 10px;font-size:11px">中式 ${r.ch}%</span>`:''}
+        </div>
+      </div>
+    </div>`).join('')}
+  </div>`:''}
+
+  ${worstCats.length?`<div class="prac-card">
+    <div class="card-lbl">⚠️ 文法待加強排行</div>
+    ${worstCats.map(([cat,count])=>{
+      const idx=GRAMMAR_POINTS.findIndex(g=>g.category===cat);
+      return `<div class="hist-item" ${idx>=0?`onclick="jumpToGrammar(${idx});switchTab('grammar')"`:''}>
+        <div class="hist-zh">${cat}</div>
+        <div class="hist-ans">已出現 ${count} 次錯誤${idx>=0?' · 點擊前往學習 →':''}</div>
+      </div>`;
+    }).join('')}
+  </div>
+  <div class="prac-card">
+    <div class="card-lbl">✅ 錯誤較少的分類（相對其他分類，僅供參考）</div>
+    ${bestCats.map(([cat,count])=>`<div class="hist-item" style="cursor:default">
+      <div class="hist-zh">${cat}</div>
+      <div class="hist-ans">${count} 次錯誤</div>
+    </div>`).join('')}
+  </div>`:''}
+
+  ${noImprove.length?`<div class="prac-card">
+    <div class="card-lbl">📉 沒有改善的錯誤類型</div>
+    <div class="use-t" style="margin-bottom:8px">比較最近一半跟前一半的練習紀錄，這幾類錯誤發生的比例沒有下降：</div>
+    ${noImprove.map(r=>`<div class="hist-item" style="cursor:default">
+      <div class="hist-zh">${r.cat}</div>
+      <div class="hist-ans">之前每題 ${r.older.toFixed(2)} 次 → 最近每題 ${r.newer.toFixed(2)} 次</div>
+    </div>`).join('')}
+  </div>`:''}
+
+  <div class="prac-card">
+    <div class="card-lbl">📈 最近 14 天練習量與文法正確度</div>
+    ${trend.map(d=>{
+      const label=d.date===todayDs?'今天':d.date===yestDs?'昨天':d.date.slice(5);
+      const barColor=d.ga!=null?gAccColor(d.ga):'#1e293b';
+      return `<div class="dash-bar-row">
+        <span class="dash-bar-date">${label}</span>
+        <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${d.count?(d.count/maxCount*100):0}%;background:${barColor}"></div></div>
+        <span class="dash-bar-val">${d.count?`${d.count}題${d.ga!=null?` ${d.ga}%`:''}`:'–'}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function showDashboard(){
+  document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button><div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">計算中...</div></div>`;
+  const html=await dashboardHTML();
+  document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button>`+html;
 }
 
 function showSentHistory(){
