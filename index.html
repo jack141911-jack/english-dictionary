@@ -576,7 +576,12 @@ let levelTotalCache={};
 const CEFR_LEVELS=['A1','A2','B1','B2','C1','C2'];
 function cefrRank(lvl){ const i=CEFR_LEVELS.indexOf(lvl); return i<0?0:i; }
 
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+// 一律以台北時間(Asia/Taipei)判斷「今天」，避免 UTC 造成的日期偏移（凌晨0-8點誤算成昨天）
+function taipeiDateStr(ts){
+  const d = (ts==null) ? new Date() : new Date(ts);
+  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
+}
+function todayStr(){ return taipeiDateStr(); }
 
 function ensureDailyLevelCount(){
   const t=todayStr();
@@ -936,7 +941,7 @@ async function dashboardHTML(){
   ensureDailyLevelCount();
   if(!SENT_HISTORY.length) return `<div class="empty"><div class="empty-ico">📊</div><div class="empty-h">還沒有資料</div><div class="empty-p">完成幾題造句練習後，這裡會顯示你的進度分析</div></div>`;
 
-  const dayKey=h=>new Date(h.ts).toISOString().slice(0,10);
+  const dayKey=h=>taipeiDateStr(h.ts);
   const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
   const t=todayStr();
   const todayEntries=SENT_HISTORY.filter(h=>dayKey(h)===t);
@@ -976,10 +981,10 @@ async function dashboardHTML(){
   }
 
   // 最近 14 天趨勢
-  const days=[]; for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  const days=[]; const baseUTC=new Date(todayStr()+'T12:00:00Z'); for(let i=13;i>=0;i--){ days.push(taipeiDateStr(baseUTC.getTime()-i*86400000)); }
   const trend=days.map(ds=>{ const arr=SENT_HISTORY.filter(h=>dayKey(h)===ds); return {date:ds,count:arr.length,ga:avg(arr,'grammar_accuracy')}; });
   const maxCount=Math.max(1,...trend.map(d=>d.count));
-  const todayDs=todayStr(), yestDs=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  const todayDs=todayStr(), yestDs=taipeiDateStr(baseUTC.getTime()-86400000);
 
   const summary=[];
   summary.push(`<div class="use-item"><span class="use-ico">📅</span><div><div class="use-lbl">今天</div><div class="use-t">已練習 ${todayEntries.length} 題${todayAvgGA!=null?`，平均文法正確度 ${todayAvgGA}%`:''}</div></div></div>`);
