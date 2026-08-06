@@ -697,6 +697,53 @@ async function renderSentQ(){
   <button class="prac-submit" id="sentBtn" onclick="submitSent()">提交答案 →</button>`;
 }
 
+// 目標單字（或其自然變化形，如時態、單複數）有沒有出現在文字裡——粗略字幹比對即可
+function hasTargetWord(text,word){
+  if(!text) return true;
+  const t=text.toLowerCase();
+  const w=(word||'').toLowerCase().trim();
+  if(!w) return true;
+  const stems=new Set([w]);
+  if(w.length>3){ stems.add(w.slice(0,-1)); stems.add(w.slice(0,-2)); stems.add(w.slice(0,-3)); }
+  return [...stems].some(s=>s&&t.includes(s));
+}
+// b2_example/c1_example/corrected_sentence 依 prompt 規則都必須用到目標單字，這裡檢查 AI 有沒有真的照做
+function missingTargetWordFields(r,word){
+  const miss=[];
+  if(r.b2_example&&!hasTargetWord(r.b2_example,word)) miss.push('b2_example');
+  if(r.c1_example&&!hasTargetWord(r.c1_example,word)) miss.push('c1_example');
+  if(r.corrected_sentence&&!hasTargetWord(r.corrected_sentence,word)) miss.push('corrected_sentence');
+  return miss;
+}
+function normLoose(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').trim().replace(/\s+/g,' '); }
+// corrections[].error 依 prompt 規則必須是學生答案裡逐字出現的片段，這裡檢查 AI 有沒有捏造
+function fabricatedCorrections(r,ans){
+  const na=normLoose(ans);
+  return (r.corrections||[]).filter(c=>c.error&&!na.includes(normLoose(c.error))).map(c=>c.error);
+}
+// corrections[].fix 依 754(2) 不能把 error 本身也列成可接受答案，那代表這根本不是錯誤
+function fixDuplicatesError(r){
+  return (r.corrections||[]).filter(c=>{
+    if(!c.error||!c.fix) return false;
+    const err=normLoose(c.error);
+    return c.fix.split(/或|\/|,|，/).map(normLoose).some(opt=>opt&&opt===err);
+  }).map(c=>c.error);
+}
+// why 依 754(3)(4) 不能用「跟主要子句時態一致」這種站不住腳的說法帶過，也不能說「兩者都對/都可以」卻還留在 corrections 裡
+function badReasoningCorrections(r){
+  const bannedWhy=/主要子句[^。]{0,25}(一致|吻合)|時態[^。]{0,15}主要子句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤/;
+  return (r.corrections||[]).filter(c=>c.why&&bannedWhy.test(c.why)).map(c=>c.error);
+}
+// tip 依 762 規定，如果沒有真的更好的說法就該留空，不能寫出「其實兩個一樣好」這種等於承認沒建議的內容
+function weakTip(r){
+  const weakPattern=/同樣道地|同樣自然|一樣道地|一樣自然|沒有明顯差異|沒有太大差異/;
+  return r.tip&&weakPattern.test(r.tip)?['tip']:[];
+}
+// 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則，任一項不合格就值得重打一次
+function gradeResultIssues(r,ans,word){
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r)];
+}
+
 async function submitSent(){
   if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   const ans=document.getElementById('sentInp').value.trim();
@@ -704,7 +751,7 @@ async function submitSent(){
   const btn=document.getElementById('sentBtn');
   btn.disabled=true;btn.textContent='Claude 批改中...';
   try{
-    const txt=await callClaude(`你是英語口語練習老師。
+    const gradePrompt=`你是英語口語練習老師。
 中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
 學生答案：「${ans}」
@@ -753,6 +800,8 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
 每一項 corrections 寫完後務必自我檢查這五件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）。
 
+以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${ans}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
+
 【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
 以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
 - 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
@@ -761,9 +810,17 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${curSentQ.word}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
 寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
+
+【整體講評（overall）】
+在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
 只輸出純 JSON（不要加 markdown）：
-{"cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`,750);
-    const r=parseJSON(txt);
+{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+    let r;
+    for(let attempt=0;attempt<2;attempt++){
+      const txt=await callClaude(gradePrompt,750);
+      r=parseJSON(txt);
+      if(gradeResultIssues(r,ans,curSentQ.word).length===0) break;
+    }
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
       if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
@@ -813,7 +870,8 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
       ${mastered?`<span class="score-badge score-excellent">🎉 已精通</span>`:''}
     </div>
-    ${r.corrected_sentence?`<div class="model-box">
+    ${r.overall?`<div style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-top:12px;padding:10px 12px;background:rgba(96,165,250,.08);border-radius:10px">${r.overall}</div>`:''}
+    ${r.corrected_sentence?`<div class="model-box" style="margin-top:12px">
       <div class="model-lbl">修正版（基於你的句子）</div>
       <div class="model-t">${r.corrected_sentence}</div>
     </div>`:''}
@@ -908,6 +966,7 @@ async function renderSentResult(userAns,r){
   const bar=await levelBarHTML();
   document.getElementById('pracBody').innerHTML=bar
     +sentResultHTML(curSentQ.word,curSentQ.zh_sentence,userAns,curSentQ.definition,curSentQ.translation,curSentQ.level,r)
+    +(r.corrections?.length?`<button class="next-btn" style="background:transparent" onclick="renderSentQ()">✏️ 重寫這一題</button>`:'')
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
 
