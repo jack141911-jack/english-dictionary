@@ -73,7 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .use-lbl{font-size:10px;font-weight:800;color:#f59e0b;margin-bottom:4px;letter-spacing:.3px}
 .use-t{font-size:13px;color:#64748b;line-height:1.6}
 
-/* 等級 chips（造句/字根共用）*/
+/* 等級 chips（造句共用）*/
 .fav-filter{display:flex;gap:7px;margin-top:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .fav-filter::-webkit-scrollbar{display:none}
 .filt{background:#131b2e;border:1px solid #1e293b;color:#64748b;padding:5px 13px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:all .15s}
@@ -271,22 +271,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
       </div>
     </div>
 
-    <!-- ROOT panel -->
-    <div id="rootPanel" class="panel" style="display:none;flex-direction:column">
-      <div class="prac-hd">
-        <h2>🧩 字根字首字尾</h2>
-        <p>學習常見字根，看懂生字的意思</p>
-      </div>
-      <div class="prac-body" id="rootBody">
-        <div class="empty">
-          <div class="empty-ico">🧩</div>
-          <div class="empty-h">從字根拆解單字</div>
-          <div class="empty-p">學會常見字首/字根/字尾<br>看到生字也能猜出大概意思</div>
-          <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderRootHome()">開始學習 →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- GRAMMAR panel -->
     <div id="grammarPanel" class="panel" style="display:none;flex-direction:column">
       <div class="prac-hd">
@@ -370,7 +354,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <span class="set-ico">📖</span>
             <div class="set-body2">
               <div class="set-lbl">英語學習工具 Phase 4</div>
-              <div class="set-sub">造句 · 作文 · 字根 · 跨裝置同步</div>
+              <div class="set-sub">造句 · 作文 · 跨裝置同步</div>
             </div>
           </div>
           <div class="set-row">
@@ -391,7 +375,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <span class="set-ico">🗑️</span>
             <div class="set-body2">
               <div class="set-lbl set-danger">清除所有資料</div>
-              <div class="set-sub">清除造句/作文歷史、等級與字根進度</div>
+              <div class="set-sub">清除造句/作文歷史與等級進度</div>
             </div>
           </div>
         </div>
@@ -407,9 +391,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
     </button>
     <button class="tab" id="t-essay" onclick="switchTab('essay')">
       <span class="tab-ic">📝</span><span class="tab-lb">寫作</span>
-    </button>
-    <button class="tab" id="t-root" onclick="switchTab('root')">
-      <span class="tab-ic">🧩</span><span class="tab-lb">字根</span>
     </button>
     <button class="tab" id="t-grammar" onclick="switchTab('grammar')">
       <span class="tab-ic">📐</span><span class="tab-lb">文法</span>
@@ -518,10 +499,10 @@ function authResetLocalIfNewUser(){
   if(!uid) return;
   const lastUid=lsGet('c_last_uid','');
   if(lastUid && lastUid!==uid){
-    // 只重設這裡：curRootIdx/viewRootIdx/curGrammarIdx/viewGrammarIdx/grammarStats/levelTotalCache
-    // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（字根/文法區塊），這裡不能直接賦值
+    // 只重設這裡：curGrammarIdx/viewGrammarIdx/grammarStats/chinglishStats/levelTotalCache
+    // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（文法區塊），這裡不能直接賦值
     // （會撞到 let 的 TDZ），清掉 localStorage 就夠了，它們宣告時會自己用清空後的預設值初始化。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_root_progress','c_grammar_progress','c_grammar_stats'].forEach(lsDel);
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_progress','c_grammar_stats','c_chinglish_stats'].forEach(lsDel);
     SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
   }
   lsSet('c_last_uid',uid);
@@ -571,8 +552,8 @@ async function authSubmit(){
 
 async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
 async function sbSet(k,v){try{const t=await authToken();if(!t)return;await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[sh,eh,lp,dl,rp,gp,gs,rpts]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('rootprogress'),sbGet('grammarprogress'),sbGet('grammarstats'),sbGet('reports')]);if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}}if(rp){const remote=JSON.parse(rp);if((remote.index||0)>curRootIdx){curRootIdx=remote.index;lsSet('c_root_progress',String(curRootIdx));}}if(gp){const remote=JSON.parse(gp);if((remote.index||0)>curGrammarIdx){curGrammarIdx=remote.index;lsSet('c_grammar_progress',String(curGrammarIdx));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
-function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('rootprogress',JSON.stringify({index:curRootIdx})).catch(()=>{});sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});}
+async function syncFromCloud(){try{const[sh,eh,lp,dl,gp,gs,cs,rpts]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarprogress'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports')]);if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}}if(gp){const remote=JSON.parse(gp);if((remote.index||0)>curGrammarIdx){curGrammarIdx=remote.index;lsSet('c_grammar_progress',String(curGrammarIdx));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});}
 
 /* ── STATE ── */
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
@@ -660,12 +641,11 @@ function copyW(w){ navigator.clipboard.writeText(w).then(()=>toast(`✓ 已複�
 /* ── TABS ── */
 function switchTab(tab){
   curTab=tab;
-  ['prac','essay','root','grammar','set'].forEach(t=>{
+  ['prac','essay','grammar','set'].forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('on',t===tab);
   });
   document.getElementById('pracPanel').style.display    = tab==='prac'    ? 'flex' : 'none';
   document.getElementById('essayPanel').style.display   = tab==='essay'   ? 'flex' : 'none';
-  document.getElementById('rootPanel').style.display     = tab==='root'    ? 'flex' : 'none';
   document.getElementById('grammarPanel').style.display  = tab==='grammar' ? 'flex' : 'none';
   document.getElementById('setPanel').style.display      = tab==='set'    ? 'flex' : 'none';
 }
@@ -694,8 +674,8 @@ function refreshSettingChips(){
 }
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; curRootIdx=0; curGrammarIdx=0; grammarStats={};
-  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_root_progress'); lsDel('c_grammar_progress'); lsDel('c_grammar_stats');
+  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; curGrammarIdx=0; grammarStats={}; chinglishStats={};
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_progress'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats');
   toast('✓ 已清除');
   syncToCloud();
 }
@@ -870,6 +850,11 @@ function fixDuplicatesError(r){
     return c.fix.split(/或|\/|,|，/).map(normLoose).some(opt=>opt&&opt===err);
   }).map(c=>c.error);
 }
+// chinglish_issues[].phrase 依一號規格必須是學生答案裡逐字出現的片段，這裡檢查 AI 有沒有捏造
+function fabricatedChinglishIssues(r,ans){
+  const na=normLoose(ans);
+  return (r.chinglish_issues||[]).filter(c=>c.phrase&&!na.includes(normLoose(c.phrase))).map(c=>c.phrase);
+}
 // why 依 754(3)(4) 不能用「跟主要子句時態一致」這種站不住腳的說法帶過，也不能說「兩者都對/都可以」卻還留在 corrections 裡
 function badReasoningCorrections(r){
   const bannedWhy=/主要子句[^。]{0,25}(一致|吻合)|時態[^。]{0,15}主要子句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤/;
@@ -894,7 +879,7 @@ function cefrUnderstated(r,ans){
 }
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans)];
 }
 
 async function submitSent(){
@@ -937,6 +922,23 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 - 學生正確使用了被要求的目標單字「${curSentQ.word}」，即使某些情境下另有更常見的同義字。
 - 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
 
+【中式英文類型標籤（chinglish_issues，跟上面整體的 chinglish_percent 分開處理）】
+除了上面的整體 chinglish_percent 百分比，還要把句子裡每一處「文法正確、但因中文干擾而不道地」的表達個別列出來，逐一分類到以下五種類型之一（判準跟例子如下，務必照這份清單分類，不要自己另外發明類型）：
+1. 字面直譯：中文片語/慣用語/固定說法被逐字搬成英文。例：open the light（應為 turn on the light）、eat medicine（應為 take medicine）、play the phone（應為 use the phone）。邊界：指整組片語逐字搬；單一動詞/名詞選錯但不是整組片語的，歸「搭配詞不道地」。
+2. 搭配詞不道地：單字都對、文法也對，但動詞/形容詞跟名詞的搭配不是母語者會用的組合（照中文對應硬配）。例：say a lie（應為 tell a lie）、learn knowledge（應為 gain/acquire knowledge）、big rain（應為 heavy rain）。邊界：跟「字面直譯」的差別是這裡只是動賓/形名搭配選錯，不是整組片語搬字面直譯；灰色地帶二選一取最貼近的，同一處不要標兩類。
+3. 中文語序：副詞/程度詞/時間/地點的位置照中文擺（文法上兩種位置都通，但中式擺法不自然）。例：I very like it（應為 I like it very much）、I yesterday went there（應為 I went there yesterday）。邊界：形容詞排列順序（如 a red big house 應為 a big red house）屬於文法詞序錯誤，歸 corrections，不算這裡。
+4. 冗餘與堆疊：中文成對連接詞/重複強調被直接搬進英文，造成冗餘。例：Although..., but...（英文兩個連接詞只能擇一）、very very good（應為 really good）、the reason is because（應為 the reason is that）。邊界：單純用字囉唆但不是中文成對結構造成的，算精準度，不歸這裡。
+5. 生硬句式/主題優先：整句框架照中文腔（中式開場套語、主題優先句式）。例：About this problem, I think...、This book, I really like it（應為 I really like this book）、There have many people（應為 There are many people，中文「有」直翻）。邊界：這是整句結構層級的問題，跟前面詞組/搭配/語序層級不同。
+
+輸出到 chinglish_issues 陣列，每一項格式：{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版（如適用盡量仍用到目標單字「${curSentQ.word}」）","why":"為什麼這是翻譯腔（繁體中文1句）"}。沒有翻譯腔就輸出空陣列 []。跟 corrections 的 error 欄位一樣，"phrase" 必須是學生答案裡逐字實際出現的內容，寫之前務必回頭逐字核對學生答案「${ans}」原文，不可以憑空捏造或誤植學生沒有寫過的內容。
+
+【三個回饋欄位的分工（corrections / chinglish_issues / precision_note，避免同一個觀察點重複出現在多個欄位）】
+每一個觀察點只能歸類到其中一個欄位，判斷順序如下：
+1. 先問「這句英文文法對不對」→ 真的有文法錯誤 → 只進 corrections（帶 category），不要重複列進 chinglish_issues 或 precision_note，即使這個文法錯誤剛好也是中文母語者常犯的。
+2. 文法沒錯，但這處表達是「因為中文思維/中文語法習慣直接套用」造成的不道地（也就是上面五種類型其中之一）→ 進 chinglish_issues，不要也寫進 precision_note。
+3. 文法沒錯、也跟中文干擾無關，純粹是用字比中文原意籠統、或漏了中文原句有意義的資訊 → 才進 precision_note。
+同一個觀察點只能出現在以上其中一個欄位，三個欄位都寫完後務必檢查一次有沒有內容重疊（哪怕只是換句話說一次同一個觀察點），有重疊就刪掉重複的那一份，只留最貼切的一個欄位。
+
 【文法正確度（grammar_accuracy）】
 這是一個獨立的百分比，純粹反映「這句英文文法對不對、錯多嚴重」，跟上面的 CEFR 等級（句型複雜度，句子簡單也可以是滿分）、chinglish_percent（錯誤是不是源自中文思維）完全分開，不能互相影響。
 從 100 分開始計算：corrections 是空陣列（完全沒有文法錯誤）就是 100 分。如果 corrections 非空，依每一項錯誤對「文法對不對」的影響程度扣分，不是看列了幾項就跳分數：
@@ -960,6 +962,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 - 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
 - 用字比中文原意更籠統：中文講「高壓鍋」，學生只寫泛稱的 cooker；中文講「隔壁班」，學生寫成範圍更廣的 another class。
 - 省略了中文原句裡有意義的資訊：中文講「在菜市場買」，學生沒提到地點；中文講「買回家煮」，學生沒提到帶回家這個動作。
+如果這處不自然的原因是中文語法/思維直接套用（字面直譯、搭配詞不道地、中文語序、冗餘堆疊、生硬句式/主題優先，也就是上面 chinglish_issues 的五種類型），要改寫進 chinglish_issues，不要留在 precision_note——precision_note 只收「跟中文干擾無關」的籠統用字或漏資訊。
 只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${curSentQ.word}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
 寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
@@ -967,7 +970,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 【整體講評（overall）】
 在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
 只輸出純 JSON（不要加 markdown）：
-{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
     let r;
     for(let attempt=0;attempt<2;attempt++){
       const txt=await callClaude(gradePrompt,750);
@@ -985,6 +988,12 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
         if(c.category) grammarStats[c.category]=(grammarStats[c.category]||0)+1;
       }
       lsSet('c_grammar_stats',JSON.stringify(grammarStats));
+    }
+    if(r.chinglish_issues?.length){
+      for(const issue of r.chinglish_issues){
+        if(issue.type) chinglishStats[issue.type]=(chinglishStats[issue.type]||0)+1;
+      }
+      lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));
     }
     ensureDailyLevelCount();
     if(!dailyLevelCount.words.includes(curSentQ.word)) dailyLevelCount.words.push(curSentQ.word);
@@ -1034,6 +1043,13 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <div class="corr-fix">✓ ${c.fix}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:`<div style="color:#4ade80;font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
+    ${r.chinglish_issues?.length?`<div class="card-lbl" style="margin:12px 0 8px">🀄 中式英文類型</div>
+    ${r.chinglish_issues.map(c=>`<div class="corr-item">
+      <span class="score-badge" style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid #60a5fa;padding:2px 9px;font-size:11px;margin-bottom:5px;display:inline-block">${c.type}</span>
+      <div class="corr-err">✗ ${c.phrase}</div>
+      <div class="corr-fix">✓ ${c.natural}</div>
+      <div class="corr-why">${c.why}</div>
+    </div>`).join('')}`:''}
     ${r.precision_note?`<div class="use-item" style="margin-top:12px"><span class="use-ico">🎯</span><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
     ${(examplePref!=='c1'&&r.b2_example)?`<div class="model-box" style="margin-top:12px">
       <div class="model-lbl">B2 範例句 <span style="font-weight:400;color:#475569">（點單字可查意思）</span></div>
@@ -1104,7 +1120,7 @@ function reportSentIssue(){
   REPORTS.unshift({
     word,level,zh_sentence:zh,userAns,
     cefr:r.cefr,chinglish_percent:r.chinglish_percent,grammar_accuracy:r.grammar_accuracy,corrected_sentence:r.corrected_sentence,
-    corrections:r.corrections||[],precision_note:r.precision_note||'',b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
+    corrections:r.corrections||[],chinglish_issues:r.chinglish_issues||[],precision_note:r.precision_note||'',b2_example:r.b2_example||'',c1_example:r.c1_example||'',tip:r.tip||'',
     reason,reviewed:false,
     ts:Date.now()
   });
@@ -1129,7 +1145,7 @@ function saveSentHistory(userAns,r){
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
-    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
+    corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
   });
   lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
@@ -1172,6 +1188,8 @@ async function dashboardHTML(){
   const worstCats=catRanking.slice(0,5);
   const bestCats=[...catRanking].reverse().slice(0,3);
   const topWeakCat=catRanking[0];
+
+  const chinglishRanking=Object.entries(chinglishStats).sort((a,b)=>b[1]-a[1]);
 
   // 至今整體進度：各等級精通字數 / 該等級總字庫（平行查 Supabase，有快取）
   const totals=await Promise.all(CEFR_LEVELS.map(l=>getLevelTotal(l)));
@@ -1263,6 +1281,14 @@ async function dashboardHTML(){
     ${bestCats.map(([cat,count])=>`<div class="hist-item" style="cursor:default">
       <div class="hist-zh">${cat}</div>
       <div class="hist-ans">${count} 次錯誤</div>
+    </div>`).join('')}
+  </div>`:''}
+
+  ${chinglishRanking.length?`<div class="prac-card">
+    <div class="card-lbl">🀄 中式英文類型排行</div>
+    ${chinglishRanking.map(([type,count])=>`<div class="hist-item" style="cursor:default">
+      <div class="hist-zh">${type}</div>
+      <div class="hist-ans">已出現 ${count} 次</div>
     </div>`).join('')}
   </div>`:''}
 
@@ -1505,246 +1531,6 @@ function showEssayHistDetail(i){
     +essayResultHTML(h.topic,h.type,h.essay,h.wc,h);
 }
 
-/* ── 字根字首字尾：固定教材 ── */
-const ROOTS=[
-{type:'prefix',form:'re-',meaning:'再次、往回',origin:'拉丁文',examples:['rebuild','return','reconsider']},
-{type:'prefix',form:'un-',meaning:'不、相反',origin:'古英文',examples:['unhappy','unable','undo']},
-{type:'prefix',form:'dis-',meaning:'不、去除、相反',origin:'拉丁文',examples:['disagree','disappear','disconnect']},
-{type:'prefix',form:'pre-',meaning:'之前、預先',origin:'拉丁文',examples:['preview','predict','prepare']},
-{type:'prefix',form:'mis-',meaning:'錯誤地',origin:'古英文',examples:['misunderstand','mislead','mistake']},
-{type:'prefix',form:'non-',meaning:'不、非',origin:'拉丁文',examples:['nonsense','nonstop','nonprofit']},
-{type:'prefix',form:'over-',meaning:'過度、在…之上',origin:'古英文',examples:['overeat','overcome','overlook']},
-{type:'prefix',form:'under-',meaning:'不足、在…之下',origin:'古英文',examples:['underestimate','underground','undergo']},
-{type:'prefix',form:'sub-',meaning:'在…之下、次要',origin:'拉丁文',examples:['subway','submarine','subtitle']},
-{type:'prefix',form:'super-',meaning:'超級、在…之上',origin:'拉丁文',examples:['superman','supermarket','superior']},
-{type:'prefix',form:'inter-',meaning:'在…之間、相互',origin:'拉丁文',examples:['international','interact','interview']},
-{type:'prefix',form:'trans-',meaning:'跨越、轉變',origin:'拉丁文',examples:['transport','translate','transform']},
-{type:'prefix',form:'anti-',meaning:'反對、抵抗',origin:'希臘文',examples:['antisocial','antibody','antiwar']},
-{type:'prefix',form:'auto-',meaning:'自己、自動',origin:'希臘文',examples:['automatic','autograph','autobiography']},
-{type:'prefix',form:'bi-',meaning:'二、雙',origin:'拉丁文',examples:['bicycle','bilingual','bimonthly']},
-{type:'prefix',form:'uni-',meaning:'單一',origin:'拉丁文',examples:['unique','uniform','universe']},
-{type:'prefix',form:'tri-',meaning:'三',origin:'拉丁文',examples:['triangle','tricycle','trilogy']},
-{type:'prefix',form:'multi-',meaning:'多、許多',origin:'拉丁文',examples:['multiple','multitask','multicultural']},
-{type:'prefix',form:'semi-',meaning:'一半、部分',origin:'拉丁文',examples:['semicircle','semifinal','semiconscious']},
-{type:'prefix',form:'mid-',meaning:'中間',origin:'古英文',examples:['midnight','midway','midterm']},
-{type:'prefix',form:'post-',meaning:'之後',origin:'拉丁文',examples:['postpone','postwar','postgraduate']},
-{type:'prefix',form:'pro-',meaning:'向前、支持',origin:'拉丁文',examples:['proceed','progress','promote']},
-{type:'prefix',form:'ex-',meaning:'向外、之前的',origin:'拉丁文',examples:['exit','export','ex-president']},
-{type:'prefix',form:'in-/im-',meaning:'不、非（否定）',origin:'拉丁文',examples:['invisible','impossible','incomplete']},
-{type:'prefix',form:'en-/em-',meaning:'使…、放入',origin:'拉丁文',examples:['enable','encourage','empower']},
-{type:'prefix',form:'de-',meaning:'去除、往下、相反',origin:'拉丁文',examples:['decode','defrost','decrease']},
-{type:'prefix',form:'co-/com-/con-',meaning:'一起、共同',origin:'拉丁文',examples:['cooperate','combine','connect']},
-{type:'prefix',form:'out-',meaning:'超過、向外',origin:'古英文',examples:['outdo','outcome','outside']},
-{type:'prefix',form:'fore-',meaning:'之前、預先',origin:'古英文',examples:['forecast','foresee','forehead']},
-{type:'prefix',form:'bene-',meaning:'好、善',origin:'拉丁文',examples:['benefit','benevolent','beneficial']},
-{type:'prefix',form:'mal-',meaning:'壞、不良',origin:'拉丁文',examples:['malfunction','malnutrition','malicious']},
-{type:'prefix',form:'mono-',meaning:'單一',origin:'希臘文',examples:['monologue','monopoly','monotone']},
-{type:'prefix',form:'poly-',meaning:'多',origin:'希臘文',examples:['polygon','polygamy','polyglot']},
-{type:'prefix',form:'tele-',meaning:'遠距離',origin:'希臘文',examples:['telephone','television','telescope']},
-{type:'prefix',form:'micro-',meaning:'微小',origin:'希臘文',examples:['microscope','microwave','microphone']},
-{type:'prefix',form:'macro-',meaning:'巨大、宏觀',origin:'希臘文',examples:['macroeconomics','macrocosm','macrobiotic']},
-{type:'prefix',form:'hyper-',meaning:'過度、超級',origin:'希臘文',examples:['hyperactive','hypersensitive','hyperlink']},
-{type:'prefix',form:'hypo-',meaning:'不足、之下',origin:'希臘文',examples:['hypothesis','hypodermic','hypotension']},
-{type:'prefix',form:'circum-',meaning:'環繞',origin:'拉丁文',examples:['circumstance','circumference','circumnavigate']},
-{type:'prefix',form:'contra-',meaning:'反對、相反',origin:'拉丁文',examples:['contradict','contrast','contraband']},
-{type:'suffix',form:'-tion/-sion',meaning:'（動作、狀態）名詞化',origin:'拉丁文',examples:['action','decision','celebration']},
-{type:'suffix',form:'-ment',meaning:'（動作、結果）名詞化',origin:'拉丁文',examples:['movement','agreement','development']},
-{type:'suffix',form:'-ness',meaning:'（性質、狀態）名詞化',origin:'古英文',examples:['happiness','kindness','darkness']},
-{type:'suffix',form:'-ity/-ty',meaning:'（性質）名詞化',origin:'拉丁文',examples:['ability','activity','honesty']},
-{type:'suffix',form:'-able/-ible',meaning:'可以…的',origin:'拉丁文',examples:['readable','affordable','visible']},
-{type:'suffix',form:'-ful',meaning:'充滿…的',origin:'古英文',examples:['helpful','beautiful','careful']},
-{type:'suffix',form:'-less',meaning:'沒有…的',origin:'古英文',examples:['careless','hopeless','endless']},
-{type:'suffix',form:'-ize/-ise',meaning:'使成為…（動詞化）',origin:'希臘文',examples:['organize','realize','modernize']},
-{type:'suffix',form:'-ify',meaning:'使…化（動詞化）',origin:'拉丁文',examples:['simplify','clarify','identify']},
-{type:'suffix',form:'-ous',meaning:'充滿…性質的（形容詞化）',origin:'拉丁文',examples:['dangerous','famous','curious']},
-{type:'suffix',form:'-ive',meaning:'有…傾向的（形容詞化）',origin:'拉丁文',examples:['creative','active','attractive']},
-{type:'suffix',form:'-al',meaning:'關於…的（形容詞化）',origin:'拉丁文',examples:['national','natural','musical']},
-{type:'suffix',form:'-ic',meaning:'關於…的（形容詞化）',origin:'希臘文',examples:['basic','historic','economic']},
-{type:'suffix',form:'-ist',meaning:'從事…的人',origin:'希臘文',examples:['artist','scientist','tourist']},
-{type:'suffix',form:'-ism',meaning:'主義、學說',origin:'希臘文',examples:['capitalism','optimism','tourism']},
-{type:'suffix',form:'-ology',meaning:'…學（學科）',origin:'希臘文',examples:['biology','psychology','technology']},
-{type:'suffix',form:'-graph/-graphy',meaning:'書寫、記錄',origin:'希臘文',examples:['photograph','biography','geography']},
-{type:'suffix',form:'-phobia',meaning:'恐懼症',origin:'希臘文',examples:['claustrophobia','arachnophobia','xenophobia']},
-{type:'suffix',form:'-ward(s)',meaning:'朝向…',origin:'古英文',examples:['forward','backward','homeward']},
-{type:'suffix',form:'-er/-or',meaning:'做…的人或物',origin:'古英文',examples:['teacher','actor','computer']},
-{type:'suffix',form:'-ship',meaning:'狀態、關係、身分',origin:'古英文',examples:['friendship','relationship','leadership']},
-{type:'suffix',form:'-hood',meaning:'身分、時期',origin:'古英文',examples:['childhood','neighborhood','likelihood']},
-{type:'suffix',form:'-dom',meaning:'領域、狀態',origin:'古英文',examples:['freedom','kingdom','boredom']},
-{type:'root',form:'bio-',meaning:'生命',origin:'希臘文',examples:['biology','biography','biodegradable']},
-{type:'root',form:'geo-',meaning:'地球、土地',origin:'希臘文',examples:['geography','geology','geometry']},
-{type:'root',form:'photo-',meaning:'光',origin:'希臘文',examples:['photograph','photosynthesis','photocopy']},
-{type:'root',form:'chrono-',meaning:'時間',origin:'希臘文',examples:['chronological','synchronize','chronic']},
-{type:'root',form:'therm-',meaning:'熱',origin:'希臘文',examples:['thermometer','thermal','thermostat']},
-{type:'root',form:'hydro-',meaning:'水',origin:'希臘文',examples:['hydrate','hydropower','dehydrated']},
-{type:'root',form:'terr(a)-',meaning:'土地、地球',origin:'拉丁文',examples:['territory','terrain','terrestrial']},
-{type:'root',form:'dict-',meaning:'說、講',origin:'拉丁文',examples:['predict','dictionary','contradict']},
-{type:'root',form:'script-',meaning:'寫',origin:'拉丁文',examples:['describe','manuscript','subscribe']},
-{type:'root',form:'spect-',meaning:'看',origin:'拉丁文',examples:['inspect','spectator','perspective']},
-{type:'root',form:'port-',meaning:'攜帶、運送',origin:'拉丁文',examples:['transport','import','portable']},
-{type:'root',form:'struct-',meaning:'建造',origin:'拉丁文',examples:['construct','structure','instruction']},
-{type:'root',form:'rupt-',meaning:'破裂',origin:'拉丁文',examples:['interrupt','erupt','bankrupt']},
-{type:'root',form:'vis/vid-',meaning:'看',origin:'拉丁文',examples:['visible','video','vision']},
-{type:'root',form:'aud-',meaning:'聽',origin:'拉丁文',examples:['audience','audio','audible']},
-{type:'root',form:'cred-',meaning:'相信',origin:'拉丁文',examples:['credible','credit','incredible']},
-{type:'root',form:'ject-',meaning:'投擲',origin:'拉丁文',examples:['reject','project','inject']},
-{type:'root',form:'mit/mis-',meaning:'送出',origin:'拉丁文',examples:['submit','transmit','permission']},
-{type:'root',form:'ped-/pod-',meaning:'腳',origin:'拉丁文/希臘文',examples:['pedestrian','tripod','pedal']},
-{type:'root',form:'manu-',meaning:'手',origin:'拉丁文',examples:['manual','manufacture','manuscript']},
-{type:'root',form:'corp-',meaning:'身體',origin:'拉丁文',examples:['corporation','corpse','incorporate']},
-{type:'root',form:'cent-',meaning:'百',origin:'拉丁文',examples:['century','percent','centimeter']},
-{type:'root',form:'ann/enn-',meaning:'年',origin:'拉丁文',examples:['annual','anniversary','biennial']},
-{type:'root',form:'cycl-',meaning:'圓、環',origin:'希臘文',examples:['bicycle','cycle','recycle']},
-{type:'root',form:'path-',meaning:'感受、疾病',origin:'希臘文',examples:['sympathy','pathetic','pathology']},
-{type:'root',form:'morph-',meaning:'形狀',origin:'希臘文',examples:['metamorphosis','amorphous','morphology']},
-{type:'root',form:'gen-',meaning:'產生、起源',origin:'希臘文/拉丁文',examples:['generate','genetic','origin']},
-{type:'root',form:'form-',meaning:'形狀、形成',origin:'拉丁文',examples:['transform','uniform','information']},
-];
-let curRootIdx=parseInt(lsGet('c_root_progress','0'),10)||0;
-let viewRootIdx=curRootIdx;
-let curRootQ=null;
-let inReviewMode=false, reviewQueue=[], reviewPos=0;
-
-function shuffleArr(arr){
-  const a=[...arr];
-  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-  return a;
-}
-
-function rootProgressHTML(){
-  if(inReviewMode) return `<div class="level-progress" style="margin-bottom:14px"><span>🔀 複習測驗中</span><span>${reviewPos+1}/${reviewQueue.length}</span></div>`;
-  return `<div class="level-progress" style="margin-bottom:14px"><span>字根字首字尾進度</span><span>${Math.min(curRootIdx,ROOTS.length)}/${ROOTS.length}</span></div>`;
-}
-
-function renderRootHome(){
-  inReviewMode=false;
-  if(curRootIdx>=ROOTS.length){ renderRootDone(); return; }
-  viewRootIdx=curRootIdx;
-  renderRootCard();
-}
-
-/* ── 複習模式：打亂順序、跳過教材直接測驗，避免每次複習都一樣單調 ── */
-function startRootReview(){
-  reviewQueue=shuffleArr([...Array(ROOTS.length).keys()]);
-  reviewPos=0;
-  inReviewMode=true;
-  nextReviewItem();
-}
-
-function nextReviewItem(){
-  if(reviewPos>=reviewQueue.length){ renderReviewDone(); return; }
-  startRootQuiz(reviewQueue[reviewPos]);
-}
-
-function advanceReview(){ reviewPos++; nextReviewItem(); }
-
-function renderReviewDone(){
-  inReviewMode=false;
-  document.getElementById('rootBody').innerHTML = `
-  <div class="empty">
-    <div class="empty-ico">🔀</div>
-    <div class="empty-h">這輪複習測驗完成！</div>
-    <div class="empty-p">已隨機測驗過全部 ${ROOTS.length} 條字首/字根/字尾</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startRootReview()">再打亂一輪 →</button>
-    <button class="next-btn" style="margin-top:10px" onclick="renderRootHome()">回到列表瀏覽 →</button>
-  </div>`;
-}
-
-function renderRootCard(){
-  const i=viewRootIdx;
-  const isCurrent=i===curRootIdx;
-  document.getElementById('rootBody').innerHTML = rootProgressHTML() + rootLearnCardHTML(i,isCurrent);
-}
-
-function rootLearnCardHTML(i,isCurrent){
-  const r=ROOTS[i];
-  const typeLabel={prefix:'字首',suffix:'字尾',root:'字根'}[r.type];
-  return `
-  <div class="prac-card">
-    <div class="essay-type">${typeLabel} · ${i+1}/${ROOTS.length}${isCurrent?'':' · 複習'}</div>
-    <div class="essay-topic" style="font-size:28px">${r.form}</div>
-    <div class="prac-hint" style="margin-top:12px;display:inline-block">來源：${r.origin}</div>
-    <div class="card-lbl" style="margin:16px 0 8px">意思</div>
-    <div class="model-t" style="font-style:normal">${r.meaning}</div>
-    <div class="card-lbl" style="margin:16px 0 8px">例字</div>
-    ${r.examples.map(w=>`<div class="corr-fix" style="margin-bottom:4px">• ${w}</div>`).join('')}
-  </div>
-  ${i>0?`<button class="next-btn" style="margin-bottom:10px" onclick="rootBrowse(-1)">← 複習上一個</button>`:''}
-  <button class="prac-submit" onclick="startRootQuiz(${i})">${isCurrent?'考考自己這一項 →':'再練習一次這一項 →'}</button>
-  ${!isCurrent?`<button class="next-btn" style="margin-top:10px" onclick="renderRootHome()">回到目前進度 →</button>`:''}`;
-}
-
-function rootBrowse(d){
-  viewRootIdx=Math.max(0,Math.min(curRootIdx,viewRootIdx+d));
-  renderRootCard();
-}
-
-async function startRootQuiz(i){
-  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
-  try{
-    const r=ROOTS[i];
-    const typeLabel={prefix:'字首',suffix:'字尾',root:'字根'}[r.type];
-    const txt=await callClaude(`你是英語字根教學老師。這個${typeLabel}是「${r.form}」，意思是「${r.meaning}」，例字包含：${r.examples.join(', ')}。
-請出一題選擇題，考學生是否理解這個${typeLabel}的意思（例如給一個含有這個${typeLabel}但沒出現過的單字，讓學生選出最接近的中文意思；或反過來給中文意思讓學生選出正確的單字）。
-只輸出純 JSON（不要加 markdown）：
-{"question":"題目敘述（中文）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`,400);
-    curRootQ=parseJSON(txt);
-    curRootQ.root=r; curRootQ.idx=i;
-    renderRootQuiz();
-  }catch(e){
-    document.getElementById('rootBody').innerHTML = rootProgressHTML() + `<div class="err-box" style="display:block">❌ 出題失敗，請重試</div><button class="prac-submit" onclick="startRootQuiz(${i})" style="margin-top:12px">重試</button>`;
-  }
-}
-
-function renderRootQuiz(){
-  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `
-  <div class="prac-card">
-    <div class="prac-word-badge">${curRootQ.root.form}</div>
-    <div class="prac-zh" style="font-size:16px">${curRootQ.question}</div>
-  </div>
-  ${curRootQ.options.map((op,i)=>`<button class="prac-submit" style="background:#131b2e;color:#e2e8f0;text-align:left;margin-bottom:8px" onclick="submitRootQuiz(${i})">${String.fromCharCode(65+i)}. ${op}</button>`).join('')}`;
-}
-
-function submitRootQuiz(i){
-  const correct=i===curRootQ.answerIndex;
-  if(curRootQ.idx===curRootIdx){
-    curRootIdx++;
-    lsSet('c_root_progress',String(curRootIdx));
-    sbSet('rootprogress',JSON.stringify({index:curRootIdx})).catch(()=>{});
-  }
-  document.getElementById('rootBody').innerHTML = rootProgressHTML() + `
-  <div class="prac-card">
-    <div class="prac-word-badge">${curRootQ.root.form}</div>
-    <div class="prac-zh" style="font-size:16px">${curRootQ.question}</div>
-  </div>
-  <div class="prac-card">
-    <span class="score-badge ${correct?'score-excellent':'score-needs'}">${correct?'🎉 答對了':'✗ 答錯了'}</span>
-    <div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">正確答案</div>
-      <div class="model-t">${String.fromCharCode(65+curRootQ.answerIndex)}. ${curRootQ.options[curRootQ.answerIndex]}</div>
-    </div>
-    <div class="use-item" style="margin-top:12px"><span class="use-ico">💡</span><div><div class="use-lbl">說明</div><div class="use-t">${curRootQ.explain}</div></div></div>
-  </div>
-  <button class="next-btn" onclick="${inReviewMode?'advanceReview()':'renderRootHome()'}">下一個 →</button>`;
-}
-
-function renderRootDone(){
-  document.getElementById('rootBody').innerHTML = `
-  <div class="empty">
-    <div class="empty-ico">🎉</div>
-    <div class="empty-h">已經學完全部字根字首字尾！</div>
-    <div class="empty-p">你把 ${ROOTS.length} 條常見字首/字根/字尾都學過一遍了</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startRootReview()">🔀 隨機複習測驗 →</button>
-    <button class="next-btn" style="margin-top:10px" onclick="resetRootProgress()">照順序從頭複習 →</button>
-  </div>`;
-}
-
-function resetRootProgress(){
-  curRootIdx=0;
-  lsSet('c_root_progress','0');
-  sbSet('rootprogress',JSON.stringify({index:0})).catch(()=>{});
-  renderRootHome();
-}
-
 /* ── 文法學習：固定教材 ── */
 const GRAMMAR_POINTS=[
 {category:'時態',topic:'現在簡單式 vs 現在進行式',explanation:'現在簡單式用於習慣、事實、長期狀態；現在進行式用於當下正在發生的動作。中文沒有這種時態區分，容易混用。',commonMistake:'中文「我在吃飯」跟「我每天吃飯」動詞形式一樣，導致忘記英文要分開表達。',examples:[{wrong:'I am eating breakfast every day.',right:'I eat breakfast every day.'},{wrong:'Look, he walk to school now.',right:'Look, he is walking to school now.'}]},
@@ -1780,6 +1566,7 @@ let curGrammarIdx=parseInt(lsGet('c_grammar_progress','0'),10)||0;
 let viewGrammarIdx=curGrammarIdx;
 let curGrammarQ=null;
 let grammarStats=JSON.parse(lsGet('c_grammar_stats','{}'));
+let chinglishStats=JSON.parse(lsGet('c_chinglish_stats','{}'));
 
 function grammarProgressHTML(){
   return `<div class="level-progress" style="margin-bottom:14px"><span>文法學習進度</span><span>${Math.min(curGrammarIdx,GRAMMAR_POINTS.length)}/${GRAMMAR_POINTS.length}</span></div>`;
