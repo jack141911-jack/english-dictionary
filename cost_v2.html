@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>成本量測 v2</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',sans-serif;
+     background:#0a0f1e;color:#e2e8f0;padding:24px 16px 60px;line-height:1.6}
+.wrap{max-width:780px;margin:0 auto}
+h1{font-size:22px;font-weight:800;color:#f1f5f9;margin-bottom:4px}
+.sub{font-size:13px;color:#334155;margin-bottom:20px}
+.card{background:#0d1626;border:1px solid #1e293b;border-radius:16px;padding:18px;margin-bottom:14px}
+.lbl{font-size:10px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#334155;margin-bottom:10px}
+input{width:100%;background:#0a0f1e;border:1.5px solid #1e293b;border-radius:11px;
+      padding:13px;color:#e2e8f0;font-size:14px;font-family:monospace;outline:none}
+input:focus{border-color:#2563eb}
+.row{display:flex;gap:10px;align-items:center;margin-top:12px}
+.row label{font-size:13px;color:#64748b;white-space:nowrap}
+.row input{width:100px;font-size:13px;padding:9px 11px}
+button{width:100%;padding:15px;background:#2563eb;border:none;border-radius:13px;color:#fff;
+       font-size:15px;font-weight:700;cursor:pointer;margin-top:14px}
+button:disabled{background:#1e293b;color:#334155}
+#log{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#64748b;
+     white-space:pre-wrap;margin-top:14px;max-height:200px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10px;color:#334155;font-weight:800;letter-spacing:.6px;
+   padding:6px 8px;border-bottom:1px solid #1e293b;text-transform:uppercase}
+td{padding:9px 8px;border-bottom:1px solid #131b2e;color:#94a3b8}
+td.n{text-align:right;font-family:ui-monospace,Menlo,monospace;color:#e2e8f0}
+tr:last-child td{border-bottom:none}
+.hi{color:#60a5fa;font-weight:700}
+.warn{color:#f87171;font-weight:700}
+.ok{color:#4ade80;font-weight:700}
+.note{font-size:12px;color:#334155;margin-top:12px;line-height:1.7}
+.err{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:12px;padding:14px;
+     color:#fca5a5;font-size:13px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>成本量測 v2</h1>
+  <div class="sub">8 個真實 API 呼叫點，逐字取自目前版本 index.html</div>
+
+  <div class="card">
+    <div class="lbl">Claude API Key</div>
+    <input id="key" type="password" placeholder="sk-ant-api03-...">
+    <div class="row">
+      <label>匯率 USD→TWD</label>
+      <input id="fx" type="number" value="32" step="0.1">
+      <label>每項次數</label>
+      <input id="runs" type="number" value="2" min="1" max="5">
+    </div>
+    <button id="go" onclick="run()">開始量測 →</button>
+    <div id="log"></div>
+  </div>
+
+  <div id="out"></div>
+</div>
+
+<script>
+const HAIKU='claude-haiku-4-5-20251001', SONNET='claude-sonnet-4-6';
+const PRICING={[HAIKU]:{i:1,o:5},[SONNET]:{i:3,o:15}};
+
+// ── 樣本資料（模擬真實使用情境）──
+const WORD='eloquent', POS='adjective', LEVEL='B2';
+const ZH_SENT='他到職之後，整個團隊的氣氛明顯變好了。';
+const STUDENT_ANS='After he take the job, the whole team atmosphere become obviously better.';
+const ESSAY_TOPIC='Some people believe that university education should be free for everyone, while others argue that students should pay for it. Discuss both views and give your own opinion.';
+const ESSAY_DRAFT=`Education is one of the most important things in modern society. Some people think university should be free for all students, but others believe students need to pay by themselves. In my opinion, I think the government should provide free university education.
+
+Firstly, free education can give poor students more chance. Many talented young people cannot afford the expensive tuition fee, so they lose the opportunity to develop their ability.`;
+const ESSAY_FULL=ESSAY_DRAFT+`
+
+Secondly, a country with more educated people will become stronger. When more citizens have university degree, the country can develop technology and economy faster. Therefore the government investment in education will come back in the future.
+
+However, some people worry that free education will cost too much money from the tax. I admit this is a real problem, and the quality of teaching may also drop if too many students enter university. But I believe the government can solve it by controlling the number of places carefully.
+
+In conclusion, although free university education has some difficulties, I still think the advantages are more than the disadvantages. Government should try to make education free for all students.`;
+const ROOT_FORM='bene', ROOT_MEANING='好、善', ROOT_EXAMPLES=['benefit','benevolent','benefactor'], ROOT_TYPE_LABEL='字首';
+const GRAMMAR_TOPIC='第二類條件句', GRAMMAR_CATEGORY='假設語氣', GRAMMAR_EXPLAIN='用來描述與現在事實相反的假設情境，句型為 If + 過去式, would + 原形動詞。';
+
+function posLabel(p){return {noun:'名詞',verb:'動詞',adjective:'形容詞',adverb:'副詞'}[p]||p;}
+
+/* ── 以下 8 個 prompt 逐字取自最新版 index.html ── */
+
+function pSentAsk(){
+return `你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${WORD}」
+這個中文句子的情境必須經過挑選，確保「${WORD}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。也要避免選到會逼學生把單字硬轉換成不自然詞性/詞形的情境——例如單字是名詞 birth，不要選「某人出生了」這種中文情境，因為母語者這種情境會直接用 born（birth 的不同詞形，但意思上是不同的字），不會把 birth 硬動詞化寫成 be birthed；birth 應該選會自然用到名詞形式的情境（例如「自從她出生以來」「出生的消息」）。
+這個原則同樣適用於「同一個字根、不同詞性變化形」的情況，不只是換成完全不同的字：例如單字是形容詞 continuous，不要選「持續不斷地做某事」這種情境，因為母語者這種情境會用副詞 continuously 修飾動詞（例如 improving continuously），不會用形容詞 continuous；continuous 應該選形容詞自然修飾名詞的情境（例如「持續的努力」「不間斷的過程」）。單字是名詞 economy，不要選「維持經濟效益」這種需要形容詞 economic 修飾名詞的情境，economy 應該選這個字本身以名詞身份自然出現的情境（例如「這個國家的經濟」「省錢」義的 economy）。
+這個單字的詞性是「${posLabel(POS)}」。選好情境後自我檢查一次：母語者翻譯這句中文時，會不會自然用到「${WORD}」這個字、而且詞性剛好是「${posLabel(POS)}」——如果自然翻譯出來的其實是這個字的其他詞性變化形（形容詞→副詞、名詞→形容詞、名詞→動詞等），就要換一個情境重選。
+這個單字目前的練習等級是「${LEVEL}」，中文句子的「情境」複雜度要跟著這個等級走，但目標是「自然翻譯出來就會用到對應句型」，不是「硬性要求句型」：
+- A1/A2：維持現況，單一子句、簡單直述情境。
+- B1：情境自然包含時間/原因/對比關係（例如「他到職之後...」「因為...所以...」「雖然...但...」），讓母語者翻譯時自然會用連接詞或現在完成式，不是刻意湊長句。
+- B2：情境適合自然翻成被動語態、關係子句、假設語氣或間接引述其中一種（例如「這個東西是被...做的」「...的那個人」「如果...就會...」「他說...」這類情境），選一個母語者翻這句話本來就會用到這些結構的場景，不是找簡單情境硬套。
+- C1/C2：更靈活道地的複雜情境，可以自然包含倒裝、分詞構句或更細膩的語氣表達。
+除了句型複雜度要跟著等級走，情境裡「非目標單字」的其他必要用字難度也不能超過這個等級太多：例如等級是 A1/A2，不要選「復健中心」這種情境去搭配 A1 單字 centre，因為natural的英文翻譯需要用到 rehabilitation 這種明顯遠超過 A1/A2 程度的單字，才能完整表達，這樣學生會被卡在不相關的生字上，而不是練習目標單字本身；應該換成國小生活詞彙就能講清楚的情境（例如「市中心」「購物中心」）。自我檢查：情境裡如果有目標單字以外、學生翻譯時「非用不可」的字，那個字的難度也要跟這個等級差不多，不能自己選了一個超綱的字。
+只輸出純 JSON（不要加 markdown 或其他文字）：
+{"word":"${WORD}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
+}
+
+function pSentGrade(){
+return `你是英語口語練習老師。
+中文原句：「${ZH_SENT}」
+目標單字：${WORD}
+學生答案：「${STUDENT_ANS}」
+
+【自然英文原則（最高原則，適用於整份評分）】
+評分的核心標準是「母語者會不會自然這樣講」，不是「有沒有跟某個範本或中文原句的結構一模一樣」。列出任何一項 corrections 之前，先確認這真的是英文母語者不會這樣講的錯誤，不能只因為跟你預設的版本不同就判定為錯。
+最容易犯的一種誤判：多個句子之間先講哪句、後講哪句，是話題安排的自然選擇，不是文法錯誤——例如先問對方「有什麼計畫」再補充自己的情況當背景，或反過來先講自己的情況再問對方，兩種順序在英文對話裡都完全自然，不能因為順序跟中文原句不同就標成「詞序」錯誤或說「邏輯不清」。
+同樣的標準也適用於 corrected_sentence 跟每一項 correction 的 fix：你給的修正本身也必須是母語者真的會這樣講的自然英文，不能為了「修正」而給出一個文法上勉強說得通、但實際上也不夠道地的版本。
+
+【CEFR 等級評估標準】
+逐項對照學生答案「實際出現的文法結構」判斷，不要看整體印象，也不要預設任何等級是安全的中間值：
+A1：只有一個最簡單的子句，動詞只用現在簡單式，沒有任何連接詞或從屬子句（例如：I like coffee. / I work here.）。
+A2：可能用 and/but/because/or/so 連接兩個簡單子句，開始出現過去簡單式、現在進行式、will/going to 表示未來、can/could 等基本情態助動詞，字彙仍侷限在日常基礎詞彙。
+B1：出現現在完成式或過去進行式，能用 when/although/since 等連接詞表達較細緻的時間或因果關係，可能有簡單的關係子句（who/which 當主詞）或第一類條件句（if + will），字彙比 A2 更精準但仍以常見字為主。
+B2：出現被動語態、較複雜的關係子句（whom/whose，或當受詞）、第二/第三類條件句（if + would/if + would have）、間接引述（reported speech），或連接詞串起三個以上子句的長句，用字選擇比 B1 更精準、更少見的常用字。
+C1：文法幾乎沒有錯誤，句型靈活自然切換（倒裝句、分詞構句、插入語、混合條件句等母語者常用的技巧），用字道地精準，語感貼近母語者的自然表達。
+C2：近乎母語者水準，能運用細膩的語氣、慣用語、文化背景相關表達，用字精準度跟母語者無異。
+嚴格根據上面每個等級「有沒有出現」對應的具體文法結構判斷：一個只有單一子句、用字基礎的正確句子該判 A1，不是自動落在 B1；只有真的出現 when/although 這類連接詞或現在完成式，才算 B1。同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上——只要真的出現被動語態、關係子句等對應結構，就該給對應等級。注意關係子句當受詞時，關係代名詞常常省略或用 that，例如「that weird person that you saw yesterday」裡第二個 that 是關係代名詞（你看到了「那個人」），不是重複的指示代名詞，這種當受詞的關係子句（即使省略關係代名詞，例如「the person you saw」）屬於 B2 結構，不能因為看起來簡短或沒有 whom 就誤判成 B1 以下。
+CEFR 判斷完後，回頭比對一次你自己等一下要寫的 b2_example：如果學生的句子在句型結構上跟你的 b2_example 相當、沒有被簡化，但你給的 CEFR 卻比 B2 低，代表判斷前後矛盾了，要重新檢查一次學生句子裡是不是其實已經出現對應等級的結構。
+
+【中式英文（Chinglish）判斷標準】
+只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
+- 如果答案是會 → 代表這是英文本身的特殊文法規則、或只是一般性的用字不夠精準，任何語言背景的學習者都可能犯，不算中式英文（即使仍然是一個該列進 corrections 的真實錯誤，也該修正）。例如：把「Have you seen anyone come into this room?」的 come 誤寫成過去式 came——這是英文「感知動詞 see + 受詞 + 原形動詞」這條特殊規則本身很難，不管母語是什麼都常犯，跟中文無關。
+- 如果答案是不會（這個錯誤明顯集中出現在中文母語者身上）→ 才算中式英文。例如：漏掉冠詞或主詞動詞不一致（中文沒有冠詞、動詞也不隨人稱變化，中文母語者特別容易忽略，但母語有這些概念的語言如西班牙文、法文的學習者較少犯這種錯）、把中文語序直接套用到英文（例如中文「我很喜歡」的「很」放在動詞前面，寫成「I very like this」而不是「I like this very much」）、字面直譯中文片語或固定搭配、混用中文裡意思相近但英文要分開的介系詞（例如中文「在」同時對應到 in/at/during/on，中文母語者常常選錯）。
+
+chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔比，不是看 corrections 列了幾項就跳分數；如果句子裡的修正全部都不是源自中文思維，chinglish_percent 應該給很低甚至 0%，即使 corrections 裡列了好幾項。
+把一項錯誤算進中式英文之前，你必須能在心裡具體指出「中文原句裡對應的哪個字/哪個語法結構」被直譯了——只能泛泛地說「反映中文的習慣」但講不出具體對應到中文原句哪個部分，就不算中式英文，那通常代表這其實是英文本身的文法規則（該歸類到上面「答案是會」那一類）。
+
+以下狀況一律「不算」中式英文，不能因此扣分：
+- 用縮寫或全寫都可以，兩者一樣自然（例如 I am / I'm、do not / don't、it is / it's），不能因為沒縮寫就判定不自然或扣分。
+- 學生正確使用了被要求的目標單字「${WORD}」，即使某些情境下另有更常見的同義字。
+- 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
+
+【文法正確度（grammar_accuracy）】
+這是一個獨立的百分比，純粹反映「這句英文文法對不對、錯多嚴重」，跟上面的 CEFR 等級（句型複雜度，句子簡單也可以是滿分）、chinglish_percent（錯誤是不是源自中文思維）完全分開，不能互相影響。
+從 100 分開始計算：corrections 是空陣列（完全沒有文法錯誤）就是 100 分。如果 corrections 非空，依每一項錯誤對「文法對不對」的影響程度扣分，不是看列了幾項就跳分數：
+- 輕微（母語者聽了完全聽得懂，只是形式上不夠嚴謹，例如慣用搭配的介系詞選擇、可數/不可數名詞的細節）：每項扣 5-10 分。
+- 中度（有明確文法錯誤，母語者聽了會注意到，但整句意思還是聽得懂，例如時態誤用、冠詞遺漏、單複數或主詞動詞不一致）：每項扣 10-20 分。
+- 嚴重（違反核心文法規則或影響理解，母語者聽了會覺得不通順甚至誤解語意，例如動詞形式錯到改變句意、句子結構破碎不成句）：每項扣 20-35 分。
+把所有 corrections 項目依上面標準扣完加總，結果不能低於 0。precision_note 裡的內容不算文法錯誤，不影響這個分數。
+
+【範例句規則（很重要）】
+「b2_example」跟「c1_example」都必須是翻譯「同一個中文原句」「${ZH_SENT}」的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字「${WORD}」（或其自然變化形），不可以換成同義字。
+這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
+
+如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${WORD}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
+「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
+每一項 corrections 寫完後務必自我檢查這五件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）。
+
+以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${STUDENT_ANS}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
+
+【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
+以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
+- 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
+- 用字比中文原意更籠統：中文講「高壓鍋」，學生只寫泛稱的 cooker；中文講「隔壁班」，學生寫成範圍更廣的 another class。
+- 省略了中文原句裡有意義的資訊：中文講「在菜市場買」，學生沒提到地點；中文講「買回家煮」，學生沒提到帶回家這個動作。
+只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
+「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${WORD}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
+寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${WORD}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
+
+【整體講評（overall）】
+在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
+只輸出純 JSON（不要加 markdown）：
+{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+}
+
+function pSentFollowup(){
+return `你是英語文法教學老師。學生正在練習造句，以下是這題的完整脈絡：
+中文原句：「${ZH_SENT}」
+目標單字：${WORD}
+學生答案：「${STUDENT_ANS}」
+學生針對批改結果追問了一個問題：「為什麼這裡不能用過去進行式？」
+請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。只輸出純文字，不要 JSON、不要 markdown。`;
+}
+
+function pEssayAsk(){
+return `你是 IELTS 寫作老師。請出一個 IELTS Task 2 題目，適合中高級英語學習者。
+請提供一個段落式大綱，每段給一句可以讓學生「直接接著往下寫」的英文起手句（不是抽象建議），幫助不知道怎麼下筆的學生。
+只輸出純 JSON（不要加 markdown）：
+{"topic":"完整題目（英文，2-3句）","type":"Opinion Essay/Discussion Essay/Problem-Solution Essay/Two-part Question","outline":[
+  {"section":"開頭","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"第一個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"第二個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
+  {"section":"結論","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"}
+]}`;
+}
+
+function pEssayDraft(){
+return `你是英語寫作教練。以下是學生「還在寫、尚未完成」的作文草稿，不是最終版本，不需要整體評分。請只針對目前已經寫的部分，簡短告訴學生：1) 目前方向對不對，2) 有沒有明顯的文法或用字問題，給1-2句鼓勵+具體建議即可。
+題目：${ESSAY_TOPIC}
+目前草稿：
+${ESSAY_DRAFT}
+
+只輸出純文字，不要 JSON、不要 markdown，用繁體中文回覆，控制在 3-4 句以內。`;
+}
+
+function pEssayGrade(){
+const wc=ESSAY_FULL.trim().split(/\s+/).length;
+return `你是 IELTS 寫作評審。請嚴格且詳細地評分以下作文：
+題目：${ESSAY_TOPIC}
+字數：${wc} words
+作文：
+${ESSAY_FULL}
+
+只輸出純 JSON（不要加 markdown）：
+{"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`;
+}
+
+function pRoot(){
+return `你是英語字根教學老師。這個${ROOT_TYPE_LABEL}是「${ROOT_FORM}」，意思是「${ROOT_MEANING}」，例字包含：${ROOT_EXAMPLES.join(', ')}。
+請出一題選擇題，考學生是否理解這個${ROOT_TYPE_LABEL}的意思（例如給一個含有這個${ROOT_TYPE_LABEL}但沒出現過的單字，讓學生選出最接近的中文意思；或反過來給中文意思讓學生選出正確的單字）。
+只輸出純 JSON（不要加 markdown）：
+{"question":"題目敘述（中文）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`;
+}
+
+function pGrammar(){
+return `你是英語文法教學老師。這個文法點是「${GRAMMAR_TOPIC}」（分類：${GRAMMAR_CATEGORY}），說明：${GRAMMAR_EXPLAIN}
+請出一題選擇題（可以是句子填空、改錯或情境應用），考學生是否真的理解這個文法點怎麼用，不要只考死背定義。
+只輸出純 JSON（不要加 markdown）：
+{"question":"題目敘述（可包含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`;
+}
+
+// [名稱, prompt函式, maxTokens, model, 是否有重打機制(x2)]
+const TESTS=[
+  ['造句 出題',       pSentAsk,     1000, HAIKU,  false],
+  ['造句 批改',       pSentGrade,   750,  HAIKU,  true],   // 有 for(attempt<2) 重打
+  ['造句 追問文法',    pSentFollowup,500,  HAIKU,  false],
+  ['作文 出題',        pEssayAsk,    500,  HAIKU,  false],
+  ['作文 草稿檢查',    pEssayDraft,  300,  HAIKU,  false],
+  ['作文 評分',        pEssayGrade,  900,  SONNET, false],
+  ['字根 測驗出題',    pRoot,        400,  HAIKU,  false],
+  ['文法 測驗出題',    pGrammar,     400,  HAIKU,  false],
+];
+
+let KEY='';
+function log(s){const l=document.getElementById('log');l.textContent+=s+'\n';l.scrollTop=l.scrollHeight;}
+
+async function callClaude(prompt,maxTokens,model){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json','x-api-key':KEY,'anthropic-version':'2023-06-01',
+      'anthropic-dangerous-direct-browser-access':'true'
+    },
+    body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+  });
+  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`);}
+  return (await r.json()).usage;
+}
+function costUSD(u,model){const p=PRICING[model];return (u.input_tokens*p.i+u.output_tokens*p.o)/1e6;}
+
+async function run(){
+  KEY=document.getElementById('key').value.trim();
+  if(!KEY.startsWith('sk-ant-')){alert('API Key 格式不正確');return;}
+  const fx=parseFloat(document.getElementById('fx').value)||32;
+  const runs=Math.max(1,Math.min(5,parseInt(document.getElementById('runs').value)||2));
+
+  const btn=document.getElementById('go');
+  btn.disabled=true;btn.textContent='量測中...';
+  document.getElementById('log').textContent='';
+  document.getElementById('out').innerHTML='';
+
+  const results={};
+  log(`開始量測（每項 ${runs} 次，共 ${TESTS.length*runs} 次請求）`);
+
+  for(const [name,fn,maxTok,model,hasRetry] of TESTS){
+    const ins=[],outs=[],costs=[];
+    for(let i=0;i<runs;i++){
+      try{
+        const u=await callClaude(fn(),maxTok,model);
+        ins.push(u.input_tokens);outs.push(u.output_tokens);costs.push(costUSD(u,model));
+        log(`  ✓ ${name} #${i+1}  in=${u.input_tokens} out=${u.output_tokens}`);
+      }catch(e){ log(`  ✗ ${name} #${i+1} 失敗：${e.message}`); }
+    }
+    if(costs.length){
+      const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+      results[name]={model:model===HAIKU?'haiku':'sonnet',in:avg(ins),out:avg(outs),usd:avg(costs),hasRetry};
+    }
+  }
+
+  btn.disabled=false;btn.textContent='重新量測 →';
+  if(!Object.keys(results).length){
+    document.getElementById('out').innerHTML=`<div class="err">全部請求失敗，請檢查 Key 或網路。</div>`;return;
+  }
+  render(results,fx);
+}
+
+function render(res,fx){
+  const g=k=>res[k]?.usd||0;
+  let rows='';
+  for(const [name,r] of Object.entries(res)){
+    rows+=`<tr><td>${name}${r.hasRetry?' <span style="color:#f59e0b">*</span>':''}</td><td>${r.model}</td>
+      <td class="n">${r.in.toFixed(0)}</td><td class="n">${r.out.toFixed(0)}</td>
+      <td class="n">${r.usd.toFixed(5)}</td><td class="n hi">${(r.usd*fx).toFixed(3)}</td></tr>`;
+  }
+
+  const sentAsk=g('造句 出題'), sentGrade=g('造句 批改');
+  const essayAsk=g('作文 出題'), essayGrade=g('作文 評分'), essayDraft=g('作文 草稿檢查');
+  const perSentBest=sentAsk+sentGrade;              // 批改一次過
+  const perSentWorst=sentAsk+sentGrade*2;           // 批改重打一次
+  const perEssayNoCheck=essayAsk+essayGrade;
+  const perEssayWithCheck=essayAsk+essayGrade+essayDraft*2; // 假設檢查2次
+
+  const scen=[
+    ['免費：造句10/天(最佳)、作文1/週', 300*perSentBest, 4.3*perEssayNoCheck],
+    ['免費：造句10/天(含重打)、作文1/週', 300*perSentWorst, 4.3*perEssayNoCheck],
+    ['輕度付費：造句2/天、作文2/月', 60*perSentBest, 2*perEssayWithCheck],
+    ['中度付費：造句5/天、作文8/月', 150*perSentBest, 8*perEssayWithCheck],
+    ['重度付費：造句15/天、作文30/月', 450*perSentBest, 30*perEssayWithCheck],
+  ];
+  let srows='';
+  for(const [label,sentCost,essayCost] of scen){
+    const m=sentCost+essayCost, twd=m*fx;
+    const cls=twd>=90?'warn':twd>=30?'hi':'ok';
+    srows+=`<tr><td>${label}</td><td class="n">${m.toFixed(3)}</td><td class="n ${cls}">${twd.toFixed(1)}</td></tr>`;
+  }
+
+  document.getElementById('out').innerHTML=`
+  <div class="card">
+    <div class="lbl">📊 單次 API 呼叫（8 個真實呼叫點）</div>
+    <table><tr><th>操作</th><th>模型</th><th style="text-align:right">IN</th>
+      <th style="text-align:right">OUT</th><th style="text-align:right">USD</th>
+      <th style="text-align:right">TWD</th></tr>${rows}</table>
+    <div class="note">* 造句批改有重打機制（結果不合格會再打一次），最壞情況要乘 2</div>
+  </div>
+
+  <div class="card">
+    <div class="lbl">🔁 單次完整流程</div>
+    <table>
+      <tr><td>造句一題（出題＋批改，最佳）</td><td class="n">US$ ${perSentBest.toFixed(5)}</td><td class="n hi">NT$ ${(perSentBest*fx).toFixed(3)}</td></tr>
+      <tr><td>造句一題（含一次重打，最壞）</td><td class="n">US$ ${perSentWorst.toFixed(5)}</td><td class="n hi">NT$ ${(perSentWorst*fx).toFixed(3)}</td></tr>
+      <tr><td>作文一篇（出題＋評分，不含草稿檢查）</td><td class="n">US$ ${perEssayNoCheck.toFixed(5)}</td><td class="n hi">NT$ ${(perEssayNoCheck*fx).toFixed(3)}</td></tr>
+      <tr><td>作文一篇（含草稿檢查 2 次）</td><td class="n">US$ ${perEssayWithCheck.toFixed(5)}</td><td class="n hi">NT$ ${(perEssayWithCheck*fx).toFixed(3)}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="lbl">📅 每月成本試算</div>
+    <table><tr><th>情境</th><th style="text-align:right">USD/月</th><th style="text-align:right">TWD/月</th></tr>${srows}</table>
+    <div class="note">
+      字根／文法測驗未計入（次數取決於你的免費額度設計，另計）。<br>
+      匯率以 ${fx} 換算，請自行確認當日匯率。
+    </div>
+  </div>`;
+}
+</script>
+</body>
+</html>
