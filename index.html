@@ -855,6 +855,12 @@ function fabricatedChinglishIssues(r,ans){
   const na=normLoose(ans);
   return (r.chinglish_issues||[]).filter(c=>c.phrase&&!na.includes(normLoose(c.phrase))).map(c=>c.phrase);
 }
+// 一號規格三、去重規則：同一個觀察點不能同時出現在 corrections 跟 chinglish_issues（實測抓到過 big dislike→strong dislike 兩邊都放）
+function duplicateChinglishAndCorrections(r){
+  const issuePhrases=(r.chinglish_issues||[]).map(c=>normLoose(c.phrase)).filter(Boolean);
+  if(!issuePhrases.length) return [];
+  return (r.corrections||[]).filter(c=>c.error&&issuePhrases.includes(normLoose(c.error))).map(c=>c.error);
+}
 // why 依 754(3)(4) 不能用「跟主要子句時態一致」這種站不住腳的說法帶過，也不能說「兩者都對/都可以」卻還留在 corrections 裡
 function badReasoningCorrections(r){
   const bannedWhy=/主要子句[^。]{0,25}(一致|吻合)|時態[^。]{0,15}主要子句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤/;
@@ -879,7 +885,7 @@ function cefrUnderstated(r,ans){
 }
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
 }
 
 async function submitSent(){
@@ -899,15 +905,30 @@ async function submitSent(){
 同樣的標準也適用於 corrected_sentence 跟每一項 correction 的 fix：你給的修正本身也必須是母語者真的會這樣講的自然英文，不能為了「修正」而給出一個文法上勉強說得通、但實際上也不夠道地的版本。
 
 【CEFR 等級評估標準】
-逐項對照學生答案「實際出現的文法結構」判斷，不要看整體印象，也不要預設任何等級是安全的中間值：
-A1：只有一個最簡單的子句，動詞只用現在簡單式，沒有任何連接詞或從屬子句（例如：I like coffee. / I work here.）。
-A2：可能用 and/but/because/or/so 連接兩個簡單子句，開始出現過去簡單式、現在進行式、will/going to 表示未來、can/could 等基本情態助動詞，字彙仍侷限在日常基礎詞彙。
-B1：出現現在完成式或過去進行式，能用 when/although/since 等連接詞表達較細緻的時間或因果關係，可能有簡單的關係子句（who/which 當主詞）或第一類條件句（if + will），字彙比 A2 更精準但仍以常見字為主。
-B2：出現被動語態、較複雜的關係子句（whom/whose，或當受詞）、第二/第三類條件句（if + would/if + would have）、間接引述（reported speech），或連接詞串起三個以上子句的長句，用字選擇比 B1 更精準、更少見的常用字。
-C1：文法幾乎沒有錯誤，句型靈活自然切換（倒裝句、分詞構句、插入語、混合條件句等母語者常用的技巧），用字道地精準，語感貼近母語者的自然表達。
-C2：近乎母語者水準，能運用細膩的語氣、慣用語、文化背景相關表達，用字精準度跟母語者無異。
-嚴格根據上面每個等級「有沒有出現」對應的具體文法結構判斷：一個只有單一子句、用字基礎的正確句子該判 A1，不是自動落在 B1；只有真的出現 when/although 這類連接詞或現在完成式，才算 B1。同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上——只要真的出現被動語態、關係子句等對應結構，就該給對應等級。注意關係子句當受詞時，關係代名詞常常省略或用 that，例如「that weird person that you saw yesterday」裡第二個 that 是關係代名詞（你看到了「那個人」），不是重複的指示代名詞，這種當受詞的關係子句（即使省略關係代名詞，例如「the person you saw」）屬於 B2 結構，不能因為看起來簡短或沒有 whom 就誤判成 B1 以下。
-CEFR 判斷完後，回頭比對一次你自己等一下要寫的 b2_example：如果學生的句子在句型結構上跟你的 b2_example 相當、沒有被簡化，但你給的 CEFR 卻比 B2 低，代表判斷前後矛盾了，要重新檢查一次學生句子裡是不是其實已經出現對應等級的結構。
+回到 CEFR 官方定義本身判斷，不要套用一份僵化的「必須出現特定文法結構才算數」清單。CEFR 本身是綜合「文法掌握的範圍與準確度」跟「用字的範圍與道地程度」兩個面向的整體語言能力描述——這兩個面向可以分別獨立成立，任一面向明顯達到某個等級的程度，就可以判定該等級，不需要兩者都出現：
+A1：用字侷限在最基礎、具體的詞彙，通常只有一個簡單子句，動詞多半是背誦的固定句型，文法掌握非常有限（例如：I like coffee. / I work here.）。
+A2：能用簡單結構應付日常基礎需求，可能用 and/but/because/or/so 連接兩個簡單子句，開始出現過去簡單式、現在進行式、will/going to、can/could 等基礎用法；用字仍侷限在日常具體詞彙，描述不熟悉的概念時說法籠統。
+B1：對熟悉話題能有合理準確度的表達，整體文法掌握不錯，但可能仍帶有一些母語影響的痕跡；能用 when/although/since 等連接詞表達較細緻的時間或因果關係，可能出現現在完成式、簡單關係子句（who/which 當主詞）或第一類條件句（if + will）；用字比 A2 精準，但描述不熟悉的事物時仍需要迂迴/籠統的說法。
+B2：文法掌握程度好，即使句子結構本身不複雜，也很少出現會造成誤解的錯誤；用字選擇自然道地，懂得用符合情境的慣用搭配或口語表達，不需要每次都靠迂迴籠統的說法帶過（例如 what a bargain、get it for X 這類自然道地的說法，本身就是 B2 用字能力的訊號，即使句子文法很單純）。句子結構更複雜時可能出現被動語態、較複雜關係子句（whom/whose 或當受詞）、第二/第三類條件句（if + would/if + would have）、間接引述（reported speech）——這些是額外的加分訊號，**不是判定 B2 的必要條件**：文法結構簡單但用字精準道地、表達自然通順，同樣足以判定 B2。
+C1：文法幾乎沒有錯誤，句型能靈活自然切換（倒裝句、分詞構句、插入語、混合條件句等母語者常用的技巧），用字道地精準、具備良好的慣用語/口語表達駕馭能力，語感貼近母語者的自然表達，即使有錯誤也很難被抓到。
+C2：近乎母語者水準，能運用細膩的語氣、豐富的慣用語、文化背景相關表達，用字精準度跟母語者無異，語言使用毫不費力、自然到位。
+
+判斷時的三個提醒：
+1. 不要因為句子看起來完整正確就自動歸為安全的 B1/B2——只有真的符合某個等級的文法或用字描述時，才判定該等級；同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上。
+2. 不要只用「有沒有出現被動語態/複雜關係子句/條件句/間接引述」這份清單卡死 B2 以上的判定——道地慣用的字詞選擇、自然搭配、精準用字本身就是一個獨立的語言能力訊號，跟文法結構複雜度是兩個可以分開成立的面向。遇到句子文法結構簡單、但用字/搭配非常道地自然（母語者會這樣講，非母語者常常會翻得生硬或迂迴）的情況，一樣可以判 B2 甚至以上，不要因為沒看到清單裡的結構就強壓回 B1。注意關係子句當受詞時，關係代名詞常常省略或用 that，例如「the person you saw」這種省略關係代名詞的受格關係子句也屬於 B2 結構，不能因為看起來簡短就誤判成 B1 以下。
+3. 「用字軸」不能反過來被濫用成幫「文法正確、聽起來通順自然」的句子灌水——用字軸看的是「有沒有選用比基礎程度更精準、更不常見但貼切道地的字詞或慣用搭配」（例如 bargain、chicken out、snag 這類），不是「只要文法沒錯、聽起來自然」就自動算數。像 coffee/park/rain/weather/nice 這種最基礎、日常、任何程度學習者一開始就會的詞彙，即使整句文法完全正確通順，也完全不構成用字軸的加分訊號，這種句子仍然只能單靠文法結構的複雜度判斷等級：單一子句、現在簡單式、無連接詞＝A1；用 and/but/because/so 連接兩個簡單子句、開始出現過去式＝A2，以此類推——不能因為句子「聽起來自然」就跳過這個判斷，逕自往上加到 B1 或 B2。只有在文法結構真的比對應等級複雜（出現該等級起跳的連接詞/時態/子句），或用字明顯超越基礎程度、選了道地精準的慣用說法時，才能往上判到該等級。
+
+常見過度評分陷阱（實測校準過，務必比照這些判斷）：
+- 「I drink coffee every morning.」：只有一個子句、現在簡單式、日常基礎字彙，沒有連接詞或從屬子句 → 正確等級是 A1，不是 A2 以上，不能因為文法完全正確、聽起來自然就往上加。
+- 「I went to the park yesterday because the weather was nice.」/「I bought a book but I didn't read it.」：用 because/but/and/or/so 連接兩個簡單子句、過去式，用字仍是日常基礎詞彙 → 正確等級是 A2，不是 B1 以上——連接詞只要是這五個基礎連接詞（and/but/because/or/so）其中之一，就仍屬於 A2 範疇，不能因為句子語意完整、聽起來自然就誤判成 B1。
+- 「Although it was raining, I decided to go out for a run.」：用 although 連接兩個子句、過去式，用字也仍是常見基礎詞彙（沒有出現道地慣用搭配）→ 正確等級是 B1，不是 B2——B2 需要額外出現被動語態/複雜關係子句/條件句/間接引述其中之一，或用字明顯超越基礎範圍選了道地精準的說法，這句兩者都沒有。
+- 「I have never been to Japan, but I really want to go someday.」：現在完成式（have never been）搭配 but 連接詞，用字仍是常見基礎詞彙 → 正確等級是 B1，不是 B2——現在完成式本身是 B1 的標記，不是 B2，除非額外出現 B2 清單裡的結構或道地用字才能往上判。
+- 「Had it not been for your timely reminder, I would definitely have forgotten that meeting.」/「Not only did she finish the project early, but she also helped her teammates.」：Had it not been for...（＝If it had not been for...）跟 Not only did she...（為了強調而把 not only 提前、助動詞倒裝）都是「倒裝句」，屬於 C1 定義裡明講的「母語者常用技巧」→ 正確等級是 C1，不是 B2，只要辨認出句子用了任何形式的倒裝（否定副詞/not only/so/never 等提前導致助動詞倒裝、省略 if 的條件句倒裝），就要判到 C1，不能因為表面上看起來只是條件句或對等連接就低估。
+以上每一句都要能具體對應到 A1-C2 定義裡的哪一句話，不能只憑整體「聽起來通不通順、自然不自然」的模糊印象去猜等級。
+
+反過來也要注意：上面這些「不要灌水」的校準，只適用於「整句真的找不到任何對應等級結構標記、單純聽起來自然」的情況。只要句子裡真的出現了某個等級定義列出的具體結構（例如 B2 定義裡的被動語態、較複雜關係子句、條件句、間接引述），就必須判到該等級，不能因為想避免灌水而過度保守地往下砍——例如「This is the book my sister wrote last year.」裡 the book (that) my sister wrote 是省略關係代名詞的受格關係子句，明確符合 B2 定義，必須判 B2，不能因為整句看起來簡短就打成 B1。
+
+CEFR 判斷完後，回頭比對一次你自己等一下要寫的 b2_example：如果學生的句子在文法複雜度或用字道地程度上跟你的 b2_example 相當、沒有被簡化，但你給的 CEFR 卻比 B2 低，代表判斷前後矛盾了，要重新檢查一次。
 
 【中式英文（Chinglish）判斷標準】
 只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
@@ -952,8 +973,8 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
-「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤」的項目——如果你自己判斷這其實不算錯，只是有更好/更貼切的說法，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
-每一項 corrections 寫完後務必自我檢查這五件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）。
+「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
+每一項 corrections 寫完後務必自我檢查這六件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${ans}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
