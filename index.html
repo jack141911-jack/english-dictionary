@@ -14,7 +14,7 @@ html,body{height:100%;background:#0a0f1e;overflow:hidden}
 body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif;color:#e2e8f0;height:100dvh;display:flex;flex-direction:column}
 
 /* ── SETUP ── */
-#setupView{flex:1;display:flex;flex-direction:column;align-items:center;padding:60px 28px 60px;text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#authView{flex:1;display:flex;flex-direction:column;align-items:center;padding:60px 28px 60px;text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .su-logo{font-size:64px;margin-bottom:20px}
 .su-title{font-size:26px;font-weight:800;color:#f1f5f9;margin-bottom:8px}
 .su-sub{font-size:14px;color:#64748b;line-height:1.7;margin-bottom:32px}
@@ -206,18 +206,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 </head>
 <body>
 
-<!-- ════ SETUP ════ -->
-<div id="setupView">
+<!-- ════ AUTH ════ -->
+<div id="authView" style="display:none">
   <div class="su-logo">📖</div>
   <div class="su-title">英語字典</div>
-  <div class="su-sub">輸入你的 Claude API Key<br>只需設定一次，資料存在你的裝置上</div>
+  <div class="su-sub">登入以同步你的學習進度<br>每個帳號的資料互不相通</div>
   <div class="su-group">
-    <div class="su-label">Claude API Key</div>
-    <input id="suKey" type="password" class="su-input" placeholder="sk-ant-api03-..." onkeydown="if(event.key==='Enter'){setupSave();}">
-    <div class="su-hint">🔒 Key 僅儲存於本機，不會傳送至任何第三方。</div>
+    <div class="su-label">Email</div>
+    <input id="authEmail" type="email" class="su-input" placeholder="you@example.com" autocomplete="username" style="font-family:inherit">
   </div>
-  <button class="su-btn" onclick="setupSave()">開始使用 →</button>
-  <div class="su-link">還沒有 Key？<a href="https://console.anthropic.com" target="_blank">前往申請</a></div>
+  <div class="su-group">
+    <div class="su-label">密碼</div>
+    <input id="authPassword" type="password" class="su-input" placeholder="至少 6 個字元" autocomplete="current-password" style="font-family:inherit" onkeydown="if(event.key==='Enter'){authSubmit();}">
+  </div>
+  <div class="su-hint" id="authErr" style="display:none;text-align:left"></div>
+  <button class="su-btn" id="authBtn" onclick="authSubmit()">登入 →</button>
+  <div class="su-link"><span id="authToggleLbl">還沒有帳號？</span> <a href="javascript:void(0)" onclick="authToggleMode()" id="authToggleLink">註冊新帳號</a></div>
 </div>
 
 <!-- ════ APP ════ -->
@@ -303,19 +307,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
     <div id="setPanel" class="panel" style="display:none;flex-direction:column">
       <div class="set-hd"><h2>⚙️ 設定</h2></div>
       <div class="set-body">
-        <div class="set-sec-lbl">API 設定</div>
+        <div class="set-sec-lbl">帳號</div>
         <div class="set-card">
           <div class="set-row">
-            <span class="set-ico">🔑</span>
+            <span class="set-ico">👤</span>
             <div class="set-body2">
-              <div class="set-lbl">Claude API Key</div>
-              <div class="set-sub">翻譯・定義・CEFR 等級</div>
-              <input id="setKey" type="password" class="set-inp" placeholder="sk-ant-api03-...">
+              <div class="set-lbl">已登入</div>
+              <div class="set-sub" id="authAccountEmail">–</div>
+            </div>
+          </div>
+          <div class="set-row" style="cursor:pointer" onclick="authSignOut()">
+            <span class="set-ico">🚪</span>
+            <div class="set-body2">
+              <div class="set-lbl set-danger">登出</div>
+              <div class="set-sub">登出後需要重新輸入 Email 跟密碼</div>
             </div>
           </div>
         </div>
-        <button class="set-save" onclick="saveKey()">儲存 API Key</button>
-        <div class="set-info">🔒 Key 僅存於本機 LocalStorage，不傳至任何伺服器。</div>
 
         <div class="set-sec-lbl" style="margin-top:28px">學習設定</div>
         <div class="set-card">
@@ -427,13 +435,146 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 /* ── SUPABASE SYNC ── */
 const SB_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co';
 const SB_KEY='sb_publishable_tQy4psmsUp46NtpFMQoz8g_n-ZEQKlS';
-async function sbGet(k){try{const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
-async function sbSet(k,v){try{await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
+
+/* ── AUTH（Supabase GoTrue，raw fetch，跟 sbGet/sbSet 同風格）── */
+let authSession=null; // {access_token, refresh_token, expires_at, user:{id,email}}
+let authRefreshPromise=null;
+let authMode='login'; // 'login' | 'signup'
+
+function authLoadSession(){ try{const s=localStorage.getItem('c_auth_session'); authSession=s?JSON.parse(s):null;}catch{authSession=null;} }
+function authSaveSession(s){ authSession=s; try{ s?localStorage.setItem('c_auth_session',JSON.stringify(s)):localStorage.removeItem('c_auth_session'); }catch{} }
+
+function authErrMsg(body){
+  const raw=body?.error_description||body?.msg||body?.message||body?.error_code||body?.error||'發生錯誤，請稍後再試';
+  const map={
+    'Invalid login credentials':'帳號或密碼錯誤',
+    'User already registered':'這個 Email 已經註冊過了，請直接登入',
+    'Email not confirmed':'請先至信箱收信完成驗證後再登入',
+    'Password should be at least 6 characters':'密碼至少需要 6 個字元',
+    'Unable to validate email address: invalid format':'Email 格式不正確',
+  };
+  return map[raw]||raw;
+}
+
+async function authSignUp(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/signup`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(authErrMsg(d));
+  if(d.access_token){
+    authSaveSession({access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),user:{id:d.user.id,email:d.user.email}});
+    return {needsConfirm:false};
+  }
+  return {needsConfirm:true};
+}
+
+async function authSignIn(email,password){
+  const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(authErrMsg(d));
+  authSaveSession({access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),user:{id:d.user.id,email:d.user.email}});
+}
+
+async function authSignOut(){
+  try{ if(authSession) await fetch(`${SB_URL}/auth/v1/logout`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${authSession.access_token}`}}); }catch{}
+  authSaveSession(null);
+  location.reload();
+}
+
+async function authRefresh(){
+  if(!authSession?.refresh_token) return false;
+  if(authRefreshPromise) return authRefreshPromise;
+  authRefreshPromise=(async()=>{
+    try{
+      const r=await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{'apikey':SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:authSession.refresh_token})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(authErrMsg(d));
+      authSaveSession({access_token:d.access_token,refresh_token:d.refresh_token,expires_at:Math.floor(Date.now()/1000)+(d.expires_in||3600),user:{id:d.user.id,email:d.user.email}});
+      return true;
+    }catch(e){ console.log('authRefresh:',e); authSaveSession(null); return false; }
+    finally{ authRefreshPromise=null; }
+  })();
+  return authRefreshPromise;
+}
+
+async function authToken(){
+  if(!authSession) return null;
+  if(authSession.expires_at-Math.floor(Date.now()/1000)<60){
+    const ok=await authRefresh();
+    if(!ok) return null;
+  }
+  return authSession.access_token;
+}
+
+function authToggleMode(){
+  authMode=authMode==='login'?'signup':'login';
+  document.getElementById('authBtn').textContent=authMode==='login'?'登入 →':'註冊 →';
+  document.getElementById('authToggleLbl').textContent=authMode==='login'?'還沒有帳號？':'已經有帳號了？';
+  document.getElementById('authToggleLink').textContent=authMode==='login'?'註冊新帳號':'直接登入';
+  document.getElementById('authErr').style.display='none';
+}
+
+function authResetLocalIfNewUser(){
+  const uid=authSession?.user?.id;
+  if(!uid) return;
+  const lastUid=lsGet('c_last_uid','');
+  if(lastUid && lastUid!==uid){
+    // 只重設這裡：curRootIdx/viewRootIdx/curGrammarIdx/viewGrammarIdx/grammarStats/levelTotalCache
+    // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（字根/文法區塊），這裡不能直接賦值
+    // （會撞到 let 的 TDZ），清掉 localStorage 就夠了，它們宣告時會自己用清空後的預設值初始化。
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_root_progress','c_grammar_progress','c_grammar_stats'].forEach(lsDel);
+    SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
+  }
+  lsSet('c_last_uid',uid);
+}
+
+function authEnterApp(){
+  document.getElementById('authView').style.display='none';
+  boot();
+}
+
+async function authSubmit(){
+  const email=document.getElementById('authEmail').value.trim();
+  const password=document.getElementById('authPassword').value;
+  const errEl=document.getElementById('authErr');
+  errEl.style.display='none';
+  if(!email||!password){ errEl.style.color='#f87171'; errEl.textContent='請輸入 Email 跟密碼'; errEl.style.display='block'; return; }
+  if(password.length<6){ errEl.style.color='#f87171'; errEl.textContent='密碼至少需要 6 個字元'; errEl.style.display='block'; return; }
+  const btn=document.getElementById('authBtn');
+  btn.disabled=true; btn.textContent='處理中…';
+  try{
+    if(authMode==='signup'){
+      const res=await authSignUp(email,password);
+      if(res.needsConfirm){
+        errEl.style.color='#4ade80';
+        errEl.textContent='✓ 註冊成功！請至信箱收信完成驗證後登入。';
+        errEl.style.display='block';
+        authMode='login';
+        btn.textContent='登入 →';
+        document.getElementById('authToggleLbl').textContent='還沒有帳號？';
+        document.getElementById('authToggleLink').textContent='註冊新帳號';
+        btn.disabled=false;
+        return;
+      }
+      authEnterApp();
+    }else{
+      await authSignIn(email,password);
+      authEnterApp();
+    }
+  }catch(e){
+    errEl.style.color='#f87171';
+    errEl.textContent='⚠️ '+e.message;
+    errEl.style.display='block';
+    btn.disabled=false;
+    btn.textContent=authMode==='signup'?'註冊 →':'登入 →';
+  }
+}
+
+async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
+async function sbSet(k,v){try{const t=await authToken();if(!t)return;await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
 async function syncFromCloud(){try{const[sh,eh,lp,dl,rp,gp,gs,rpts]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('rootprogress'),sbGet('grammarprogress'),sbGet('grammarstats'),sbGet('reports')]);if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}}if(rp){const remote=JSON.parse(rp);if((remote.index||0)>curRootIdx){curRootIdx=remote.index;lsSet('c_root_progress',String(curRootIdx));}}if(gp){const remote=JSON.parse(gp);if((remote.index||0)>curGrammarIdx){curGrammarIdx=remote.index;lsSet('c_grammar_progress',String(curGrammarIdx));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
 function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('rootprogress',JSON.stringify({index:curRootIdx})).catch(()=>{});sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});}
 
 /* ── STATE ── */
-let KEY = lsGet('c_key');
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
 let ESSAY_HISTORY = JSON.parse(lsGet('c_essay_hist','[]'));
 let REPORTS = JSON.parse(lsGet('c_reports','[]'));
@@ -447,30 +588,28 @@ let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
 (function(){
-  if(KEY){ boot(); }
-  else{ document.getElementById('setupView').style.display='flex'; }
+  authLoadSession();
+  if(authSession && authSession.user){
+    document.getElementById('authView').style.display='none';
+    // setTimeout 延後到整份 <script> 都執行完（所有後面宣告的 const/let/function 都就緒）才真的 boot()，
+    // 避免這裡直接同步呼叫 boot() 時，boot() 內部連鎖呼叫到的函式（renderSentHome 等）
+    // 讀到「宣告在這行 IIFE 之後」的 const/let（例如 CEFR_LEVELS、levelTotalCache）撞到 TDZ 噴錯。
+    setTimeout(boot,0);
+  }else{
+    document.getElementById('authView').style.display='flex';
+  }
 })();
 
 function boot(){
-  document.getElementById('setupView').style.display='none';
+  authResetLocalIfNewUser();
+  document.getElementById('authView').style.display='none';
   document.getElementById('app').style.display='flex';
-  document.getElementById('setKey').value=KEY;
   document.getElementById('setDailyGoal').value=dailyGoal;
+  document.getElementById('authAccountEmail').textContent=authSession?.user?.email||'–';
   refreshSettingChips();
   switchTab('prac');
-  renderSentHome();
+  renderSentHome().catch(e=>console.error('renderSentHome:',e));
   syncFromCloud();
-}
-
-/* ── SETUP ── */
-function setupSave(){
-  document.getElementById('suKey').blur(); // 收起鍵盤
-  const k=document.getElementById('suKey').value.trim();
-  if(!k.startsWith('sk-ant-')){
-    alert('⚠️ API Key 格式不正確\n應以 sk-ant- 開頭，請確認貼上的內容正確。');
-    return;
-  }
-  KEY=k; lsSet('c_key',k); boot();
 }
 
 /* ── DICTIONARY API（僅供發音查詢使用，沒有獨立字典 UI）── */
@@ -483,18 +622,16 @@ async function fetchDict(w){
 }
 
 /* ── CLAUDE API ── */
+const PROXY_URL='https://english-app-proxy.jack141911.workers.dev';
 async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001'){
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
+  const t=await authToken();
+  if(!t) throw new Error('請重新登入');
+  const r=await fetch(PROXY_URL,{
     method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':KEY,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
+    body:JSON.stringify({provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
   });
-  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||`API 錯誤 ${r.status}`); }
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||e.error||`API 錯誤 ${r.status}`); }
   const d=await r.json();
   return d.content[0].text;
 }
@@ -531,15 +668,9 @@ function switchTab(tab){
   document.getElementById('rootPanel').style.display     = tab==='root'    ? 'flex' : 'none';
   document.getElementById('grammarPanel').style.display  = tab==='grammar' ? 'flex' : 'none';
   document.getElementById('setPanel').style.display      = tab==='set'    ? 'flex' : 'none';
-  if(tab==='set') document.getElementById('setKey').value=KEY;
 }
 
 /* ── SETTINGS ── */
-function saveKey(){
-  const k=document.getElementById('setKey').value.trim();
-  if(!k.startsWith('sk-ant-')){toast('⚠️ Key 格式不正確');return;}
-  KEY=k; lsSet('c_key',k); toast('✓ API Key 已儲存');
-}
 function saveDailyGoal(){
   const n=parseInt(document.getElementById('setDailyGoal').value,10);
   if(!n||n<1){toast('⚠️ 請輸入大於 0 的數字');return;}
@@ -611,7 +742,17 @@ async function getLevelTotal(level){
 // 依目前選擇的等級，從 Supabase cefr_words 挑一個還沒精通、且不是上一題的字。
 // 一整批（200個）都精通完了就往後翻頁；整個等級都精通完，就允許重複練習（不再排除已精通字）。
 async function pickLevelWord(){
+  ensureDailyLevelCount();
   const mastered=new Set(levelProgress[curLevel]?.mastered||[]);
+  const seenToday=new Set(dailyLevelCount.byLevel?.[curLevel]||[]);
+  // 先避開今天在這個等級已經練過的單字，避免同一天重複出到同一題
+  for(let offset=0; offset<3000; offset+=200){
+    const rows=await sbSelectWords(curLevel,offset);
+    if(!rows.length) break;
+    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==lastSentWord && !seenToday.has(r.word));
+    if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
+  }
+  // 今天這個等級的字都出過了才放寬限制，只避開剛剛那一題
   for(let offset=0; offset<3000; offset+=200){
     const rows=await sbSelectWords(curLevel,offset);
     if(!rows.length) break;
@@ -647,7 +788,6 @@ async function levelBarHTML(){
 }
 
 async function startSent(){
-  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const picked=await pickLevelWord();
@@ -663,6 +803,7 @@ async function startSent(){
 - B1：情境自然包含時間/原因/對比關係（例如「他到職之後...」「因為...所以...」「雖然...但...」），讓母語者翻譯時自然會用連接詞或現在完成式，不是刻意湊長句。
 - B2：情境適合自然翻成被動語態、關係子句、假設語氣或間接引述其中一種（例如「這個東西是被...做的」「...的那個人」「如果...就會...」「他說...」這類情境），選一個母語者翻這句話本來就會用到這些結構的場景，不是找簡單情境硬套。
 - C1/C2：更靈活道地的複雜情境，可以自然包含倒裝、分詞構句或更細膩的語氣表達。
+除了句型複雜度要跟著等級走，情境裡「非目標單字」的其他必要用字難度也不能超過這個等級太多：例如等級是 A1/A2，不要選「復健中心」這種情境去搭配 A1 單字 centre，因為natural的英文翻譯需要用到 rehabilitation 這種明顯遠超過 A1/A2 程度的單字，才能完整表達，這樣學生會被卡在不相關的生字上，而不是練習目標單字本身；應該換成國小生活詞彙就能講清楚的情境（例如「市中心」「購物中心」）。自我檢查：情境裡如果有目標單字以外、學生翻譯時「非用不可」的字，那個字的難度也要跟這個等級差不多，不能自己選了一個超綱的字。
 只輸出純 JSON（不要加 markdown 或其他文字）：
 {"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
     const[txt,dict]=await Promise.all([callClaude(prompt,1000),fetchDict(word)]);
@@ -739,13 +880,24 @@ function weakTip(r){
   const weakPattern=/同樣道地|同樣自然|一樣道地|一樣自然|沒有明顯差異|沒有太大差異/;
   return r.tip&&weakPattern.test(r.tip)?['tip']:[];
 }
-// 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則，任一項不合格就值得重打一次
+function wordSet(s){ return new Set(normLoose(s).split(' ').filter(Boolean)); }
+function jaccardSim(a,b){
+  const sa=wordSet(a),sb=wordSet(b);
+  if(!sa.size||!sb.size) return 0;
+  let inter=0; for(const w of sa) if(sb.has(w)) inter++;
+  return inter/new Set([...sa,...sb]).size;
+}
+// 如果學生句子的句型結構跟 AI 自己給的 b2_example 幾乎一樣，CEFR 卻判在 B2 以下，代表前後矛盾（例如漏看受詞關係子句）
+function cefrUnderstated(r,ans){
+  if(!r.b2_example||cefrRank(r.cefr)>=cefrRank('B2')) return [];
+  return jaccardSim(ans,r.b2_example)>=0.7?['cefr_vs_b2_example']:[];
+}
+// 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans)];
 }
 
 async function submitSent(){
-  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   const ans=document.getElementById('sentInp').value.trim();
   if(!ans){toast('⚠️ 請先寫出翻譯');return;}
   const btn=document.getElementById('sentBtn');
@@ -769,7 +921,8 @@ B1：出現現在完成式或過去進行式，能用 when/although/since 等連
 B2：出現被動語態、較複雜的關係子句（whom/whose，或當受詞）、第二/第三類條件句（if + would/if + would have）、間接引述（reported speech），或連接詞串起三個以上子句的長句，用字選擇比 B1 更精準、更少見的常用字。
 C1：文法幾乎沒有錯誤，句型靈活自然切換（倒裝句、分詞構句、插入語、混合條件句等母語者常用的技巧），用字道地精準，語感貼近母語者的自然表達。
 C2：近乎母語者水準，能運用細膩的語氣、慣用語、文化背景相關表達，用字精準度跟母語者無異。
-嚴格根據上面每個等級「有沒有出現」對應的具體文法結構判斷：一個只有單一子句、用字基礎的正確句子該判 A1，不是自動落在 B1；只有真的出現 when/although 這類連接詞或現在完成式，才算 B1。同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上——只要真的出現被動語態、關係子句等對應結構，就該給對應等級。
+嚴格根據上面每個等級「有沒有出現」對應的具體文法結構判斷：一個只有單一子句、用字基礎的正確句子該判 A1，不是自動落在 B1；只有真的出現 when/although 這類連接詞或現在完成式，才算 B1。同樣不要因為句子有點長或有些許錯誤就自動排除 B2 以上——只要真的出現被動語態、關係子句等對應結構，就該給對應等級。注意關係子句當受詞時，關係代名詞常常省略或用 that，例如「that weird person that you saw yesterday」裡第二個 that 是關係代名詞（你看到了「那個人」），不是重複的指示代名詞，這種當受詞的關係子句（即使省略關係代名詞，例如「the person you saw」）屬於 B2 結構，不能因為看起來簡短或沒有 whom 就誤判成 B1 以下。
+CEFR 判斷完後，回頭比對一次你自己等一下要寫的 b2_example：如果學生的句子在句型結構上跟你的 b2_example 相當、沒有被簡化，但你給的 CEFR 卻比 B2 低，代表判斷前後矛盾了，要重新檢查一次學生句子裡是不是其實已經出現對應等級的結構。
 
 【中式英文（Chinglish）判斷標準】
 只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
@@ -1172,7 +1325,6 @@ function showSentHistDetail(i){
 let curEssayTopic=null;
 
 async function startEssay(){
-  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   document.getElementById('essayBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const txt=await callClaude(`你是 IELTS 寫作老師。請出一個 IELTS Task 2 題目，適合中高級英語學習者。
@@ -1527,7 +1679,6 @@ function rootBrowse(d){
 }
 
 async function startRootQuiz(i){
-  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   document.getElementById('rootBody').innerHTML = rootProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const r=ROOTS[i];
@@ -1690,7 +1841,6 @@ function grammarBrowse(d){
 }
 
 async function startGrammarQuiz(i){
-  if(!KEY){toast('⚠️ 請先設定 API Key');return;}
   document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
     const g=GRAMMAR_POINTS[i];
