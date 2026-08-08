@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="英語字典">
+<meta name="apple-mobile-web-app-title" content="超級英語學習平台">
 <meta name="theme-color" content="#0c1712">
-<title>超級戒斷中文英語學習網</title>
+<title>超級英語學習平台</title>
 <style>
 :root{
   --bg:#0c1712; --card:#13201a; --card2:#192a22; --border:#24382e; --inset:#101d17;
@@ -21,6 +21,7 @@
   --bad:#d1745f; --bad-strong:#cf6a56; --bad-wash:rgba(209,116,95,.16);
   --bad-box-bg:#1a100e; --bad-box-border:#5c2e28; --bad-box-text:#e3a89a;
   --teal:#5aa8a0;
+  --series2:#7fa3d9;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 .ic{display:inline-block;vertical-align:-3px;flex-shrink:0}
@@ -153,6 +154,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .prac-submit:disabled{background:var(--border);color:var(--faint);cursor:not-allowed;transform:none}
 .next-btn{width:100%;padding:15px;background:var(--accent-wash);border:1px solid var(--accent);border-radius:13px;color:var(--accent-light);font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;transition:all .15s}
 .next-btn:active{background:var(--accent-wash-strong)}
+.detail-toggle{width:100%;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.detail-toggle .chev{transition:transform .2s;color:var(--faint)}
+.detail-toggle.open .chev{transform:rotate(180deg)}
+.detail-body.open{max-height:4000px!important}
+.refresh-btn.spinning{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ── 造句 ── */
 .prac-word-badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent-wash);border:1px solid var(--accent);color:var(--accent-light);padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px}
@@ -201,11 +208,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .stat-tile{background:var(--bg);border-radius:12px;padding:12px 8px;text-align:center}
 .stat-label{font-size:10px;color:var(--dim);margin-bottom:5px;letter-spacing:.3px}
 .stat-value{font-size:21px;font-weight:700;color:var(--text)}
-.dash-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
-.dash-bar-date{font-size:11px;color:var(--dim);width:38px;flex-shrink:0;font-variant-numeric:tabular-nums}
-.dash-bar-track{flex:1;background:var(--bg);border-radius:10px;height:18px;position:relative;overflow:hidden}
-.dash-bar-fill{height:100%;border-radius:10px;min-width:3px}
-.dash-bar-val{font-size:11px;color:var(--dim2);width:64px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
 
 /* ── 寫作 ── */
 .essay-type{font-size:11px;font-weight:700;color:var(--mid);letter-spacing:.5px;margin-bottom:10px}
@@ -240,7 +242,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 <!-- ════ AUTH ════ -->
 <div id="authView" style="display:none">
   <div class="su-logo"><svg class="ic" style="width:52px;height:52px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg></div>
-  <div class="su-title">英語字典</div>
+  <div class="su-title">超級英語學習平台</div>
   <div class="su-sub">登入以同步你的學習進度<br>每個帳號的資料互不相通</div>
   <div class="su-group">
     <div class="su-label">Email</div>
@@ -306,13 +308,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
     <div id="grammarPanel" class="panel" style="display:none;flex-direction:column">
       <div class="prac-hd">
         <h2><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v3M15 8v3"/></svg> 文法學習</h2>
-        <p>常見文法點，一個一個學一個一個練</p>
+        <p>根據你自己造句寫錯的地方，客製化教學</p>
       </div>
       <div class="prac-body" id="grammarBody">
         <div class="empty">
           <div class="empty-ico"><svg class="ic" style="width:44px;height:44px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v3M15 8v3"/></svg></div>
-          <div class="empty-h">釐清常見文法誤區</div>
-          <div class="empty-p">從最常見的中式文法錯誤開始<br>一個一個學、學完馬上練習</div>
+          <div class="empty-h">釐清你自己的文法誤區</div>
+          <div class="empty-p">AI 會用你自己造句寫錯的真實句子<br>生成客製化教學，學完再測驗確認真的學會</div>
           <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderGrammarHome()">開始學習 →</button>
         </div>
       </div>
@@ -525,15 +527,34 @@ function authToggleMode(){
   document.getElementById('authErr').style.display='none';
 }
 
+// Email 驗證信／密碼重設信點擊後，Supabase 會把 token（或錯誤原因）帶在網址列 hash 導回這個網站，
+// 這裡之前完全沒有處理，使用者點了信件連結後只會安靜落回登入畫面、看不出到底成功了沒。
+async function handleAuthRedirect(){
+  if(location.hash.length<2) return null;
+  const params=new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null,'',location.pathname+location.search); // 立刻清掉網址列的 token/錯誤參數，不留在網址列或瀏覽紀錄
+  const errDesc=params.get('error_description');
+  if(errDesc) return {ok:false,message:decodeURIComponent(errDesc.replace(/\+/g,' '))};
+  const accessToken=params.get('access_token');
+  if(!accessToken) return null;
+  try{
+    const r=await fetch(`${SB_URL}/auth/v1/user`,{headers:{apikey:SB_KEY,Authorization:`Bearer ${accessToken}`}});
+    const u=await r.json().catch(()=>({}));
+    if(!r.ok||!u?.id) return {ok:false,message:'驗證連結有問題，請重新登入'};
+    authSaveSession({access_token:accessToken,refresh_token:params.get('refresh_token'),expires_at:Math.floor(Date.now()/1000)+parseInt(params.get('expires_in')||'3600',10),user:{id:u.id,email:u.email}});
+    return {ok:true};
+  }catch{ return {ok:false,message:'驗證處理失敗，請重新整理頁面再試一次'}; }
+}
+
 function authResetLocalIfNewUser(){
   const uid=authSession?.user?.id;
   if(!uid) return;
   const lastUid=lsGet('c_last_uid','');
   if(lastUid && lastUid!==uid){
-    // 只重設這裡：curGrammarIdx/viewGrammarIdx/grammarStats/chinglishStats/levelTotalCache
+    // 只重設這裡：grammarStats/chinglishStats/grammarLearningLog/dashboardSummary/levelTotalCache
     // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（文法區塊），這裡不能直接賦值
     // （會撞到 let 的 TDZ），清掉 localStorage 就夠了，它們宣告時會自己用清空後的預設值初始化。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_progress','c_grammar_stats','c_chinglish_stats'].forEach(lsDel);
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary'].forEach(lsDel);
     SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
   }
   lsSet('c_last_uid',uid);
@@ -583,8 +604,8 @@ async function authSubmit(){
 
 async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}&select=value`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});if(!r.ok)return null;const d=await r.json();return d[0]?.value||null;}catch{return null;}}
 async function sbSet(k,v){try{const t=await authToken();if(!t)return;await fetch(`${SB_URL}/rest/v1/user_data?key=eq.${k}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});await fetch(`${SB_URL}/rest/v1/user_data`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({key:k,value:v})});}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[sh,eh,lp,dl,gp,gs,cs,rpts]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarprogress'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports')]);if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}}if(gp){const remote=JSON.parse(gp);if((remote.index||0)>curGrammarIdx){curGrammarIdx=remote.index;lsSet('c_grammar_progress',String(curGrammarIdx));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
-function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});}
+async function syncFromCloud(){try{const[sh,eh,lp,dl,gs,cs,rpts,dg,gll,dsum]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('grammarlearninglog'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}}if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});sbSet('grammarlearninglog',JSON.stringify(grammarLearningLog)).catch(()=>{});sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});sbSet('dailygoal',String(dailyGoal)).catch(()=>{});}
 
 /* ── STATE ── */
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
@@ -599,14 +620,19 @@ let examplePref = lsGet('c_example_pref','both'); // 'both'|'b2'|'c1'
 let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
-(function(){
+(async function(){
   authLoadSession();
+  const redirect=await handleAuthRedirect();
+  if(redirect && !redirect.ok){
+    const el=document.getElementById('authErr');
+    el.textContent=redirect.message; el.style.display='block'; el.style.color='var(--bad-box-text)';
+  }
   if(authSession && authSession.user){
     document.getElementById('authView').style.display='none';
     // setTimeout 延後到整份 <script> 都執行完（所有後面宣告的 const/let/function 都就緒）才真的 boot()，
     // 避免這裡直接同步呼叫 boot() 時，boot() 內部連鎖呼叫到的函式（renderSentHome 等）
     // 讀到「宣告在這行 IIFE 之後」的 const/let（例如 CEFR_LEVELS、levelTotalCache）撞到 TDZ 噴錯。
-    setTimeout(boot,0);
+    setTimeout(()=>{ boot(); if(redirect?.ok) toast('✓ Email 已驗證，歡迎！'); },0);
   }else{
     document.getElementById('authView').style.display='flex';
   }
@@ -673,6 +699,7 @@ const ICON={
   trash:'<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>',
   volume:'<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M16 8.5a5 5 0 0 1 0 7"/>',
   flag:'<path d="M4 22V4"/><path d="M4 4h13l-2.5 4L17 12H4"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>',
   award:'<circle cx="12" cy="9" r="6"/><path d="M9 14.5 7 22l5-3 5 3-2-7.5"/>',
   check:'<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/>',
   message:'<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/>',
@@ -718,7 +745,7 @@ function switchTab(tab){
 function saveDailyGoal(){
   const n=parseInt(document.getElementById('setDailyGoal').value,10);
   if(!n||n<1){toast('請輸入大於 0 的數字');return;}
-  dailyGoal=n; lsSet('c_daily_goal',String(n)); toast('✓ 每日目標已儲存');
+  dailyGoal=n; lsSet('c_daily_goal',String(n)); sbSet('dailygoal',String(n)).catch(()=>{}); toast('✓ 每日目標已儲存');
 }
 function setTranslationPref(v){
   showTranslation=v; lsSet('c_show_translation',v?'1':'0'); refreshSettingChips(); toast('✓ 已儲存');
@@ -738,8 +765,8 @@ function refreshSettingChips(){
 }
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; curGrammarIdx=0; grammarStats={}; chinglishStats={};
-  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_progress'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats');
+  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; grammarStats={}; chinglishStats={}; grammarLearningLog={}; dashboardSummary=null;
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');
   toast('✓ 已清除');
   syncToCloud();
 }
@@ -1035,7 +1062,22 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
-「corrections」裡每一項都要標註 category，從這個清單裡選最接近的一個：時態、冠詞、介系詞、單複數、主詞動詞一致、詞序、關係子句、被動語態、動名詞或不定詞、連接詞、情態助動詞、條件句、其他。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
+「corrections」裡每一項都要標註 category，從這 28 個具體文法點裡選最接近的一個（選最貼近實際錯誤內容的那一條，不要因為列表變長就偷懶通通選「其他」）：
+1. 現在簡單式 vs 現在進行式　2. 過去簡單式 vs 現在完成式　3. 未來式：will vs be going to　4. 過去完成式
+5. 冠詞 a/an/the 的基本用法　6. 零冠詞（不可數名詞、複數泛指）
+7. 介系詞 in/on/at（時間）　8. 介系詞 in/on/at（地點）　9. 常見動詞固定搭配介系詞
+10. 可數與不可數名詞　11. 不規則複數形
+12. 主詞動詞一致（第三人稱單數）　13. 集合名詞的單複數一致
+14. 形容詞順序　15. 疑問句/間接問句語序　16. 副詞位置
+17. 關係代名詞 who/which/that　18. 限定 vs 非限定關係子句
+19. 被動語態基本結構　20. 被動語態常見誤用（中文直翻）
+21. 動名詞當主詞/受詞　22. 不定詞 vs 動名詞
+23. 連接詞 although/because/so　24. 對等連接詞 and/but/or 的句子平衡
+25. 情態助動詞 can/could/may/might/must
+26. 第一/第二/第三類條件句　27. 假設語氣 wish + 過去式/過去完成式
+28. 其他
+（第 28 項「其他」只在以上 27 條都對不上的極少數情況才選，不能因為不確定就先選這個。）
+把 category 直接填成上面選中的那一條的文字本身（例如「過去完成式」、「其他」），不要填數字編號、不要加額外說明。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
 每一項 corrections 寫完後務必自我檢查這六件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${ans}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
@@ -1053,7 +1095,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 【整體講評（overall）】
 在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
 只輸出純 JSON（不要加 markdown）：
-{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"時態/冠詞/介系詞/單複數/主詞動詞一致/詞序/關係子句/被動語態/動名詞或不定詞/連接詞/情態助動詞/條件句/其他 其中一個"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 28 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
     let r;
     for(let attempt=0;attempt<2;attempt++){
       const txt=await callClaude(gradePrompt,750);
@@ -1246,31 +1288,217 @@ async function renderSentHome(){
   </div>`;
 }
 
-function gAccColor(p){ return p>=90?'var(--good)':p>=70?'var(--mid)':'var(--bad)'; }
+/* ── Dashboard：日/週/月趨勢的桶子建構（全部以台北時間為準，比照 taipeiDateStr 的做法） ── */
+function taipeiDaysAgo(n){ const baseUTC=new Date(todayStr()+'T12:00:00Z'); return taipeiDateStr(baseUTC.getTime()-n*86400000); }
+function taipeiWeekday(dateStr){ return new Date(dateStr+'T12:00:00Z').getUTCDay(); } // 0=週日..6=週六
+function mondayOfWeek(dateStr){ const back=(taipeiWeekday(dateStr)+6)%7; return taipeiDateStr(new Date(dateStr+'T12:00:00Z').getTime()-back*86400000); }
+
+function buildDayBuckets(){
+  const mon=mondayOfWeek(todayStr()); const labels=['一','二','三','四','五','六','日']; const buckets=[];
+  for(let i=0;i<7;i++){ buckets.push({key:taipeiDateStr(new Date(mon+'T12:00:00Z').getTime()+i*86400000), label:`週${labels[i]}`}); }
+  return buckets;
+}
+function buildWeekBuckets(n){
+  const curMon=mondayOfWeek(todayStr()); const buckets=[];
+  for(let i=n-1;i>=0;i--){
+    const ds=taipeiDateStr(new Date(curMon+'T12:00:00Z').getTime()-i*7*86400000);
+    const [,m,d]=ds.split('-');
+    buckets.push({key:ds, label:`${parseInt(m)}/${parseInt(d)}`});
+  }
+  return buckets;
+}
+function buildMonthBuckets(n){
+  const [ty,tm]=todayStr().split('-').map(Number); const buckets=[];
+  for(let i=n-1;i>=0;i--){ let y=ty,m=tm-i; while(m<1){ m+=12; y--; } buckets.push({key:`${y}-${String(m).padStart(2,'0')}`, label:`${m}月`}); }
+  return buckets;
+}
+function dashGetBuckets(){ return dashGran==='day'?buildDayBuckets():dashGran==='week'?buildWeekBuckets(8):buildMonthBuckets(6); }
+function dashGetKeyFn(){ return dashGran==='day'?(ts=>taipeiDateStr(ts)):dashGran==='week'?(ts=>mondayOfWeek(taipeiDateStr(ts))):(ts=>taipeiDateStr(ts).slice(0,7)); }
+
+function aggregateTrend(buckets,keyFn,level){
+  const records = level==='all' ? SENT_HISTORY : SENT_HISTORY.filter(h=>h.level===level);
+  const map={};
+  records.forEach(h=>{ const k=keyFn(h.ts); (map[k]=map[k]||[]).push(h); });
+  const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
+  return buckets.map(b=>{
+    const arr=map[b.key]||[];
+    return arr.length ? {label:b.label,count:arr.length,acc:avg(arr,'grammar_accuracy'),ching:avg(arr,'chinglish_percent')}
+                       : {label:b.label,count:0,acc:null,ching:null};
+  });
+}
+
+/* ── Dashboard：AI 學習總結（近 14 天），按日快取，手動重新整理需累積新造句紀錄才解鎖 ── */
+function sentencesSinceLastSummary(){ return SENT_HISTORY.filter(h=>h.ts>(dashboardSummary?.ts||0)).length; }
+
+function buildSummaryMaterial(){
+  const buckets=[]; for(let i=13;i>=0;i--) buckets.push({key:taipeiDaysAgo(i),label:''});
+  const daily=aggregateTrend(buckets, ts=>taipeiDateStr(ts), 'all').map((d,i)=>({date:buckets[i].key,count:d.count,acc:d.acc,ching:d.ching}));
+  const cats=Object.keys(grammarStats);
+  const relearn=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').map(c=>({category:c,pendingErrors:pendingErrorCount(c)}));
+  const learn=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').map(c=>({category:c,count:grammarStats[c]}));
+  const mastered=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
+  // 哪些錯誤沒有改善：練習紀錄依時間切前半/後半，比較每題錯誤發生率有沒有下降（給 AI 當補充脈絡，不強制提到）
+  const sorted=[...SENT_HISTORY].sort((a,b)=>a.ts-b.ts);
+  let noImprove=[];
+  if(sorted.length>=6){
+    const mid=Math.floor(sorted.length/2);
+    const rateOf=arr=>{ const n=arr.length||1; const r={}; for(const h of arr){ for(const c of (h.corrections||[])){ if(c.category) r[c.category]=(r[c.category]||0)+1; } } const out={}; for(const k in r) out[k]=r[k]/n; return out; };
+    const oldRate=rateOf(sorted.slice(0,mid)), newRate=rateOf(sorted.slice(mid));
+    noImprove=Object.keys(oldRate).filter(cat=>oldRate[cat]>0 && (newRate[cat]||0)>=oldRate[cat]);
+  }
+  return {daily,relearn,learn,mastered,noImprove};
+}
+
+async function generateDashboardSummary(){
+  const m=buildSummaryMaterial();
+  const prompt=`你是英語學習教練。以下是這位學生過去 14 天的造句練習資料（依日期排序，count 是題數，acc 是平均文法正確度，ching 是平均中式英文比例，count 是 0 代表那天沒有練習，acc/ching 這種情況會是 null，不是「考了 0 分」）：
+${JSON.stringify(m.daily)}
+
+文法分類目前狀態：
+待複習（學過之後又犯錯，最需要優先處理）：${JSON.stringify(m.relearn)}
+待學習（有錯誤紀錄但還沒學過）：${JSON.stringify(m.learn)}
+已掌握：${JSON.stringify(m.mastered)}
+${m.noImprove.length?`最近一半練習跟前一半比較，這些分類錯誤比例沒有下降：${JSON.stringify(m.noImprove)}`:''}
+
+請用像老師講評的語氣，寫一段 2-4 句話的繁體中文總結，涵蓋：整體趨勢（正確度、中式英文比例最近有沒有變好）、如果今天有練習就帶到今天的表現、最值得優先處理的一個文法分類（優先講「待複習」裡的，沒有的話講「待學習」裡錯誤次數最多的，兩者都沒有就給鼓勵的話）。寫成連貫的一段話，不要條列、不要加標題或前綴，只輸出這段文字本身。`;
+  const text=(await callClaude(prompt,300)).trim();
+  dashboardSummary={ts:Date.now(),date:todayStr(),text};
+  lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));
+  sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});
+  return dashboardSummary;
+}
+
+async function ensureDashboardSummary(){
+  if(!dashboardSummary || dashboardSummary.date!==todayStr()){
+    try{ await generateDashboardSummary(); }catch(e){ console.log('dashboard summary:',e); }
+  }
+}
+
+function dashSummaryNoteText(){
+  if(!dashboardSummary) return '';
+  const d=new Date(dashboardSummary.ts);
+  return `${dashboardSummary.date===todayStr()?'今天':dashboardSummary.date.slice(5)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} 更新`;
+}
+
+function updateSummaryRefreshGate(){
+  const btn=document.getElementById('dashSummaryRefreshBtn'), gate=document.getElementById('dashSummaryGateNote');
+  if(!btn) return;
+  const n=sentencesSinceLastSummary(), ready=n>=DASH_SUMMARY_REFRESH_THRESHOLD;
+  btn.disabled=!ready; btn.style.opacity=ready?'1':'.35'; btn.style.cursor=ready?'pointer':'not-allowed';
+  gate.textContent = ready ? `已累積 ${n} 題新紀錄，可以重新整理` : `還差 ${DASH_SUMMARY_REFRESH_THRESHOLD-n} 題才能重新整理（${n}/${DASH_SUMMARY_REFRESH_THRESHOLD}）`;
+}
+
+async function refreshDashboardSummary(){
+  if(sentencesSinceLastSummary()<DASH_SUMMARY_REFRESH_THRESHOLD) return;
+  const btn=document.getElementById('dashSummaryRefreshBtn');
+  btn.classList.add('spinning'); btn.disabled=true;
+  try{ await generateDashboardSummary(); }catch(e){ toast('摘要生成失敗，請稍後再試'); }
+  btn.classList.remove('spinning');
+  document.getElementById('dashSummaryNote').textContent=dashSummaryNoteText();
+  document.getElementById('dashSummaryText').textContent=dashboardSummary?.text||'';
+  updateSummaryRefreshGate();
+}
+
+/* ── Dashboard：文法分類展開清單（待複習/待學習/已掌握） ── */
+let dashOpenCat=null;
+function toggleDashCatList(k){
+  dashOpenCat = dashOpenCat===k ? null : k;
+  ['relearn','learn','mastered'].forEach(o=>{
+    const list=document.getElementById('dashCatList-'+o), btn=document.getElementById('dashBtn-'+o);
+    if(list) list.style.display = dashOpenCat===o ? '' : 'none';
+    if(btn) btn.classList.toggle('on', dashOpenCat===o);
+  });
+}
+
+function toggleDashDetail(){
+  document.getElementById('dashDetailToggle').classList.toggle('open');
+  document.getElementById('dashDetailBody').classList.toggle('open');
+}
+
+/* ── Dashboard：正確度／中式英文趨勢圖 + 題數長條圖 ── */
+function renderDashLevelChips(){
+  const el=document.getElementById('dashLevelChips'); if(!el) return;
+  const opts=[{k:'all',l:'總體'},...CEFR_LEVELS.map(l=>({k:l,l}))];
+  el.innerHTML=opts.map(o=>`<button class="filt ${dashLevel===o.k?'on':''}" onclick="dashSetLevel('${o.k}')">${o.l}</button>`).join('');
+}
+function dashSetGranularity(g){ dashGran=g; document.querySelectorAll('#dashGranSeg .seg-item').forEach(b=>b.classList.toggle('on',b.dataset.g===g)); renderDashTrend(); }
+function dashSetLevel(l){ dashLevel=l; renderDashLevelChips(); renderDashTrend(); }
+
+function renderDashTrend(){
+  const chart=document.getElementById('dashTrendChart'); if(!chart) return;
+  const agg=aggregateTrend(dashGetBuckets(), dashGetKeyFn(), dashLevel);
+  renderDashTrendHeadline(agg);
+  renderDashTrendLines(agg);
+  renderDashTrendVolume(agg);
+}
+
+function renderDashTrendHeadline(agg){
+  const el=document.getElementById('dashTrendHeadline'); if(!el) return;
+  const valid=agg.map((b,i)=>({...b,i})).filter(b=>b.count>0);
+  if(valid.length<2){ el.textContent='這個範圍資料還不夠，多練習幾次會出現趨勢'; return; }
+  const mid=Math.floor(agg.length/2);
+  const avg=(arr,k)=>arr.reduce((s,p)=>s+p[k],0)/arr.length;
+  const f=valid.filter(p=>p.i<mid), s=valid.filter(p=>p.i>=mid);
+  if(!f.length||!s.length){ el.innerHTML=`目前平均文法正確度 ${Math.round(avg(valid,'acc'))}%`; return; }
+  const a1=avg(f,'acc'), a2=avg(s,'acc'), delta=Math.round(a2-a1), up=delta>=0;
+  el.innerHTML=`📈 文法正確度平均從 ${Math.round(a1)}% ${up?'進步到':'下滑到'} ${Math.round(a2)}% <b style="color:${up?'var(--good)':'var(--bad)'}">(${delta>=0?'+':''}${delta})</b>`;
+}
+
+function renderDashTrendLines(agg){
+  const W=380,H=130,padL=28,padR=8,padT=24,padB=22;
+  const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
+  const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
+  const y=v=>padT+(100-v)/100*chartH;
+  let svg='';
+  [0,50,100].forEach(v=>{
+    svg+=`<line x1="${padL}" y1="${y(v)}" x2="${W-padR}" y2="${y(v)}" stroke="var(--border)" stroke-width="1"/>`;
+    svg+=`<text x="${padL-5}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--faint)">${v}</text>`;
+  });
+  function drawSeries(key,color){
+    // 沒練習的區間連到 0（跟下面題數長條圖同一個 x 軸對齊，一起看就知道連到 0 是沒練習、不是考了 0 分）
+    const pts=agg.map((b,i)=>({i, v:b.count?b[key]:0, real:!!b.count}));
+    const line=pts.map((p,idx)=>`${idx===0?'M':'L'}${x(p.i)},${y(p.v)}`).join(' ');
+    svg+=`<path d="M${x(0)},${y(0)} ${line.slice(1)} L${x(n-1)},${y(0)} Z" fill="${color}" fill-opacity="0.08" stroke="none"/>`;
+    svg+=`<path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    pts.forEach(p=>{ svg+=`<circle cx="${x(p.i)}" cy="${y(p.v)}" r="${p.real?2.5:2}" fill="${color}"${p.real?'':' fill-opacity="0.4"'}/>`; });
+    const lastReal=[...pts].reverse().find(p=>p.real)||pts[pts.length-1];
+    svg+=`<circle cx="${x(lastReal.i)}" cy="${y(lastReal.v)}" r="5" fill="${color}" stroke="var(--card)" stroke-width="2"/>`;
+    const anchor=lastReal.i>=n-2?'end':'middle';
+    svg+=`<text x="${x(lastReal.i)+(anchor==='end'?4:0)}" y="${y(lastReal.v)-11}" text-anchor="${anchor}" font-size="11" font-weight="700" fill="${color}">${lastReal.v}%</text>`;
+  }
+  drawSeries('acc','var(--accent)');
+  drawSeries('ching','var(--series2)');
+  agg.forEach((b,i)=>{ svg+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--faint)">${b.label}</text>`; });
+  document.getElementById('dashTrendChart').innerHTML=svg;
+}
+
+function renderDashTrendVolume(agg){
+  const W=380,H=40,padL=28,padR=8,padT=2,padB=2;
+  const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
+  const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
+  const maxC=Math.max(1,...agg.map(b=>b.count));
+  const barW=Math.max(6,Math.min(22,chartW/n*0.5));
+  let svg=`<line x1="${padL}" y1="${padT+chartH}" x2="${W-padR}" y2="${padT+chartH}" stroke="var(--border)" stroke-width="1"/>`;
+  agg.forEach((b,i)=>{
+    if(!b.count) return;
+    const h=(b.count/maxC)*chartH;
+    svg+=`<rect x="${x(i)-barW/2}" y="${padT+chartH-h}" width="${barW}" height="${h}" rx="3" fill="var(--accent)" fill-opacity="0.4"/>`;
+  });
+  document.getElementById('dashVolChart').innerHTML=svg;
+}
 
 async function dashboardHTML(){
   ensureDailyLevelCount();
   if(!SENT_HISTORY.length) return `<div class="empty"><div class="empty-ico">${ic('chart',44)}</div><div class="empty-h">還沒有資料</div><div class="empty-p">完成幾題造句練習後，這裡會顯示你的進度分析</div></div>`;
 
-  const dayKey=h=>taipeiDateStr(h.ts);
   const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
-  const t=todayStr();
-  const todayEntries=SENT_HISTORY.filter(h=>dayKey(h)===t);
-  const todayAvgGA=avg(todayEntries,'grammar_accuracy');
-  const todayAvgCH=avg(todayEntries,'chinglish_percent');
-  const todayByLevel=CEFR_LEVELS.map(l=>`${l}:${dailyLevelCount.byLevel?.[l]?.length||0}`).join(' ');
 
-  const levelRows=CEFR_LEVELS.map(l=>{
-    const arr=SENT_HISTORY.filter(h=>h.level===l);
-    return {level:l,count:arr.length,ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
-  }).filter(r=>r.count>0);
-  const rankedByGA=levelRows.filter(r=>r.ga!=null).sort((a,b)=>b.ga-a.ga);
-  const bestLevel=rankedByGA[0], worstLevel=rankedByGA[rankedByGA.length-1];
-
-  const catRanking=Object.entries(grammarStats).sort((a,b)=>b[1]-a[1]);
-  const worstCats=catRanking.slice(0,5);
-  const bestCats=[...catRanking].reverse().slice(0,3);
-  const topWeakCat=catRanking[0];
+  // 文法分類三態清單（AI 總結卡下面的展開按鈕用）
+  const cats=Object.keys(grammarStats);
+  const relearnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').sort((a,b)=>pendingErrorCount(b)-pendingErrorCount(a));
+  const learnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0));
+  const masteredCats=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
+  const primaryCat=relearnCats[0]||learnCats[0];
 
   const chinglishRanking=Object.entries(chinglishStats).sort((a,b)=>b[1]-a[1]);
 
@@ -1280,128 +1508,128 @@ async function dashboardHTML(){
   const totalMastered=masteredRows.reduce((s,r)=>s+r.mastered,0);
   const totalWords=masteredRows.reduce((s,r)=>s+r.total,0);
 
-  // 哪些錯誤沒有改善：練習紀錄依時間切前半/後半，比較每題錯誤發生率有沒有下降
-  const sorted=[...SENT_HISTORY].sort((a,b)=>a.ts-b.ts);
-  let noImprove=[];
-  if(sorted.length>=6){
-    const mid=Math.floor(sorted.length/2);
-    const rateOf=arr=>{ const n=arr.length||1; const r={}; for(const h of arr){ for(const c of (h.corrections||[])){ if(c.category) r[c.category]=(r[c.category]||0)+1; } } const out={}; for(const k in r) out[k]=r[k]/n; return out; };
-    const oldRate=rateOf(sorted.slice(0,mid)), newRate=rateOf(sorted.slice(mid));
-    noImprove=Object.keys(oldRate)
-      .filter(cat=>oldRate[cat]>0 && (newRate[cat]||0)>=oldRate[cat])
-      .map(cat=>({cat,older:oldRate[cat],newer:newRate[cat]||0}))
-      .sort((a,b)=>b.newer-a.newer);
-  }
+  const levelRows=CEFR_LEVELS.map(l=>{
+    const arr=SENT_HISTORY.filter(h=>h.level===l);
+    return {level:l,count:arr.length,ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
+  }).filter(r=>r.count>0);
 
-  // 最近 14 天趨勢
-  const days=[]; const baseUTC=new Date(todayStr()+'T12:00:00Z'); for(let i=13;i>=0;i--){ days.push(taipeiDateStr(baseUTC.getTime()-i*86400000)); }
-  const trend=days.map(ds=>{ const arr=SENT_HISTORY.filter(h=>dayKey(h)===ds); return {date:ds,count:arr.length,ga:avg(arr,'grammar_accuracy')}; });
-  const maxCount=Math.max(1,...trend.map(d=>d.count));
-  const todayDs=todayStr(), yestDs=taipeiDateStr(baseUTC.getTime()-86400000);
-
-  const summary=[];
-  summary.push(`<div class="use-item"><span class="use-ico">${ic('calendar',18)}</span><div><div class="use-lbl">今天</div><div class="use-t">已練習 ${todayEntries.length} 題${todayAvgGA!=null?`，平均文法正確度 ${todayAvgGA}%`:''}</div></div></div>`);
-  if(bestLevel) summary.push(`<div class="use-item"><span class="use-ico">${ic('award',18)}</span><div><div class="use-lbl" style="color:var(--good)">表現最好</div><div class="use-t">${bestLevel.level} 等級，文法正確度 ${bestLevel.ga}%</div></div></div>`);
-  if(worstLevel&&(!bestLevel||worstLevel.level!==bestLevel.level)) summary.push(`<div class="use-item"><span class="use-ico">${ic('alert',18)}</span><div><div class="use-lbl" style="color:var(--bad)">待加強</div><div class="use-t">${worstLevel.level} 等級，文法正確度 ${worstLevel.ga}%</div></div></div>`);
-  if(topWeakCat) summary.push(`<div class="use-item"><span class="use-ico">${ic('target',18)}</span><div><div class="use-lbl" style="color:var(--mid)">最常出錯</div><div class="use-t">「${topWeakCat[0]}」已出現 ${topWeakCat[1]} 次</div></div></div>`);
-  if(noImprove.length) summary.push(`<div class="use-item"><span class="use-ico">${ic('trendDown',18)}</span><div><div class="use-lbl" style="color:var(--bad)">沒有改善</div><div class="use-t">「${noImprove[0].cat}」最近沒有變少（近期每題 ${noImprove[0].newer.toFixed(1)} 次，之前每題 ${noImprove[0].older.toFixed(1)} 次）</div></div></div>`);
+  const summaryText=dashboardSummary?.text || '正在生成近 14 天的學習總結...';
 
   return `
-  <div class="prac-card">
-    <div class="card-lbl">${ic('tag',14)} 總結</div>
-    ${summary.join('')}
-  </div>
-
-  <div class="prac-card">
-    <div class="card-lbl">${ic('chart',14)} 至今整體進度</div>
-    <div class="stat-grid" style="margin-bottom:12px">
-      <div class="stat-tile"><div class="stat-label">累計練習</div><div class="stat-value">${SENT_HISTORY.length}</div></div>
-      <div class="stat-tile"><div class="stat-label">總精通字數</div><div class="stat-value">${totalMastered}</div></div>
-      <div class="stat-tile"><div class="stat-label">總字庫</div><div class="stat-value">${totalWords||'—'}</div></div>
-    </div>
-    ${masteredRows.map(r=>`<div class="use-item">
-      <span class="use-ico">${r.level}</span>
-      <div style="flex:1"><div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div></div>
-    </div>`).join('')}
-  </div>
-
-  <div class="prac-card">
-    <div class="card-lbl">${ic('calendar',14)} 今日表現</div>
-    <div class="stat-grid">
-      <div class="stat-tile"><div class="stat-label">今日題數</div><div class="stat-value">${todayEntries.length}</div></div>
-      <div class="stat-tile"><div class="stat-label">平均文法正確度</div><div class="stat-value">${todayAvgGA!=null?todayAvgGA+'%':'—'}</div></div>
-      <div class="stat-tile"><div class="stat-label">平均中式英文</div><div class="stat-value">${todayAvgCH!=null?todayAvgCH+'%':'—'}</div></div>
-    </div>
-    <div class="use-t" style="margin-top:10px">今日各等級：${todayByLevel}</div>
-  </div>
-
-  ${levelRows.length?`<div class="prac-card">
-    <div class="card-lbl">${ic('target',14)} 各等級表現（累計）</div>
-    ${levelRows.map(r=>`<div class="use-item">
-      <span class="use-ico">${r.level}</span>
-      <div style="flex:1">
-        <div class="use-lbl">練習 ${r.count} 題</div>
-        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
-          ${r.ga!=null?`<span class="score-badge ${gAccClass(r.ga)}" style="padding:3px 10px;font-size:11px">文法 ${r.ga}%</span>`:''}
-          ${r.ch!=null?`<span class="score-badge ${chingClass(r.ch)}" style="padding:3px 10px;font-size:11px">中式 ${r.ch}%</span>`:''}
+  <!-- AI 學習總結：唯一的頂層卡，回顧性事實（今天練了幾題/正確度）寫進這段文字裡有語境地帶到，
+       不再用 stat-tile 單獨列——那些數字本身不是行動。分類清單預設收起來，點按鈕才展開。 -->
+  <div class="prac-card" style="border-color:var(--accent-wash-strong)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px">
+      <div class="card-lbl" style="margin-bottom:0">✨ AI 學習總結（近 14 天）</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span id="dashSummaryNote" style="font-size:10px;color:var(--faint)">${dashSummaryNoteText()}</span>
+          <button class="btn refresh-btn" id="dashSummaryRefreshBtn" onclick="refreshDashboardSummary()" title="重新生成摘要（需累積新造句紀錄才能按）" style="width:26px;height:26px;border-radius:8px">${ic('refresh',13)}</button>
         </div>
+        <span id="dashSummaryGateNote" style="font-size:10px;color:var(--faint);text-align:right"></span>
       </div>
-    </div>`).join('')}
-  </div>`:''}
+    </div>
+    <div class="use-t" id="dashSummaryText" style="font-size:14px;color:var(--text-soft);line-height:1.8;margin-bottom:16px">${summaryText}</div>
+    ${primaryCat?`<button class="prac-submit" onclick="openGrammarCategory('${primaryCat}');switchTab('grammar')">前往${relearnCats[0]?'複習':'學習'}「${primaryCat}」→</button>`:''}
 
-  ${worstCats.length?`<div class="prac-card">
-    <div class="card-lbl">${ic('alert',14)} 文法待加強排行</div>
-    ${worstCats.map(([cat,count])=>{
-      const idx=GRAMMAR_POINTS.findIndex(g=>g.category===cat);
-      return `<div class="hist-item" ${idx>=0?`onclick="jumpToGrammar(${idx});switchTab('grammar')"`:''}>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      ${relearnCats.length?`<button class="filt" id="dashBtn-relearn" onclick="toggleDashCatList('relearn')">⚠️ 待複習 (${relearnCats.length})</button>`:''}
+      ${learnCats.length?`<button class="filt" id="dashBtn-learn" onclick="toggleDashCatList('learn')">📖 待學習 (${learnCats.length})</button>`:''}
+      ${masteredCats.length?`<button class="filt" id="dashBtn-mastered" onclick="toggleDashCatList('mastered')">✅ 已掌握 (${masteredCats.length})</button>`:''}
+    </div>
+    <div id="dashCatList-relearn" style="display:none;margin-top:12px">
+      ${relearnCats.map(cat=>`<div class="hist-item" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
         <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">已出現 ${count} 次錯誤${idx>=0?' · 點擊前往學習 →':''}</div>
-      </div>`;
-    }).join('')}
+        <div class="hist-ans">已出現 ${grammarStats[cat]} 次錯誤 · 學過 ${grammarLearningLog[cat].length} 輪 · 距離上次學習後又錯 ${pendingErrorCount(cat)} 次 →</div>
+      </div>`).join('')}
+    </div>
+    <div id="dashCatList-learn" style="display:none;margin-top:12px">
+      ${learnCats.map(cat=>`<div class="hist-item" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
+        <div class="hist-zh">${cat}</div>
+        <div class="hist-ans">已出現 ${grammarStats[cat]} 次錯誤 · 還沒學過 →</div>
+      </div>`).join('')}
+    </div>
+    <div id="dashCatList-mastered" style="display:none;margin-top:12px">
+      ${masteredCats.map(cat=>{ const rc=relapseCount(cat); return `<div class="hist-item" style="opacity:.8" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
+        <div class="hist-zh">${cat}</div>
+        <div class="hist-ans">學過 ${grammarLearningLog[cat].length} 輪${rc?` · ${rc} 次學了又錯`:''}，之後穩定沒再犯</div>
+      </div>`; }).join('')}
+    </div>
   </div>
-  <div class="prac-card">
-    <div class="card-lbl">${ic('check',14)} 錯誤較少的分類（相對其他分類，僅供參考）</div>
-    ${bestCats.map(([cat,count])=>`<div class="hist-item" style="cursor:default">
-      <div class="hist-zh">${cat}</div>
-      <div class="hist-ans">${count} 次錯誤</div>
-    </div>`).join('')}
-  </div>`:''}
 
-  ${chinglishRanking.length?`<div class="prac-card">
-    <div class="card-lbl">🀄 中式英文類型排行</div>
-    ${chinglishRanking.map(([type,count])=>`<div class="hist-item" style="cursor:default">
-      <div class="hist-zh">${type}</div>
-      <div class="hist-ans">已出現 ${count} 次</div>
-    </div>`).join('')}
-  </div>`:''}
+  <div class="detail-toggle" id="dashDetailToggle" onclick="toggleDashDetail()">
+    <span style="font-size:13px;font-weight:700;color:var(--text-soft);display:flex;align-items:center;gap:8px">${ic('chart',14)} 詳細數據</span>
+    <span class="chev">▾</span>
+  </div>
+  <div class="detail-body" id="dashDetailBody" style="max-height:0;overflow:hidden;transition:max-height .3s ease">
+    <div style="padding-top:12px">
 
-  ${noImprove.length?`<div class="prac-card">
-    <div class="card-lbl">${ic('trendDown',14)} 沒有改善的錯誤類型</div>
-    <div class="use-t" style="margin-bottom:8px">比較最近一半跟前一半的練習紀錄，這幾類錯誤發生的比例沒有下降：</div>
-    ${noImprove.map(r=>`<div class="hist-item" style="cursor:default">
-      <div class="hist-zh">${r.cat}</div>
-      <div class="hist-ans">之前每題 ${r.older.toFixed(2)} 次 → 最近每題 ${r.newer.toFixed(2)} 次</div>
-    </div>`).join('')}
-  </div>`:''}
+      <div class="prac-card">
+        <div class="card-lbl">${ic('chart',14)} 至今整體進度</div>
+        <div class="stat-grid" style="margin-bottom:12px">
+          <div class="stat-tile"><div class="stat-label">累計練習</div><div class="stat-value">${SENT_HISTORY.length}</div></div>
+          <div class="stat-tile"><div class="stat-label">總精通字數</div><div class="stat-value">${totalMastered}</div></div>
+          <div class="stat-tile"><div class="stat-label">總字庫</div><div class="stat-value">${totalWords||'—'}</div></div>
+        </div>
+        ${masteredRows.map(r=>`<div class="use-item">
+          <span class="use-ico">${r.level}</span>
+          <div style="flex:1"><div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div></div>
+        </div>`).join('')}
+      </div>
 
-  <div class="prac-card">
-    <div class="card-lbl">${ic('trendUp',14)} 最近 14 天練習量與文法正確度</div>
-    ${trend.map(d=>{
-      const label=d.date===todayDs?'今天':d.date===yestDs?'昨天':d.date.slice(5);
-      const barColor=d.ga!=null?gAccColor(d.ga):'var(--border)';
-      return `<div class="dash-bar-row">
-        <span class="dash-bar-date">${label}</span>
-        <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${d.count?(d.count/maxCount*100):0}%;background:${barColor}"></div></div>
-        <span class="dash-bar-val">${d.count?`${d.count}題${d.ga!=null?` ${d.ga}%`:''}`:'–'}</span>
-      </div>`;
-    }).join('')}
+      ${levelRows.length?`<div class="prac-card">
+        <div class="card-lbl">${ic('target',14)} 各等級表現（累計）</div>
+        ${levelRows.map(r=>`<div class="use-item">
+          <span class="use-ico">${r.level}</span>
+          <div style="flex:1">
+            <div class="use-lbl">練習 ${r.count} 題</div>
+            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+              ${r.ga!=null?`<span class="score-badge ${gAccClass(r.ga)}" style="padding:3px 10px;font-size:11px">文法 ${r.ga}%</span>`:''}
+              ${r.ch!=null?`<span class="score-badge ${chingClass(r.ch)}" style="padding:3px 10px;font-size:11px">中式 ${r.ch}%</span>`:''}
+            </div>
+          </div>
+        </div>`).join('')}
+      </div>`:''}
+
+      ${chinglishRanking.length?`<div class="prac-card">
+        <div class="card-lbl">🀄 中式英文類型排行</div>
+        ${chinglishRanking.map(([type,count])=>`<div class="hist-item" style="cursor:default">
+          <div class="hist-zh">${type}</div>
+          <div class="hist-ans">已出現 ${count} 次</div>
+        </div>`).join('')}
+      </div>`:''}
+
+      <div class="prac-card">
+        <div class="card-lbl">${ic('trendUp',14)} 正確度／中式英文趨勢</div>
+        <div style="margin-bottom:12px">
+          <div class="seg" id="dashGranSeg" style="padding:3px;display:inline-flex">
+            <button class="seg-item on" data-g="day" style="padding:6px 13px;font-size:12px" onclick="dashSetGranularity('day')">日</button>
+            <button class="seg-item" data-g="week" style="padding:6px 13px;font-size:12px" onclick="dashSetGranularity('week')">週</button>
+            <button class="seg-item" data-g="month" style="padding:6px 13px;font-size:12px" onclick="dashSetGranularity('month')">月</button>
+          </div>
+        </div>
+        <div id="dashLevelChips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px"></div>
+        <div id="dashTrendHeadline" style="font-size:13px;color:var(--dim);margin-bottom:10px"></div>
+        <div style="display:flex;gap:16px;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block"></span>文法正確度</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--series2);display:inline-block"></span>中式英文</div>
+        </div>
+        <svg id="dashTrendChart" viewBox="0 0 380 130" style="width:100%;display:block;overflow:visible"></svg>
+        <div style="font-size:10px;color:var(--faint);margin:12px 0 4px">題數</div>
+        <svg id="dashVolChart" viewBox="0 0 380 40" style="width:100%;display:block;overflow:visible"></svg>
+      </div>
+
+    </div>
   </div>`;
 }
 
 async function showDashboard(){
   document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button><div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">計算中...</div></div>`;
+  if(SENT_HISTORY.length) await ensureDashboardSummary();
+  dashGran='day'; dashLevel='all';
   const html=await dashboardHTML();
   document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button>`+html;
+  if(SENT_HISTORY.length){ renderDashLevelChips(); renderDashTrend(); updateSummaryRefreshGate(); }
 }
 
 function showSentHistory(){
@@ -1615,164 +1843,178 @@ function showEssayHistDetail(i){
 }
 
 /* ── 文法學習：固定教材 ── */
-const GRAMMAR_POINTS=[
-{category:'時態',topic:'現在簡單式 vs 現在進行式',explanation:'現在簡單式用於習慣、事實、長期狀態；現在進行式用於當下正在發生的動作。中文沒有這種時態區分，容易混用。',commonMistake:'中文「我在吃飯」跟「我每天吃飯」動詞形式一樣，導致忘記英文要分開表達。',examples:[{wrong:'I am eating breakfast every day.',right:'I eat breakfast every day.'},{wrong:'Look, he walk to school now.',right:'Look, he is walking to school now.'}]},
-{category:'時態',topic:'過去簡單式 vs 現在完成式',explanation:'過去簡單式描述已結束、有明確過去時間點的動作；現在完成式強調過去動作對現在的影響，或沒有明確時間點。',commonMistake:'中文的「了」「過」對應到過去式或完成式都可以，導致英文選錯時態。',examples:[{wrong:'I have watched this movie yesterday.',right:'I watched this movie yesterday.'},{wrong:'I lost my keys and still can not find them.',right:'I have lost my keys and still can not find them.'}]},
-{category:'時態',topic:'未來式：will vs be going to',explanation:'will 常用於臨時決定、預測；be going to 常用於已經計畫好的事。',commonMistake:'中文的「將要」「會」不分場合，導致兩者混用不分。',examples:[{wrong:'I will go to Japan next month. (已訂好機票)',right:'I am going to Japan next month.'},{wrong:'A: The phone is ringing. B: I am going to answer it.',right:'A: The phone is ringing. B: I will answer it.'}]},
-{category:'時態',topic:'過去完成式',explanation:'過去完成式（had + p.p.）描述「過去某件事發生之前」已經完成的動作，用來釐清兩個過去事件的先後順序。',commonMistake:'中文常靠「已經」「早就」等詞表達先後，而不是靠動詞變化，容易忘記使用 had。',examples:[{wrong:'When I arrived, the meeting already started.',right:'When I arrived, the meeting had already started.'}]},
-{category:'冠詞',topic:'冠詞 a/an/the 的基本用法',explanation:'第一次提到、不特定的可數單數名詞用 a/an；雙方都知道指哪個、或第二次提到用 the。',commonMistake:'中文完全沒有冠詞系統，中文母語者最容易整句忘記加冠詞，或該用 the 時用 a。',examples:[{wrong:'I bought book yesterday.',right:'I bought a book yesterday.'},{wrong:'Please close door.',right:'Please close the door.'}]},
-{category:'冠詞',topic:'零冠詞（不可數名詞、複數泛指）',explanation:'講不可數名詞或複數名詞的「泛指」概念時，前面不用加冠詞。',commonMistake:'因為想「補一個冠詞」的習慣，反而在不該加的地方多加了 the 或 a。',examples:[{wrong:'The money can not buy happiness.',right:'Money can not buy happiness.'},{wrong:'I like the dogs.（泛指所有狗）',right:'I like dogs.'}]},
-{category:'介系詞',topic:'介系詞 in/on/at（時間）',explanation:'年/月/季節用 in，日期/星期用 on，精確時刻用 at。',commonMistake:'中文的「在」對應所有時間介系詞，導致隨意套用同一個字。',examples:[{wrong:'I was born at 1995.',right:'I was born in 1995.'},{wrong:'See you in Monday.',right:'See you on Monday.'}]},
-{category:'介系詞',topic:'介系詞 in/on/at（地點）',explanation:'大範圍空間用 in，表面/街道用 on，精確地點用 at。',commonMistake:'同樣因為中文「在」不分，容易三個介系詞混著用。',examples:[{wrong:'I live at Taipei.',right:'I live in Taipei.'},{wrong:'The book is in the table.',right:'The book is on the table.'}]},
-{category:'介系詞',topic:'常見動詞固定搭配介系詞',explanation:'很多英文動詞/形容詞有固定搭配的介系詞（depend on、interested in、good at），不能用中文邏輯推導。',commonMistake:'直接照中文語感猜介系詞，例如「對…感興趣」猜成 interested to。',examples:[{wrong:'I am interested to learn English.',right:'I am interested in learning English.'},{wrong:'It depends of the weather.',right:'It depends on the weather.'}]},
-{category:'單複數',topic:'可數與不可數名詞',explanation:'不可數名詞（information、advice、furniture 等）沒有複數形，也不能加 a/an。',commonMistake:'中文名詞沒有可數不可數的區別，容易把不可數名詞當可數名詞用。',examples:[{wrong:'I need some informations.',right:'I need some information.'},{wrong:'She gave me an advice.',right:'She gave me some advice.'}]},
-{category:'單複數',topic:'不規則複數形',explanation:'部分名詞的複數形不是加 s（child→children、person→people、foot→feet）。',commonMistake:'習慣性在所有名詞後面加 s，忽略不規則變化。',examples:[{wrong:'There are many childs in the park.',right:'There are many children in the park.'}]},
-{category:'主詞動詞一致',topic:'主詞動詞一致（第三人稱單數）',explanation:'主詞是第三人稱單數（he/she/it 或單數名詞）時，現在式動詞要加 s/es。',commonMistake:'中文動詞不會因主詞改變形式，容易忘記幫動詞加 s。',examples:[{wrong:'She like coffee.',right:'She likes coffee.'},{wrong:'My brother work in a bank.',right:'My brother works in a bank.'}]},
-{category:'主詞動詞一致',topic:'集合名詞的單複數一致',explanation:'像 family、team、the police 這類集合名詞，依語境當作單數或複數，動詞要對應一致。',commonMistake:'不確定該把集合名詞當一個整體（單數）還是一群人（複數），動詞常配錯。',examples:[{wrong:'The police is investigating the case.',right:'The police are investigating the case.'}]},
-{category:'詞序',topic:'形容詞順序（大小新舊顏色國籍材質）',explanation:'多個形容詞修飾同一個名詞時有固定順序，大致是：意見 → 大小 → 新舊 → 顏色 → 國籍 → 材質。',commonMistake:'中文形容詞順序較自由，容易照直覺排列導致英文語序不自然。',examples:[{wrong:'a red big house',right:'a big red house'},{wrong:'a plastic small red bag',right:'a small red plastic bag'}]},
-{category:'詞序',topic:'疑問句/間接問句語序',explanation:'一般疑問句主詞動詞要倒裝（Do you...?），但間接問句（放在句子裡的問句）要恢復成正常語序。',commonMistake:'把間接問句也倒裝，變成 "I don not know what is he doing"。',examples:[{wrong:'I do not know what is he doing.',right:'I do not know what he is doing.'},{wrong:'Can you tell me where is the station?',right:'Can you tell me where the station is?'}]},
-{category:'詞序',topic:'副詞位置',explanation:'頻率副詞（always/usually/often/never）通常放在一般動詞前、be動詞後；地方/時間副詞通常放句尾。',commonMistake:'把副詞硬套進中文語序的位置，變成不自然的英文語序。',examples:[{wrong:'I always am busy.',right:'I am always busy.'},{wrong:'I go always to school by bus.',right:'I always go to school by bus.'}]},
-{category:'關係子句',topic:'關係代名詞 who/which/that',explanation:'who 指人、which 指事物、that 兩者皆可（限定子句），用來引導修飾名詞的子句。',commonMistake:'不確定該用哪一個，或忘記關係子句裡不能重複出現原本的主詞/受詞。',examples:[{wrong:'The man which called you is my boss.',right:'The man who called you is my boss.'},{wrong:'This is the book that I bought it yesterday.',right:'This is the book that I bought yesterday.'}]},
-{category:'關係子句',topic:'限定 vs 非限定關係子句',explanation:'限定子句（無逗號）用來界定範圍，非限定子句（有逗號，通常用 which/who）用來補充額外資訊。',commonMistake:'不清楚兩者差別，導致該加逗號時沒加，改變了句意。',examples:[{wrong:'My brother who lives in Tokyo is a doctor.（只有一個哥哥時應加逗號）',right:'My brother, who lives in Tokyo, is a doctor.'}]},
-{category:'被動語態',topic:'被動語態基本結構',explanation:'被動語態用 be 動詞 + 過去分詞，強調動作的承受者而不是執行者。',commonMistake:'忘記加 be 動詞，或過去分詞用錯形式。',examples:[{wrong:'The window broke by the wind.',right:'The window was broken by the wind.'}]},
-{category:'被動語態',topic:'被動語態常見誤用（中文直翻）',explanation:'中文很多句子字面上是主動，但英文語感上習慣用被動（例如 be made of、be born）。',commonMistake:'直接照中文主動語序翻譯，忽略英文的慣用被動表達。',examples:[{wrong:'I born in 1998.',right:'I was born in 1998.'},{wrong:'This table makes of wood.',right:'This table is made of wood.'}]},
-{category:'動名詞或不定詞',topic:'動名詞當主詞/受詞',explanation:'動名詞（V-ing）可以當主詞或某些動詞（enjoy、finish、avoid...）的受詞。',commonMistake:'該用動名詞的地方用了不定詞（to V），或忘記將動詞改成 V-ing 形式。',examples:[{wrong:'I enjoy to read books.',right:'I enjoy reading books.'},{wrong:'Swim is good for health.',right:'Swimming is good for health.'}]},
-{category:'動名詞或不定詞',topic:'不定詞 vs 動名詞（want to do vs enjoy doing）',explanation:'某些動詞後面固定接不定詞（want、hope、decide），某些固定接動名詞（enjoy、avoid、finish），需要個別記憶。',commonMistake:'把兩種用法搞混，或憑中文語感亂猜該接哪一種。',examples:[{wrong:'I want going home.',right:'I want to go home.'},{wrong:'She avoids to eat sugar.',right:'She avoids eating sugar.'}]},
-{category:'連接詞',topic:'連接詞 although/because/so',explanation:'although 和 because 不能同時跟 but/so 一起用在同一個句子裡表達因果或轉折（英文只需要一個連接詞）。',commonMistake:'受中文「雖然…但是…」「因為…所以…」成對使用的習慣影響，英文也寫成兩個連接詞。',examples:[{wrong:'Although it was raining, but we still went out.',right:'Although it was raining, we still went out.'},{wrong:'Because he was tired, so he went to bed early.',right:'Because he was tired, he went to bed early.'}]},
-{category:'連接詞',topic:'對等連接詞 and/but/or 的句子平衡',explanation:'and/but/or 前後連接的成分（詞性、時態、句型）應該對等平衡。',commonMistake:'前後兩邊結構不對稱，例如一邊是動詞片語、一邊是名詞片語。',examples:[{wrong:'She likes swimming and to run.',right:'She likes swimming and running.'}]},
-{category:'情態助動詞',topic:'情態助動詞 can/could/may/might/must',explanation:'情態助動詞後面直接接原形動詞，不需要 to，也不需要因主詞變化而變形。',commonMistake:'習慣性在情態助動詞後面加 to，或幫動詞加 s。',examples:[{wrong:'She can to speak French.',right:'She can speak French.'},{wrong:'He must goes now.',right:'He must go now.'}]},
-{category:'條件句',topic:'第一/第二/第三類條件句',explanation:'第一類（if + 現在式, will + 原形）表示可能發生的未來；第二類（if + 過去式, would + 原形）表示假設不太可能發生；第三類（if + 過去完成式, would have + p.p.）表示與過去事實相反。',commonMistake:'三種條件句的時態混用，尤其容易把假設語氣寫成現在式。',examples:[{wrong:'If I have more money, I would travel more.',right:'If I had more money, I would travel more.'},{wrong:'If I studied harder, I would have passed the exam.（描述過去的事）',right:'If I had studied harder, I would have passed the exam.'}]},
-{category:'條件句',topic:'假設語氣 wish + 過去式/過去完成式',explanation:'wish 後面接過去式表示對現在的假設，接過去完成式表示對過去的假設，兩者都表達「事實並非如此」的遺憾。',commonMistake:'wish 後面直接接現在式，沒有意識到這是假設語氣需要「時態倒退」。',examples:[{wrong:'I wish I am taller.',right:'I wish I were taller.'},{wrong:'I wish I studied harder when I was young.（應該用過去完成式）',right:'I wish I had studied harder when I was young.'}]},
-{category:'其他',topic:'中式英文常見直翻陷阱',explanation:'某些中文表達方式直接翻譯成英文會不自然或文法錯誤，需要換成英文慣用的說法。',commonMistake:'例如「我非常喜歡」直翻成 "I very like"，正確應該是 "I like it very much" 或 "I really like it"。',examples:[{wrong:'I very like this song.',right:'I really like this song.'},{wrong:'My English is not very good, but I will try my best to said it.',right:'My English is not very good, but I will try my best to say it.'}]}
-];
-let curGrammarIdx=parseInt(lsGet('c_grammar_progress','0'),10)||0;
-let viewGrammarIdx=curGrammarIdx;
-let curGrammarQ=null;
 let grammarStats=JSON.parse(lsGet('c_grammar_stats','{}'));
 let chinglishStats=JSON.parse(lsGet('c_chinglish_stats','{}'));
+let grammarLearningLog=JSON.parse(lsGet('c_grammar_learning_log','{}'));
+let curLessonCat=null, curLesson=null, curQuizIdx=0, curQuizIsReview=false;
+let dashboardSummary=JSON.parse(lsGet('c_dashboard_summary','null')); // {ts,date,text}
+let dashGran='day', dashLevel='all';
+const DASH_SUMMARY_REFRESH_THRESHOLD=5;
 
-function grammarProgressHTML(){
-  return `<div class="level-progress" style="margin-bottom:14px"><span>文法學習進度</span><span>${Math.min(curGrammarIdx,GRAMMAR_POINTS.length)}/${GRAMMAR_POINTS.length}</span></div>`;
+/* ── 二號：AI 客製化文法講解 ── */
+function grammarCategoryStatus(cat){
+  const log=grammarLearningLog[cat]||[];
+  if(!log.length) return (grammarStats[cat]||0)>0?'needs_learning':'hidden';
+  const lastTs=log[log.length-1].ts;
+  const relapsed=SENT_HISTORY.some(h=>h.ts>lastTs&&(h.corrections||[]).some(c=>c.category===cat));
+  return relapsed?'needs_relearning':'mastered';
+}
+function relapseCount(cat){ return Math.max(0,(grammarLearningLog[cat]||[]).length-1); }
+function pendingErrorCount(cat){
+  const log=grammarLearningLog[cat]||[];
+  if(!log.length) return 0;
+  const lastTs=log[log.length-1].ts;
+  return SENT_HISTORY.filter(h=>h.ts>lastTs&&(h.corrections||[]).some(c=>c.category===cat)).length;
+}
+function materialFor(cat){
+  const log=grammarLearningLog[cat]||[];
+  const since=log.length?log[log.length-1].ts:0;
+  return SENT_HISTORY
+    .filter(h=>h.ts>since&&(h.corrections||[]).some(c=>c.category===cat))
+    .slice(0,8)
+    .map(h=>({zh_sentence:h.zh_sentence,userAns:h.userAns,corrections:(h.corrections||[]).filter(c=>c.category===cat)}));
 }
 
-function grammarWeaknessHTML(){
-  const entries=Object.entries(grammarStats).sort((a,b)=>b[1]-a[1]).slice(0,3);
-  if(!entries.length) return '';
-  return `<div class="prac-card">
-    <div class="card-lbl">${ic('chart',14)} 根據你的造句紀錄，最常出錯的文法點</div>
-    ${entries.map(([cat,count])=>{
-      const idx=GRAMMAR_POINTS.findIndex(g=>g.category===cat);
-      if(idx<0) return '';
-      return `<div class="hist-item" onclick="jumpToGrammar(${idx})">
+function renderGrammarHome(){
+  const cats=Object.keys(grammarStats);
+  const active=cats.filter(c=>['needs_learning','needs_relearning'].includes(grammarCategoryStatus(c)))
+    .sort((a,b)=>{
+      const pa=grammarCategoryStatus(a)==='needs_relearning'?0:1, pb=grammarCategoryStatus(b)==='needs_relearning'?0:1;
+      return pa!==pb ? pa-pb : (grammarStats[b]||0)-(grammarStats[a]||0);
+    });
+  const mastered=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
+  if(!active.length&&!mastered.length){
+    document.getElementById('grammarBody').innerHTML=`<div class="empty">
+      <div class="empty-ico">${ic('chart',44)}</div>
+      <div class="empty-h">還沒有文法錯誤紀錄</div>
+      <div class="empty-p">去造句練習頁面練習幾題<br>AI 會根據你實際寫錯的地方生成客製化教學</div>
+    </div>`;
+    return;
+  }
+  document.getElementById('grammarBody').innerHTML=`
+  ${active.length?`<div class="prac-card">
+    <div class="card-lbl">${ic('alert',14)} 待學習 / 待複習</div>
+    ${active.map(cat=>{
+      const relearn=grammarCategoryStatus(cat)==='needs_relearning';
+      return `<div class="hist-item" onclick="openGrammarCategory('${cat}')">
         <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">已出現 ${count} 次錯誤 · 點擊前往學習 →</div>
+        <div class="hist-ans">${relearn?`又犯錯 ${pendingErrorCount(cat)} 次 · 點擊重新學習 →`:`已出現 ${grammarStats[cat]} 次錯誤 · 點擊開始學習 →`}</div>
       </div>`;
     }).join('')}
+  </div>`:''}
+  ${mastered.length?`<div class="prac-card">
+    <div class="card-lbl">${ic('check',14)} 已掌握</div>
+    ${mastered.map(cat=>{
+      const rc=relapseCount(cat);
+      return `<div class="hist-item" onclick="openGrammarCategory('${cat}')">
+        <div class="hist-zh">${cat}</div>
+        <div class="hist-ans">已學會（學過 ${grammarLearningLog[cat].length} 輪${rc?`，${rc} 次學了又錯`:''}）· 點擊複習 →</div>
+      </div>`;
+    }).join('')}
+  </div>`:''}`;
+}
+
+async function openGrammarCategory(cat){
+  if(grammarCategoryStatus(cat)==='mastered'){
+    curLessonCat=cat; curLesson=grammarLearningLog[cat][grammarLearningLog[cat].length-1].lesson; curQuizIsReview=true;
+    renderGrammarLessonScreen();
+    return;
+  }
+  document.getElementById('grammarBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 根據你的錯誤生成教學中...</div></div>`;
+  try{
+    const material=materialFor(cat);
+    const prompt=`你是英語文法教學老師。學生在「${cat}」這個文法分類反覆出錯，以下是他自己實際寫過的錯誤（繁體中文原句、學生英文答案、AI 批改抓到的錯誤）：
+${JSON.stringify(material,null,2)}
+
+請根據這些真實錯誤，生成一份針對這個學生的客製化教學，並出 3 題測驗題檢驗他是否真的理解（不要直接照搬上面學生寫過的句子出題，要換新句子測同一個文法規則，避免學生只是背答案）。
+
+只輸出純 JSON（不要加 markdown）：
+{"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
+    const txt=await callClaude(prompt,1200);
+    curLesson=parseJSON(txt); curLessonCat=cat; curQuizIsReview=false;
+    renderGrammarLessonScreen();
+  }catch(e){
+    document.getElementById('grammarBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} 生成教學失敗，請重試</div><button class="prac-submit" onclick="openGrammarCategory('${cat}')" style="margin-top:12px">重試</button><button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
+  }
+}
+
+function grammarLessonHTML(){
+  const g=curLesson;
+  return `<div class="prac-card">
+    <div class="essay-type">${curLessonCat}</div>
+    <div class="card-lbl" style="margin:16px 0 8px">核心規則</div>
+    <div class="model-t" style="font-style:normal">${g.summary}</div>
+    ${g.yourMistakes?.length?`<div class="card-lbl" style="margin:16px 0 8px">你自己寫錯的地方</div>
+    ${g.yourMistakes.map(m=>`<div class="corr-item">
+      <div class="corr-err">✗ ${m.yourSentence}</div>
+      <div class="corr-fix">✓ ${m.correctVersion}</div>
+      <div class="prac-hint" style="margin-top:6px">${ic('bulb',13)} ${m.why}</div>
+    </div>`).join('')}`:''}
+    <div class="card-lbl" style="margin:16px 0 8px">詳細說明</div>
+    <div class="model-t" style="font-style:normal">${g.explanation}</div>
   </div>`;
 }
 
-function jumpToGrammar(idx){ viewGrammarIdx=idx; renderGrammarCard(); }
-
-function renderGrammarHome(){
-  if(curGrammarIdx>=GRAMMAR_POINTS.length){ renderGrammarDone(); return; }
-  viewGrammarIdx=curGrammarIdx;
-  document.getElementById('grammarBody').innerHTML = grammarWeaknessHTML() + grammarProgressHTML() + grammarLearnCardHTML(viewGrammarIdx,true);
+function renderGrammarLessonScreen(){
+  document.getElementById('grammarBody').innerHTML = grammarLessonHTML() +
+    `<button class="prac-submit" onclick="startGrammarQuizFlow()">${curQuizIsReview?'重新測驗一次 →':'開始測驗 →'}</button>
+     <button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
 }
 
-function renderGrammarCard(){
-  const i=viewGrammarIdx;
-  const isCurrent=i===curGrammarIdx;
-  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + grammarLearnCardHTML(i,isCurrent);
-}
+function startGrammarQuizFlow(){ curQuizIdx=0; renderGrammarQuizQuestion(); }
 
-function grammarLearnCardHTML(i,isCurrent){
-  const g=GRAMMAR_POINTS[i];
-  return `
+function renderGrammarQuizQuestion(){
+  const q=curLesson.quiz[curQuizIdx];
+  document.getElementById('grammarBody').innerHTML=`
+  <div class="level-progress" style="margin-bottom:14px"><span>測驗</span><span>${curQuizIdx+1}/${curLesson.quiz.length}</span></div>
   <div class="prac-card">
-    <div class="essay-type">${g.category} · ${i+1}/${GRAMMAR_POINTS.length}${isCurrent?'':' · 複習'}</div>
-    <div class="essay-topic" style="font-size:20px">${g.topic}</div>
-    <div class="card-lbl" style="margin:16px 0 8px">說明</div>
-    <div class="model-t" style="font-style:normal">${g.explanation}</div>
-    ${g.commonMistake?`<div class="prac-hint" style="margin-top:12px">${ic('bulb',13)} 中文母語者常見誤區：${g.commonMistake}</div>`:''}
-    <div class="card-lbl" style="margin:16px 0 8px">範例</div>
-    ${g.examples.map(ex=>`<div class="corr-item">
-      <div class="corr-err">✗ ${ex.wrong}</div>
-      <div class="corr-fix">✓ ${ex.right}</div>
-    </div>`).join('')}
+    <div class="essay-type">${curLessonCat}</div>
+    <div class="prac-zh" style="font-size:16px">${q.question}</div>
   </div>
-  ${i>0?`<button class="next-btn" style="margin-bottom:10px" onclick="grammarBrowse(-1)">← 複習上一個</button>`:''}
-  <button class="prac-submit" onclick="startGrammarQuiz(${i})">${isCurrent?'考考自己這一項 →':'再練習一次這一項 →'}</button>
-  ${!isCurrent?`<button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回到目前進度 →</button>`:''}`;
+  ${q.options.map((op,i)=>`<button class="prac-submit" style="background:var(--card2);color:var(--text);text-align:left;margin-bottom:8px" onclick="submitGrammarQuizAnswer(${i})">${String.fromCharCode(65+i)}. ${op}</button>`).join('')}`;
 }
 
-function grammarBrowse(d){
-  viewGrammarIdx=Math.max(0,Math.min(curGrammarIdx,viewGrammarIdx+d));
-  renderGrammarCard();
-}
-
-async function startGrammarQuiz(i){
-  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
-  try{
-    const g=GRAMMAR_POINTS[i];
-    const txt=await callClaude(`你是英語文法教學老師。這個文法點是「${g.topic}」（分類：${g.category}），說明：${g.explanation}
-請針對這個文法點出一題選擇題，考學生是否理解（例如給一個句子讓學生選出文法正確的版本，或給一個錯誤句子讓學生選出正確的修正方式）。
-只輸出純 JSON（不要加 markdown）：
-{"question":"題目敘述（可包含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案（繁體中文，1-2句）"}`,400);
-    curGrammarQ=parseJSON(txt);
-    curGrammarQ.point=g; curGrammarQ.idx=i;
-    renderGrammarQuiz();
-  }catch(e){
-    document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `<div class="err-box" style="display:block">${ic('xcircle',14)} 出題失敗，請重試</div><button class="prac-submit" onclick="startGrammarQuiz(${i})" style="margin-top:12px">重試</button>`;
-  }
-}
-
-function renderGrammarQuiz(){
-  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `
+function submitGrammarQuizAnswer(i){
+  const q=curLesson.quiz[curQuizIdx];
+  const correct=i===q.answerIndex;
+  document.getElementById('grammarBody').innerHTML=`
+  <div class="level-progress" style="margin-bottom:14px"><span>測驗</span><span>${curQuizIdx+1}/${curLesson.quiz.length}</span></div>
   <div class="prac-card">
-    <div class="essay-type">${curGrammarQ.point.category}</div>
-    <div class="prac-zh" style="font-size:16px">${curGrammarQ.question}</div>
-  </div>
-  ${curGrammarQ.options.map((op,i)=>`<button class="prac-submit" style="background:var(--card2);color:var(--text);text-align:left;margin-bottom:8px" onclick="submitGrammarQuiz(${i})">${String.fromCharCode(65+i)}. ${op}</button>`).join('')}`;
-}
-
-function submitGrammarQuiz(i){
-  const correct=i===curGrammarQ.answerIndex;
-  if(curGrammarQ.idx===curGrammarIdx){
-    curGrammarIdx++;
-    lsSet('c_grammar_progress',String(curGrammarIdx));
-    sbSet('grammarprogress',JSON.stringify({index:curGrammarIdx})).catch(()=>{});
-  }
-  document.getElementById('grammarBody').innerHTML = grammarProgressHTML() + `
-  <div class="prac-card">
-    <div class="essay-type">${curGrammarQ.point.category}</div>
-    <div class="prac-zh" style="font-size:16px">${curGrammarQ.question}</div>
+    <div class="essay-type">${curLessonCat}</div>
+    <div class="prac-zh" style="font-size:16px">${q.question}</div>
   </div>
   <div class="prac-card">
     <span class="score-badge ${correct?'score-excellent':'score-needs'}">${correct?(ic('check',13)+' 答對了'):'✗ 答錯了'}</span>
     <div class="model-box" style="margin-top:12px">
       <div class="model-lbl">正確答案</div>
-      <div class="model-t">${String.fromCharCode(65+curGrammarQ.answerIndex)}. ${curGrammarQ.options[curGrammarQ.answerIndex]}</div>
+      <div class="model-t">${String.fromCharCode(65+q.answerIndex)}. ${q.options[q.answerIndex]}</div>
     </div>
-    <div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">說明</div><div class="use-t">${curGrammarQ.explain}</div></div></div>
+    <div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">說明</div><div class="use-t">${q.explain}</div></div></div>
   </div>
-  <button class="next-btn" onclick="renderGrammarHome()">下一個 →</button>`;
+  ${correct
+    ?`<button class="next-btn" onclick="advanceGrammarQuiz()">${curQuizIdx+1<curLesson.quiz.length?'下一題 →':'完成測驗 →'}</button>`
+    :`<button class="prac-submit" onclick="renderGrammarQuizQuestion()">再試一次這一題 →</button>`}`;
 }
 
-function renderGrammarDone(){
-  document.getElementById('grammarBody').innerHTML = `
+function advanceGrammarQuiz(){
+  curQuizIdx++;
+  if(curQuizIdx>=curLesson.quiz.length){ finishGrammarQuiz(); return; }
+  renderGrammarQuizQuestion();
+}
+
+function finishGrammarQuiz(){
+  if(!curQuizIsReview){
+    grammarLearningLog[curLessonCat]=[...(grammarLearningLog[curLessonCat]||[]),{ts:Date.now(),lesson:curLesson}];
+    lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));
+    syncToCloud();
+  }
+  document.getElementById('grammarBody').innerHTML=`
   <div class="empty">
     <div class="empty-ico">${ic('award',44)}</div>
-    <div class="empty-h">已經學完全部文法點！</div>
-    <div class="empty-p">你把 ${GRAMMAR_POINTS.length} 個常見文法點都學過一遍了</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="resetGrammarProgress()">從頭複習 →</button>
+    <div class="empty-h">「${curLessonCat}」學完了！</div>
+    <div class="empty-p">${curQuizIsReview?'複習完成':'之後如果造句又在這個分類出錯，會再提醒你回來複習'}</div>
+    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderGrammarHome()">回列表 →</button>
   </div>`;
-}
-
-function resetGrammarProgress(){
-  curGrammarIdx=0;
-  lsSet('c_grammar_progress','0');
-  sbSet('grammarprogress',JSON.stringify({index:0})).catch(()=>{});
-  renderGrammarHome();
 }
 
 /* ── UTILS ── */
