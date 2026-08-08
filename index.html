@@ -160,6 +160,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .detail-body.open{max-height:4000px!important}
 .refresh-btn.spinning{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+.back-btn{position:sticky;top:0;z-index:5;display:inline-flex;align-items:center;gap:4px;width:auto;padding:8px 14px;background:var(--card);border:1px solid var(--border);border-radius:11px;color:var(--accent-light);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:14px;transition:all .15s;box-shadow:0 4px 10px -4px rgba(0,0,0,.4)}
+.back-btn:active{background:var(--accent-wash)}
 
 /* ── 造句 ── */
 .prac-word-badge{display:inline-flex;align-items:center;gap:6px;background:var(--accent-wash);border:1px solid var(--accent);color:var(--accent-light);padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;margin-bottom:12px}
@@ -172,9 +174,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .score-num{font-size:52px;font-weight:900;color:var(--text-bright);line-height:1}
 .score-denom{font-size:14px;color:var(--faint);margin-top:4px}
 .score-badge{padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700}
-.score-excellent{background:var(--good-wash);color:var(--good)}
-.score-good{background:var(--mid-wash);color:var(--mid)}
-.score-needs{background:var(--bad-wash);color:var(--bad)}
+.score-excellent{background:var(--card2);border:1px solid var(--good);color:var(--good)}
+.score-good{background:var(--card2);border:1px solid var(--mid);color:var(--mid)}
+.score-needs{background:var(--card2);border:1px solid var(--bad);color:var(--bad)}
 .model-box{background:var(--bg);border-radius:12px;padding:14px;margin-bottom:12px}
 .model-lbl{font-size:10px;font-weight:800;color:var(--accent);letter-spacing:.8px;margin-bottom:6px}
 .model-t{font-size:15px;color:var(--text);font-style:italic;line-height:1.6}
@@ -271,7 +273,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <p>選 CEFR 等級，依常用單字出題</p>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="hist-btn" onclick="showDashboard()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg> 進度</button>
+          <button class="hist-btn" onclick="showDashboard()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg> Dashboard</button>
           <button class="hist-btn" onclick="showSentHistory()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> 歷史</button>
         </div>
       </div>
@@ -778,6 +780,10 @@ let levelTotalCache={};
 const CEFR_LEVELS=['A1','A2','B1','B2','C1','C2'];
 function cefrRank(lvl){ const i=CEFR_LEVELS.indexOf(lvl); return i<0?0:i; }
 
+// 二號規格：corrections[].category 的 28 個細分類，跟批改 prompt 裡的清單是同一份資料（prompt 從這裡動態產生），
+// 避免手動維護兩份清單、日後改動漏改其中一邊。
+const GRAMMAR_CATEGORIES=['現在簡單式 vs 現在進行式','過去簡單式 vs 現在完成式','未來式：will vs be going to','過去完成式','冠詞 a/an/the 的基本用法','零冠詞（不可數名詞、複數泛指）','介系詞 in/on/at（時間）','介系詞 in/on/at（地點）','常見動詞固定搭配介系詞','可數與不可數名詞','不規則複數形','主詞動詞一致（第三人稱單數）','集合名詞的單複數一致','形容詞順序','疑問句/間接問句語序','副詞位置','關係代名詞 who/which/that','限定 vs 非限定關係子句','被動語態基本結構','被動語態常見誤用（中文直翻）','動名詞當主詞/受詞','不定詞 vs 動名詞','連接詞 although/because/so','對等連接詞 and/but/or 的句子平衡','情態助動詞 can/could/may/might/must','第一/第二/第三類條件句','假設語氣 wish + 過去式/過去完成式','其他'];
+
 // 一律以台北時間(Asia/Taipei)判斷「今天」，避免 UTC 造成的日期偏移（凌晨0-8點誤算成昨天）
 function taipeiDateStr(ts){
   const d = (ts==null) ? new Date() : new Date(ts);
@@ -950,6 +956,12 @@ function duplicateChinglishAndCorrections(r){
   if(!issuePhrases.length) return [];
   return (r.corrections||[]).filter(c=>c.error&&issuePhrases.includes(normLoose(c.error))).map(c=>c.error);
 }
+// 二號規格：category 必須是 GRAMMAR_CATEGORIES 28 項清單裡完整的一項，不能是「冠詞」「時態」這種縮寫——
+// 實測過（2026-08-08，Jack 部署後跑真實資料）光靠 prompt 指示不夠，AI 常會偷懶縮寫成清單外的短詞，
+// 這裡用程式強制檢查、抓到就重打一次，不能只依賴 prompt 遵從度。
+function invalidGrammarCategory(r){
+  return (r.corrections||[]).filter(c=>c.category&&!GRAMMAR_CATEGORIES.includes(c.category)).map(c=>c.error||c.category);
+}
 // why 依 754(3)(4) 不能用「跟主要子句時態一致」這種站不住腳的說法帶過，也不能說「兩者都對/都可以」卻還留在 corrections 裡
 function badReasoningCorrections(r){
   const bannedWhy=/主要子句[^。]{0,25}(一致|吻合)|時態[^。]{0,15}主要子句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤/;
@@ -974,7 +986,7 @@ function cefrUnderstated(r,ans){
 }
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
 }
 
 async function submitSent(){
@@ -1062,23 +1074,11 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
-「corrections」裡每一項都要標註 category，從這 28 個具體文法點裡選最接近的一個（選最貼近實際錯誤內容的那一條，不要因為列表變長就偷懶通通選「其他」）：
-1. 現在簡單式 vs 現在進行式　2. 過去簡單式 vs 現在完成式　3. 未來式：will vs be going to　4. 過去完成式
-5. 冠詞 a/an/the 的基本用法　6. 零冠詞（不可數名詞、複數泛指）
-7. 介系詞 in/on/at（時間）　8. 介系詞 in/on/at（地點）　9. 常見動詞固定搭配介系詞
-10. 可數與不可數名詞　11. 不規則複數形
-12. 主詞動詞一致（第三人稱單數）　13. 集合名詞的單複數一致
-14. 形容詞順序　15. 疑問句/間接問句語序　16. 副詞位置
-17. 關係代名詞 who/which/that　18. 限定 vs 非限定關係子句
-19. 被動語態基本結構　20. 被動語態常見誤用（中文直翻）
-21. 動名詞當主詞/受詞　22. 不定詞 vs 動名詞
-23. 連接詞 although/because/so　24. 對等連接詞 and/but/or 的句子平衡
-25. 情態助動詞 can/could/may/might/must
-26. 第一/第二/第三類條件句　27. 假設語氣 wish + 過去式/過去完成式
-28. 其他
-（第 28 項「其他」只在以上 27 條都對不上的極少數情況才選，不能因為不確定就先選這個。）
-把 category 直接填成上面選中的那一條的文字本身（例如「過去完成式」、「其他」），不要填數字編號、不要加額外說明。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
-每一項 corrections 寫完後務必自我檢查這六件事：(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
+「corrections」裡每一項都要標註 category，從這 ${GRAMMAR_CATEGORIES.length} 個具體文法點裡選最接近的一個（選最貼近實際錯誤內容的那一條，不要因為列表變長就偷懶通通選「其他」，也不要自己縮寫/改寫成看起來像分類的短詞，例如把「冠詞 a/an/the 的基本用法」簡寫成「冠詞」——那不是清單裡任何一項，會讓分類失效）：
+${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
+（最後一項「其他」只在以上都對不上的極少數情況才選，不能因為不確定就先選這個。）
+把 category 直接、完整、逐字複製上面選中的那一條文字（例如「過去完成式」、「其他」），不要填數字編號、不要加額外說明、不要自己簡化或改寫成清單上找不到的字串——寫完後檢查一次這個 category 的值是否跟清單裡某一項一字不差。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
+每一項 corrections 寫完後務必自我檢查這七件事：(0)「category」欄位的值必須跟前面清單裡的某一項一字不差（不能是縮寫、簡化、或清單以外的字串，例如「冠詞」「時態」「連接詞」這種簡稱都不合法，正確答案必須是完整寫法，如「冠詞 a/an/the 的基本用法」）；(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${ans}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
@@ -1445,7 +1445,7 @@ function renderDashTrendHeadline(agg){
 }
 
 function renderDashTrendLines(agg){
-  const W=380,H=130,padL=28,padR=8,padT=24,padB=22;
+  const W=380,H=104,padL=28,padR=8,padT=20,padB=20;
   const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
   const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
   const y=v=>padT+(100-v)/100*chartH;
@@ -1455,11 +1455,21 @@ function renderDashTrendLines(agg){
     svg+=`<text x="${padL-5}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--faint)">${v}</text>`;
   });
   function drawSeries(key,color){
-    // 沒練習的區間連到 0（跟下面題數長條圖同一個 x 軸對齊，一起看就知道連到 0 是沒練習、不是考了 0 分）
     const pts=agg.map((b,i)=>({i, v:b.count?b[key]:0, real:!!b.count}));
-    const line=pts.map((p,idx)=>`${idx===0?'M':'L'}${x(p.i)},${y(p.v)}`).join(' ');
-    svg+=`<path d="M${x(0)},${y(0)} ${line.slice(1)} L${x(n-1)},${y(0)} Z" fill="${color}" fill-opacity="0.08" stroke="none"/>`;
-    svg+=`<path d="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    // area fill 只填「真的有練習」的連續區段——沒練習連到 0 那段不上色，不然那塊面積會把圖表比例撐得誇張，蓋過真正的趨勢
+    const runs=[]; let cur=[];
+    pts.forEach(p=>{ if(p.real){ cur.push(p); } else { if(cur.length>1) runs.push(cur); cur=[]; } });
+    if(cur.length>1) runs.push(cur);
+    runs.forEach(run=>{
+      const top=run.map(p=>`${x(p.i)},${y(p.v)}`).join(' L');
+      svg+=`<path d="M${x(run[0].i)},${y(0)} L${top} L${x(run[run.length-1].i)},${y(0)} Z" fill="${color}" fill-opacity="0.08" stroke="none"/>`;
+    });
+    // 折線整段連續、連到 0（照 Jack 的要求，沒練習不留白），但連到「沒練習」端點的那一節改成虛線、變細、變淡，
+    // 一眼能分辨「這是沒練習的斷點」還是「這是真的分數下滑」，不會被兩端的 0 誤導成劇烈震盪。
+    for(let idx=1; idx<pts.length; idx++){
+      const a=pts[idx-1], b=pts[idx], bothReal=a.real&&b.real;
+      svg+=`<line x1="${x(a.i)}" y1="${y(a.v)}" x2="${x(b.i)}" y2="${y(b.v)}" stroke="${color}" stroke-width="${bothReal?2:1.5}" stroke-linecap="round"${bothReal?'':' stroke-dasharray="3,3" stroke-opacity="0.45"'}/>`;
+    }
     pts.forEach(p=>{ svg+=`<circle cx="${x(p.i)}" cy="${y(p.v)}" r="${p.real?2.5:2}" fill="${color}"${p.real?'':' fill-opacity="0.4"'}/>`; });
     const lastReal=[...pts].reverse().find(p=>p.real)||pts[pts.length-1];
     svg+=`<circle cx="${x(lastReal.i)}" cy="${y(lastReal.v)}" r="5" fill="${color}" stroke="var(--card)" stroke-width="2"/>`;
@@ -1473,16 +1483,17 @@ function renderDashTrendLines(agg){
 }
 
 function renderDashTrendVolume(agg){
-  const W=380,H=40,padL=28,padR=8,padT=2,padB=2;
+  const W=380,H=52,padL=28,padR=8,padT=16,padB=2;
   const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
   const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
   const maxC=Math.max(1,...agg.map(b=>b.count));
   const barW=Math.max(6,Math.min(22,chartW/n*0.5));
   let svg=`<line x1="${padL}" y1="${padT+chartH}" x2="${W-padR}" y2="${padT+chartH}" stroke="var(--border)" stroke-width="1"/>`;
   agg.forEach((b,i)=>{
-    if(!b.count) return;
-    const h=(b.count/maxC)*chartH;
+    if(!b.count){ svg+=`<text x="${x(i)}" y="${padT+chartH-4}" text-anchor="middle" font-size="9" fill="var(--faint)">–</text>`; return; }
+    const h=Math.max(3,(b.count/maxC)*chartH);
     svg+=`<rect x="${x(i)-barW/2}" y="${padT+chartH-h}" width="${barW}" height="${h}" rx="3" fill="var(--accent)" fill-opacity="0.4"/>`;
+    svg+=`<text x="${x(i)}" y="${padT+chartH-h-4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-soft)">${b.count}</text>`;
   });
   document.getElementById('dashVolChart').innerHTML=svg;
 }
@@ -1614,9 +1625,9 @@ async function dashboardHTML(){
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block"></span>文法正確度</div>
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--series2);display:inline-block"></span>中式英文</div>
         </div>
-        <svg id="dashTrendChart" viewBox="0 0 380 130" style="width:100%;display:block;overflow:visible"></svg>
+        <svg id="dashTrendChart" viewBox="0 0 380 104" style="width:100%;display:block;overflow:visible"></svg>
         <div style="font-size:10px;color:var(--faint);margin:12px 0 4px">題數</div>
-        <svg id="dashVolChart" viewBox="0 0 380 40" style="width:100%;display:block;overflow:visible"></svg>
+        <svg id="dashVolChart" viewBox="0 0 380 52" style="width:100%;display:block;overflow:visible"></svg>
       </div>
 
     </div>
@@ -1624,17 +1635,17 @@ async function dashboardHTML(){
 }
 
 async function showDashboard(){
-  document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button><div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">計算中...</div></div>`;
+  document.getElementById('pracBody').innerHTML=`<button class="back-btn" onclick="renderSentHome()">← 返回</button><div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">計算中...</div></div>`;
   if(SENT_HISTORY.length) await ensureDashboardSummary();
   dashGran='day'; dashLevel='all';
   const html=await dashboardHTML();
-  document.getElementById('pracBody').innerHTML=`<button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button>`+html;
+  document.getElementById('pracBody').innerHTML=`<button class="back-btn" onclick="renderSentHome()">← 返回</button>`+html;
   if(SENT_HISTORY.length){ renderDashLevelChips(); renderDashTrend(); updateSummaryRefreshGate(); }
 }
 
 function showSentHistory(){
   document.getElementById('pracBody').innerHTML=`
-  <button class="next-btn" style="margin-bottom:14px" onclick="renderSentHome()">← 返回</button>
+  <button class="back-btn" onclick="renderSentHome()">← 返回</button>
   ${SENT_HISTORY.length===0?`<div class="empty"><div class="empty-ico">${ic('history',44)}</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成造句練習後會顯示在這裡</div></div>`
   :SENT_HISTORY.map((h,i)=>`
   <div class="hist-item" onclick="showSentHistDetail(${i})">
@@ -1654,7 +1665,7 @@ function showSentHistory(){
 function showSentHistDetail(i){
   const h=SENT_HISTORY[i];
   document.getElementById('pracBody').innerHTML=
-    `<button class="next-btn" style="margin-bottom:14px" onclick="showSentHistory()">← 返回歷史</button>`
+    `<button class="back-btn" onclick="showSentHistory()">← 返回歷史</button>`
     +sentResultHTML(h.word,h.zh_sentence,h.userAns,h.definition,h.translation,h.level,h);
 }
 
@@ -1821,7 +1832,7 @@ function renderEssayHome(){
 
 function showEssayHistory(){
   document.getElementById('essayBody').innerHTML=`
-  <button class="next-btn" style="margin-bottom:14px" onclick="renderEssayHome()">← 返回</button>
+  <button class="back-btn" onclick="renderEssayHome()">← 返回</button>
   ${ESSAY_HISTORY.length===0?`<div class="empty"><div class="empty-ico">${ic('history',44)}</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成作文評分後會顯示在這裡</div></div>`
   :ESSAY_HISTORY.map((h,i)=>`
   <div class="hist-item" onclick="showEssayHistDetail(${i})">
@@ -1838,7 +1849,7 @@ function showEssayHistory(){
 function showEssayHistDetail(i){
   const h=ESSAY_HISTORY[i];
   document.getElementById('essayBody').innerHTML=
-    `<button class="next-btn" style="margin-bottom:14px" onclick="showEssayHistory()">← 返回歷史</button>`
+    `<button class="back-btn" onclick="showEssayHistory()">← 返回歷史</button>`
     +essayResultHTML(h.topic,h.type,h.essay,h.wc,h);
 }
 
@@ -1928,12 +1939,15 @@ ${JSON.stringify(material,null,2)}
 
 請根據這些真實錯誤，生成一份針對這個學生的客製化教學，並出 3 題測驗題檢驗他是否真的理解（不要直接照搬上面學生寫過的句子出題，要換新句子測同一個文法規則，避免學生只是背答案）。
 
+「yourMistakes」最多列 5 個最有代表性、彼此錯誤樣態不重複的例子就好，不需要把上面素材裡的句子全部寫進去——寧可少而精，也不要為了求全導致內容被截斷。「explanation」控制在 3-4 句話，不用鉅細靡遺涵蓋每個子規則。
+
 只輸出純 JSON（不要加 markdown）：
-{"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
-    const txt=await callClaude(prompt,1200);
+{"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細，但不要超過4句）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
+    const txt=await callClaude(prompt,2200);
     curLesson=parseJSON(txt); curLessonCat=cat; curQuizIsReview=false;
     renderGrammarLessonScreen();
   }catch(e){
+    console.log('openGrammarCategory:',e);
     document.getElementById('grammarBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} 生成教學失敗，請重試</div><button class="prac-submit" onclick="openGrammarCategory('${cat}')" style="margin-top:12px">重試</button><button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
   }
 }
