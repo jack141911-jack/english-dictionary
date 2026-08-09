@@ -663,16 +663,36 @@ async function fetchDict(w){
 
 /* ── CLAUDE API ── */
 const PROXY_URL='https://english-app-proxy.jack141911.workers.dev';
+// 用 code 區分失敗原因：quota/auth 再重試也沒用（而且沒燒到 API 費用），
+// truncated/http 則是「這次呼叫已經計費了」，值得也應該自動重打一次。
+class AIError extends Error{
+  constructor(code,message){ super(message); this.code=code; }
+}
+// quota / auth / upstream 這三種代理已經給了明確原因，直接顯示；其餘用各功能自己的預設文案
+function aiErrorMsg(e,fallback){
+  if(e?.code==='quota'||e?.code==='upstream') return e.message;
+  if(e?.code==='auth') return '登入已過期，請重新登入';
+  return fallback;
+}
 async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001'){
   const t=await authToken();
-  if(!t) throw new Error('請重新登入');
+  if(!t) throw new AIError('auth','請重新登入');
   const r=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
     body:JSON.stringify({provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
   });
-  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||e.error||`API 錯誤 ${r.status}`); }
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    const msg=e.error?.message||e.error||`API 錯誤 ${r.status}`;
+    // 504 是代理自己回的（上游連不上／逾時），訊息已經寫得夠清楚，標成 upstream 讓前端直接顯示
+    throw new AIError(r.status===429?'quota':r.status===401?'auth':r.status===504?'upstream':'http', msg);
+  }
   const d=await r.json();
+  // stop_reason==='max_tokens' 代表輸出撞到 max_tokens 被硬切斷，內容一定不完整（JSON 會解析失敗）。
+  // 這種回應 HTTP 是 200、Anthropic 那邊照樣計費，所以絕不能讓半截字串流到 parseJSON 變成看不出原因的錯誤，
+  // 要在這裡就明確拋出，讓上層知道「值得重打一次」。
+  if(d.stop_reason==='max_tokens') throw new AIError('truncated',`回應超過 ${maxTokens} tokens 被截斷`);
   return d.content[0].text;
 }
 
@@ -890,7 +910,7 @@ async function startSent(){
     lastSentWord=curSentQ.word;
     renderSentQ();
   }catch(e){
-    document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} 出題失敗，請重試</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
+    document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'出題失敗，請重試')}</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
   }
 }
 
@@ -1096,12 +1116,23 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
 只輸出純 JSON（不要加 markdown）：
 {"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 28 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
-    let r;
+    // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
+    // precision_note/b2_example/c1_example/tip，繁中約 1.5-2 token/字，錯誤抓多一點就會超過 750 被截斷。
+    // parseJSON 放進 try 裡面：截斷跟解析失敗才是最該重打的情況，原本寫在迴圈裡卻會直接 throw 出去，等於完全沒重試到。
+    let r=null,lastErr=null;
     for(let attempt=0;attempt<2;attempt++){
-      const txt=await callClaude(gradePrompt,750);
-      r=parseJSON(txt);
-      if(gradeResultIssues(r,ans,curSentQ.word).length===0) break;
+      try{
+        const txt=await callClaude(gradePrompt,1600);
+        r=parseJSON(txt);
+        if(gradeResultIssues(r,ans,curSentQ.word).length===0) break;
+      }catch(e){
+        lastErr=e;
+        // 額度用完、登入過期、上游連不上／逾時，重打只是再等一輪然後再失敗一次，
+        // 直接讓外層顯示對應訊息（逾時尤其不能重打，60 秒等兩次體感很糟），由使用者自己按重試
+        if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e;
+      }
     }
+    if(!r) throw lastErr||new AIError('http','批改失敗');
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
       if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
@@ -1130,7 +1161,7 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
     saveSentHistory(ans,r);
   }catch(e){
     btn.disabled=false;btn.textContent='提交答案 →';
-    toast('批改失敗，請重試');
+    toast(aiErrorMsg(e,'批改失敗，請重試'));
   }
 }
 
@@ -1228,11 +1259,11 @@ async function askFollowUp(){
 批改結果：CEFR ${r.cefr}，修正版：${r.corrected_sentence||'（無需修正）'}
 
 學生現在有個文法問題想問：「${q}」
-請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。只輸出純文字，不要 JSON、不要 markdown。`,500);
+請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。只輸出純文字，不要 JSON、不要 markdown。`,800);
     box.innerHTML=`<div class="use-item" style="border:none;padding:0"><span class="use-ico">${ic('help',18)}</span><div><div class="use-lbl">你的提問：${q}</div><div class="use-t" style="margin-top:4px">${ans.trim()}</div></div></div>
     <button class="next-btn" style="margin-top:8px;font-size:12px;padding:8px" onclick="showFollowUpForm()">再問一次</button>`;
   }catch(e){
-    toast('提問失敗，請重試');
+    toast(aiErrorMsg(e,'提問失敗，請重試'));
     showFollowUpForm();
   }
 }
@@ -1361,7 +1392,7 @@ ${JSON.stringify(m.daily)}
 ${m.noImprove.length?`最近一半練習跟前一半比較，這些分類錯誤比例沒有下降：${JSON.stringify(m.noImprove)}`:''}
 
 請用像老師講評的語氣，寫一段 2-4 句話的繁體中文總結，涵蓋：整體趨勢（正確度、中式英文比例最近有沒有變好）、如果今天有練習就帶到今天的表現、最值得優先處理的一個文法分類（優先講「待複習」裡的，沒有的話講「待學習」裡錯誤次數最多的，兩者都沒有就給鼓勵的話）。寫成連貫的一段話，不要條列、不要加標題或前綴，只輸出這段文字本身。`;
-  const text=(await callClaude(prompt,300)).trim();
+  const text=(await callClaude(prompt,500)).trim();
   dashboardSummary={ts:Date.now(),date:todayStr(),text};
   lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));
   sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});
@@ -1683,11 +1714,11 @@ async function startEssay(){
   {"section":"第一個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
   {"section":"第二個論點","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
   {"section":"結論","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"}
-]}`,500);
+]}`,900);
     curEssayTopic=parseJSON(txt);
     renderEssayQ();
   }catch(e){
-    document.getElementById('essayBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} 出題失敗，請重試</div><button class="prac-submit" onclick="startEssay()" style="margin-top:12px">重試</button>`;
+    document.getElementById('essayBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'出題失敗，請重試')}</div><button class="prac-submit" onclick="startEssay()" style="margin-top:12px">重試</button>`;
   }
 }
 
@@ -1728,10 +1759,10 @@ async function checkEssayProgress(){
 目前草稿：
 ${essay}
 
-只輸出純文字，不要 JSON、不要 markdown，用繁體中文回覆，控制在 3-4 句以內。`,300);
+只輸出純文字，不要 JSON、不要 markdown，用繁體中文回覆，控制在 3-4 句以內。`,500);
     document.getElementById('progressCheckBox').innerHTML=`<div class="prac-card"><div class="use-item" style="border:none;padding:0"><span class="use-ico">✓</span><div><div class="use-lbl">目前進度檢查</div><div class="use-t">${txt.trim()}</div></div></div></div>`;
   }catch(e){
-    toast('檢查失敗，請重試');
+    toast(aiErrorMsg(e,'檢查失敗，請重試'));
   }finally{
     btn.disabled=false; btn.textContent=origText;
   }
@@ -1759,13 +1790,13 @@ async function submitEssay(){
 ${essay}
 
 只輸出純 JSON（不要加 markdown）：
-{"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,900,'claude-sonnet-4-6');
+{"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,1800,'claude-sonnet-4-6');
     const r=parseJSON(txt);
     renderEssayResult(essay,wc,r);
     saveEssayHistory(essay,wc,r);
   }catch(e){
     btn.disabled=false;btn.textContent='提交評分 →';
-    toast('評分失敗，請重試');
+    toast(aiErrorMsg(e,'評分失敗，請重試'));
   }
 }
 
@@ -1943,12 +1974,12 @@ ${JSON.stringify(material,null,2)}
 
 只輸出純 JSON（不要加 markdown）：
 {"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細，但不要超過4句）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
-    const txt=await callClaude(prompt,2200);
+    const txt=await callClaude(prompt,3000);
     curLesson=parseJSON(txt); curLessonCat=cat; curQuizIsReview=false;
     renderGrammarLessonScreen();
   }catch(e){
     console.log('openGrammarCategory:',e);
-    document.getElementById('grammarBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} 生成教學失敗，請重試</div><button class="prac-submit" onclick="openGrammarCategory('${cat}')" style="margin-top:12px">重試</button><button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
+    document.getElementById('grammarBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'生成教學失敗，請重試')}</div><button class="prac-submit" onclick="openGrammarCategory('${cat}')" style="margin-top:12px">重試</button><button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
   }
 }
 
