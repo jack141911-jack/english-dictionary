@@ -680,7 +680,9 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   const t=await authToken();
   if(!t) throw new AIError('auth','請重新登入');
   const body={provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]};
-  if(system) body.system=[{type:'text',text:system,cache_control:{type:'ephemeral'}}];
+  // ttl:'1h' 而不是預設 5 分鐘：這份 system 是批改規則手冊，寫入成本很低（原價 2 倍 vs 1.25 倍，換算下來差不到 NT$0.3），
+  // 但練習中間常常會停超過 5 分鐘（讀回饋、想下一句），拉長到 1 小時可以大幅減少重新寫入的次數。
+  if(system) body.system=[{type:'text',text:system,cache_control:{type:'ephemeral',ttl:'1h'}}];
   const r=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
