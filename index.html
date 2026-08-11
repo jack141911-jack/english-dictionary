@@ -674,13 +674,17 @@ function aiErrorMsg(e,fallback){
   if(e?.code==='auth') return '登入已過期，請重新登入';
   return fallback;
 }
-async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001'){
+// system 有帶的話走 Anthropic prompt caching：system 內容要在每次呼叫間逐字不變才會命中快取，
+// 呼叫端負責確保 system 字串不含每次呼叫都變動的內容（目標單字/學生答案這類動態值要放 prompt 裡，不要塞進 system）。
+async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001', system=null){
   const t=await authToken();
   if(!t) throw new AIError('auth','請重新登入');
+  const body={provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]};
+  if(system) body.system=[{type:'text',text:system,cache_control:{type:'ephemeral'}}];
   const r=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
-    body:JSON.stringify({provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})
+    body:JSON.stringify(body)
   });
   if(!r.ok){
     const e=await r.json().catch(()=>({}));
@@ -1015,10 +1019,9 @@ async function submitSent(){
   const btn=document.getElementById('sentBtn');
   btn.disabled=true;btn.textContent='Claude 批改中...';
   try{
-    const gradePrompt=`你是英語口語練習老師。
-中文原句：「${curSentQ.zh_sentence}」
-目標單字：${curSentQ.word}
-學生答案：「${ans}」
+    // gradeSystemPrompt 逐字不含目標單字/學生答案/中文原句這些每次呼叫都會變的值，
+    // 才能被 Anthropic prompt caching 命中（system 內容要跟上次呼叫逐字相同）；這些動態值全部放進 gradeUserPrompt。
+    const gradeSystemPrompt=`你是英語口語練習老師，正在批改學生的中翻英造句練習。
 
 【自然英文原則（最高原則，適用於整份評分）】
 評分的核心標準是「母語者會不會自然這樣講」，不是「有沒有跟某個範本或中文原句的結構一模一樣」。列出任何一項 corrections 之前，先確認這真的是英文母語者不會這樣講的錯誤，不能只因為跟你預設的版本不同就判定為錯。
@@ -1061,7 +1064,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 
 以下狀況一律「不算」中式英文，不能因此扣分：
 - 用縮寫或全寫都可以，兩者一樣自然（例如 I am / I'm、do not / don't、it is / it's），不能因為沒縮寫就判定不自然或扣分。
-- 學生正確使用了被要求的目標單字「${curSentQ.word}」，即使某些情境下另有更常見的同義字。
+- 學生正確使用了被要求的目標單字本身，即使某些情境下另有更常見的同義字。
 - 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
 
 【中式英文類型標籤（chinglish_issues，跟上面整體的 chinglish_percent 分開處理）】
@@ -1072,7 +1075,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 4. 冗餘與堆疊：中文成對連接詞/重複強調被直接搬進英文，造成冗餘。例：Although..., but...（英文兩個連接詞只能擇一）、very very good（應為 really good）、the reason is because（應為 the reason is that）。邊界：單純用字囉唆但不是中文成對結構造成的，算精準度，不歸這裡。
 5. 生硬句式/主題優先：整句框架照中文腔（中式開場套語、主題優先句式）。例：About this problem, I think...、This book, I really like it（應為 I really like this book）、There have many people（應為 There are many people，中文「有」直翻）。邊界：這是整句結構層級的問題，跟前面詞組/搭配/語序層級不同。
 
-輸出到 chinglish_issues 陣列，每一項格式：{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版（如適用盡量仍用到目標單字「${curSentQ.word}」）","why":"為什麼這是翻譯腔（繁體中文1句）"}。沒有翻譯腔就輸出空陣列 []。跟 corrections 的 error 欄位一樣，"phrase" 必須是學生答案裡逐字實際出現的內容，寫之前務必回頭逐字核對學生答案「${ans}」原文，不可以憑空捏造或誤植學生沒有寫過的內容。
+輸出到 chinglish_issues 陣列，每一項格式：{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版（如適用盡量仍用到目標單字本身）","why":"為什麼這是翻譯腔（繁體中文1句）"}。沒有翻譯腔就輸出空陣列 []。跟 corrections 的 error 欄位一樣，"phrase" 必須是學生答案裡逐字實際出現的內容，寫之前務必回頭逐字核對學生答案原文，不可以憑空捏造或誤植學生沒有寫過的內容。
 
 【三個回饋欄位的分工（corrections / chinglish_issues / precision_note，避免同一個觀察點重複出現在多個欄位）】
 每一個觀察點只能歸類到其中一個欄位，判斷順序如下：
@@ -1090,17 +1093,17 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 把所有 corrections 項目依上面標準扣完加總，結果不能低於 0。precision_note 裡的內容不算文法錯誤，不影響這個分數。
 
 【範例句規則（很重要）】
-「b2_example」跟「c1_example」都必須是翻譯「同一個中文原句」「${curSentQ.zh_sentence}」的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字「${curSentQ.word}」（或其自然變化形），不可以換成同義字。
+「b2_example」跟「c1_example」都必須是翻譯同一個中文原句的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字本身（或其自然變化形），不可以換成同義字。
 這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
-如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字「${curSentQ.word}」本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
+如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
 「corrections」裡每一項都要標註 category，從這 ${GRAMMAR_CATEGORIES.length} 個具體文法點裡選最接近的一個（選最貼近實際錯誤內容的那一條，不要因為列表變長就偷懶通通選「其他」，也不要自己縮寫/改寫成看起來像分類的短詞，例如把「冠詞 a/an/the 的基本用法」簡寫成「冠詞」——那不是清單裡任何一項，會讓分類失效）：
 ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 （最後一項「其他」只在以上都對不上的極少數情況才選，不能因為不確定就先選這個。）
 把 category 直接、完整、逐字複製上面選中的那一條文字（例如「過去完成式」、「其他」），不要填數字編號、不要加額外說明、不要自己簡化或改寫成清單上找不到的字串——寫完後檢查一次這個 category 的值是否跟清單裡某一項一字不差。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
 每一項 corrections 寫完後務必自我檢查這七件事：(0)「category」欄位的值必須跟前面清單裡的某一項一字不差（不能是縮寫、簡化、或清單以外的字串，例如「冠詞」「時態」「連接詞」這種簡稱都不合法，正確答案必須是完整寫法，如「冠詞 a/an/the 的基本用法」）；(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
 
-以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案「${ans}」原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
+以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
 【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
 以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
@@ -1109,20 +1112,29 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 - 省略了中文原句裡有意義的資訊：中文講「在菜市場買」，學生沒提到地點；中文講「買回家煮」，學生沒提到帶回家這個動作。
 如果這處不自然的原因是中文語法/思維直接套用（字面直譯、搭配詞不道地、中文語序、冗餘堆疊、生硬句式/主題優先，也就是上面 chinglish_issues 的五種類型），要改寫進 chinglish_issues，不要留在 precision_note——precision_note 只收「跟中文干擾無關」的籠統用字或漏資訊。
 只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
-「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字「${curSentQ.word}」本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
-寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字「${curSentQ.word}」本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
+「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
+寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 
 【整體講評（overall）】
 在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
 只輸出純 JSON（不要加 markdown）：
 {"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 28 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+    // gradeUserPrompt 只放每次呼叫都會變的內容（中文原句/目標單字/學生答案），刻意跟上面的 gradeSystemPrompt 分開，
+    // 讓 gradeSystemPrompt 逐字不變、能被 Anthropic prompt caching 命中（見 callClaude 的 system 參數）——
+    // 這份 system 本身內容多（CEFR/中式英文/28 個文法分類等規則），命中快取後波及的是這次改動最主要想解決的兩件事：
+    // 批改變慢（cache 命中後不用重新處理整份規則）、批改變貴（cache read 只收約 1/10 的 input token 費用）。
+    const gradeUserPrompt=`中文原句：「${curSentQ.zh_sentence}」
+目標單字：${curSentQ.word}
+學生答案：「${ans}」
+
+請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
     // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
     // precision_note/b2_example/c1_example/tip，繁中約 1.5-2 token/字，錯誤抓多一點就會超過 750 被截斷。
     // parseJSON 放進 try 裡面：截斷跟解析失敗才是最該重打的情況，原本寫在迴圈裡卻會直接 throw 出去，等於完全沒重試到。
     let r=null,lastErr=null;
     for(let attempt=0;attempt<2;attempt++){
       try{
-        const txt=await callClaude(gradePrompt,1600);
+        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',gradeSystemPrompt);
         r=parseJSON(txt);
         if(gradeResultIssues(r,ans,curSentQ.word).length===0) break;
       }catch(e){
