@@ -888,6 +888,109 @@ async function levelBarHTML(){
   <div class="breakdown">${breakdown}</div>`;
 }
 
+// 出題規則手冊。逐字不含目標單字/詞性/等級這些每次呼叫都會變的值，才能被 Anthropic prompt
+// caching 命中（system 內容要跟上一次呼叫逐字相同）——動態值全部放進 startSent() 的 user 訊息。
+//
+// 這份刻意寫得比舊版詳細（各詞性的錨點例子、語用合理性、範例句忠實度、六個等級的句型標準
+// 全部靜態列出）。除了這些本來就該補的規則之外還有一個成本理由：Haiku 4.5 的 prompt cache
+// 門檻是 4,096 token，舊版出題 prompt 只有約 2,200 token，搆不到門檻，於是每一題都用全價
+// $1/M 重新處理一次整份規則——那是整個 App 單一最大的成本項（約佔每題成本 34%，比批改的
+// 快取輸入還貴）。補到門檻以上並開 1h 快取後這段改用 cache read（0.1 倍）計價，
+// 損益兩平約「每小時 5 題」；也就是說，之後再往這份手冊裡加規則幾乎不用錢。
+const SENT_Q_SYSTEM=`你是英語口語練習老師，負責出「中翻英」造句題。學生會看到一個指定的英文單字跟一句中文，要把中文翻成英文，翻完之後由另一位老師批改。你只負責出題，不負責批改。
+
+【第一原則：中文情境必須讓目標單字成為最自然的選擇】
+出題不是隨便挑一個用得到這個單字的情境就好。判準是：一個英文母語者看到這句中文、要把它翻成自然的英文時，會不會主動、自然地用到指定的那個單字，而且用的正好是指定的詞性。如果母語者的自然翻譯會改用別的字、或改用同一個字根的其他詞性變化形，這個情境就是錯的，必須換掉。
+
+這條原則有三種常見的破法，全部都要避開：
+
+（一）被同義字取代。單字是 say，不要出「跟某人說某事」這種情境，因為母語者會用 tell（tell someone something），say 反而不自然。say 要選它本身就是最佳選擇的情境：直述句、引述句、say to oneself、say hello 之類。
+
+（二）被同一個字的其他詞形取代。單字是名詞 birth，不要出「某人出生了」，因為母語者會用 born（be born），不會把 birth 硬動詞化寫成 was birthed。birth 要選名詞身分自然出現的情境，例如「自從她出生以來」「出生的消息」「出生證明」。
+
+（三）被同一個字根的其他詞性取代。這是最容易漏掉的一種，出題時要特別檢查：
+- 形容詞 continuous：不要出「持續不斷地改進專案」，因為母語者會用副詞 continuously 修飾動詞（improving continuously）。要選它以形容詞修飾名詞的情境：「持續的努力」「不間斷的過程」。
+- 名詞 economy：不要出「維持經濟效益」，因為那需要形容詞 economic 修飾名詞。要選這個字以名詞身分出現的情境：「這個國家的經濟已經好轉」「省錢」義的 economy。
+- 名詞 danger：不要出「這個地方很危險」，因為母語者會說 This place is dangerous，用的是形容詞。要選名詞身分的情境：「有生命危險」「脫離險境」「他沒有意識到危險」。
+- 名詞 beauty：不要出「這個地方很美」（母語者會用 beautiful）。要選「風景之美」「內在美」這種名詞情境。
+- 動詞 succeed：不要出「他很成功」（會變成 successful）或「他的成功」（會變成 success）。要選「他成功說服了老闆」這種動作情境。
+- 名詞 education：不要出「這部紀錄片很有教育意義」（會變成 educational）。要選「他受過良好的教育」。
+
+【各詞性的選題原則】
+- 名詞：情境裡這個東西要以主詞、受詞或介系詞受詞的身分出現，不要讓它退化成修飾另一個名詞的定語，那通常會改用形容詞形。
+- 動詞：情境裡要有明確的動作發生，而且主詞做得出這個動作。不要出「這個動作的結果或名稱」，那會變成名詞形。
+- 形容詞：情境裡要有一個被修飾的名詞，或是「主詞 + be 動詞 + 這個形容詞」的敘述。不要出「以某種方式做某事」，那會變成副詞形。
+- 副詞：情境裡要有一個被修飾的動詞或形容詞，語意重點要落在「怎麼做、做到什麼程度」。
+- 介系詞、連接詞、情態動詞：情境本身要自然需要那個關係或語氣，不要為了把字塞進去而硬湊一個場景。
+
+【中文句子本身要合邏輯，而且要有人真的會這樣講】
+中文句子必須是中文母語者在真實生活裡會說出口的話，語意跟因果都要站得住腳：
+- 不要出沒有人會問的問題。例如「我媽媽現在幾歲？」——沒有人會問自己媽媽幾歲，這句話不成立。要嘛改成別人會問的版本，要嘛改成敘述句（「我媽媽今年六十歲」）。
+- 用「因為…所以…」「雖然…但是…」這類連接詞時，前後必須真的有那個關係。例如「因為下週要交報告，所以老師今天給我們很多功課」——「下週要交報告」跟「老師今天多給功課」之間的因果講不通，中文母語者看了會卡住。要嘛換掉因果（「因為下週要交報告，所以我這週每天熬夜」），要嘛拿掉連接詞。
+- 自我檢查：把這句中文唸過一遍，如果你要花力氣猜它想表達什麼，或是覺得「怎麼會有人這樣講」，就重寫。
+
+【非目標單字的難度不可以超綱】
+除了目標單字之外，學生要完整翻出這句話「非用不可」的其他字，難度也要落在這次的練習等級附近。不能自己選了一個超綱的字，害學生卡在跟目標單字無關的生字上。
+例如等級是 A1、目標單字是 centre，不要出「復健中心」——自然的英文翻譯需要 rehabilitation，那是遠超過 A1 的字。應該換成國小生活詞彙就講得清楚的情境：「市中心」「購物中心」「這家醫院有一個很大的中心」。
+自我檢查：把你心裡的自然英譯逐字看過，有沒有哪個字明顯超過這次的等級。有就換情境。
+
+【句型複雜度要跟練習等級走】
+中文情境的複雜度要跟著等級走，但目標是「母語者自然翻出來就會用到那個句型」，不是「硬性要求句型」：
+- A1：單一子句，最基本的直述句或問句，現在式或最單純的過去式。
+- A2：以單一子句為主，可以有簡單的時間或地點副詞、簡單的並列連接詞（and / but / so / because）。
+- B1：情境自然包含時間、原因或對比關係（「他到職之後…」「因為…所以…」「雖然…但…」），讓母語者翻譯時自然會用到連接詞或現在完成式，不是刻意湊長句。
+- B2：情境適合自然翻成被動語態、關係子句、假設語氣或間接引述其中一種（「這個東西是被…做的」「…的那個人」「如果…就會…」「他說…」）。要選一個母語者翻這句話本來就會用到這些結構的場景，不是找簡單情境硬套。
+- C1：更靈活道地的複雜情境，可以自然包含分詞構句、較細膩的語氣或讓步關係。
+- C2：接近母語者的細膩表達，可以自然包含倒裝、強調句或較抽象的論述。
+
+【不要重複出過的句子】
+如果 user 訊息裡列出了這個單字之前出過的中文句子，這次必須換一個明顯不同的情境——不是換幾個字，而是換一個場景、換一組人物或換一個語意重點。
+
+【輸出前的自我檢查，這是最重要的一步】
+輸出之前，先在心裡把你出的這句中文翻成最自然的英文，寫進 natural_en 欄位，然後對著 natural_en 逐條檢查：
+1. 目標單字有沒有真的出現在 natural_en 裡？沒有就代表情境選錯了，重選一個情境。
+2. 出現的形式是不是指定的那個詞性？如果變成了同字根的其他詞性變化形（形容詞變副詞、名詞變形容詞、名詞變動詞等），一樣是情境選錯，重選。
+3. natural_en 裡有沒有明顯超過這次等級的生字？有就重選。
+4. natural_en 是不是忠實翻譯了你寫的那句中文？人稱、單複數、時間都要對得上，不可以自己改掉——中文寫「我媽媽」就不能翻成 your mom。
+natural_en 只給系統檢查用、不會顯示給學生看，但一定要誠實填寫你真正認為最自然的翻譯。不要為了通過檢查硬把單字塞進去寫出不自然的句子；塞不進去時，正確的做法是換情境，不是改 natural_en。
+
+【各欄位規則】
+- zh_sentence：自然口語的中文句子，10-20 字，句子裡不要出現任何英文或提示。
+- natural_en：你心中最自然的英文翻譯，供上面的自我檢查使用。
+- hint：只有在句型真的有難度、學生可能不知道要用哪個結構時才寫，寫英文語法提示（例如「這裡要用現在完成式」）。沒必要就留空字串。寫了就必須跟批改標準一致——不要提示一個等一下會被判成錯誤的用法。
+- definition：這個單字的英文解釋，15 字以內，寫給英語學習者看。
+- translation：這個單字最常用的繁體中文翻譯，1-3 個意思，用 / 分隔。
+
+只輸出純 JSON，不要加 markdown、不要加任何說明文字：
+{"word":"目標單字原樣","zh_sentence":"自然的中文句子","natural_en":"最自然的英文翻譯","hint":"英文語法提示或空字串","definition":"英文解釋","translation":"繁體中文翻譯"}`;
+
+// 中文句子正規化後的重疊度比對，用來抓「同一個單字又出了幾乎一樣的句子」
+// （2026-08-06 April 回報：「這句我記得我寫過了」）。純客戶端比對，不花任何 token——
+// 把歷史句子塞進出題 prompt 會在 100% 的題目上付錢去換一個低機率事件，划不來。
+function zhNorm(s){ return (s||'').replace(/[\s，。？！、,.?!「」『』…—～~]/g,''); }
+function zhSimilar(a,b){
+  const x=zhNorm(a),y=zhNorm(b);
+  if(!x||!y) return false;
+  if(x===y) return true;
+  const sa=new Set(x),sb=new Set(y);
+  let inter=0; for(const c of sa) if(sb.has(c)) inter++;
+  return inter/Math.min(sa.size,sb.size)>=0.8;
+}
+function recentZhFor(word){
+  return SENT_HISTORY.filter(h=>h.word===word&&h.zh_sentence).slice(0,8).map(h=>h.zh_sentence);
+}
+// 出題端原本一個程式檢查都沒有，所有規則都只靠 prompt 遵從度——而 2026-08-12 的 danger 回報
+// 證明「情境逼學生換詞性」這條規則從 2026-08-03 就寫在 prompt 裡、到現在還是會破，
+// 而且 Jack 說「已經出現非常多次」。這裡比照批改端的做法用程式強制檢查、抓到就重出一次。
+function questionIssues(q,word,recentZh){
+  if(!q||!q.zh_sentence) return ['缺 zh_sentence'];
+  const issues=[];
+  if(!q.natural_en) issues.push('缺 natural_en');
+  else if(!hasTargetWord(q.natural_en,word)) issues.push('自然英譯裡沒有出現目標單字本身（可能被換成別的字或別的詞性變化形）');
+  if(recentZh.some(s=>zhSimilar(s,q.zh_sentence))) issues.push('這個中文句子跟之前出過的幾乎一樣');
+  return issues;
+}
+
 async function startSent(){
   document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
@@ -895,20 +998,34 @@ async function startSent(){
     if(!picked) throw new Error('no word available for level');
     const word=picked.word;
     const pos=picked.pos;
-    const prompt=`你是英語口語練習老師。請針對這個指定單字，給學生一個自然的中文日常句子讓他翻譯成英文：「${word}」
-這個中文句子的情境必須經過挑選，確保「${word}」是英文母語者翻譯這句話時最自然、最常用的字，不能選那種母語者其實會改用別的同義字表達更道地的情境（例如單字是 say，就不要選「跟某人說某事」這種母語者會直接用 tell 的句型，要選 say 本身就是最佳選擇的情境，如直述句、引述句、say to oneself 等）。也要避免選到會逼學生把單字硬轉換成不自然詞性/詞形的情境——例如單字是名詞 birth，不要選「某人出生了」這種中文情境，因為母語者這種情境會直接用 born（birth 的不同詞形，但意思上是不同的字），不會把 birth 硬動詞化寫成 be birthed；birth 應該選會自然用到名詞形式的情境（例如「自從她出生以來」「出生的消息」）。
-這個原則同樣適用於「同一個字根、不同詞性變化形」的情況，不只是換成完全不同的字：例如單字是形容詞 continuous，不要選「持續不斷地做某事」這種情境，因為母語者這種情境會用副詞 continuously 修飾動詞（例如 improving continuously），不會用形容詞 continuous；continuous 應該選形容詞自然修飾名詞的情境（例如「持續的努力」「不間斷的過程」）。單字是名詞 economy，不要選「維持經濟效益」這種需要形容詞 economic 修飾名詞的情境，economy 應該選這個字本身以名詞身份自然出現的情境（例如「這個國家的經濟」「省錢」義的 economy）。
-這個單字的詞性是「${posLabel(pos)}」。選好情境後自我檢查一次：母語者翻譯這句中文時，會不會自然用到「${word}」這個字、而且詞性剛好是「${posLabel(pos)}」——如果自然翻譯出來的其實是這個字的其他詞性變化形（形容詞→副詞、名詞→形容詞、名詞→動詞等），就要換一個情境重選。
-這個單字目前的練習等級是「${curLevel}」，中文句子的「情境」複雜度要跟著這個等級走，但目標是「自然翻譯出來就會用到對應句型」，不是「硬性要求句型」：
-- A1/A2：維持現況，單一子句、簡單直述情境。
-- B1：情境自然包含時間/原因/對比關係（例如「他到職之後...」「因為...所以...」「雖然...但...」），讓母語者翻譯時自然會用連接詞或現在完成式，不是刻意湊長句。
-- B2：情境適合自然翻成被動語態、關係子句、假設語氣或間接引述其中一種（例如「這個東西是被...做的」「...的那個人」「如果...就會...」「他說...」這類情境），選一個母語者翻這句話本來就會用到這些結構的場景，不是找簡單情境硬套。
-- C1/C2：更靈活道地的複雜情境，可以自然包含倒裝、分詞構句或更細膩的語氣表達。
-除了句型複雜度要跟著等級走，情境裡「非目標單字」的其他必要用字難度也不能超過這個等級太多：例如等級是 A1/A2，不要選「復健中心」這種情境去搭配 A1 單字 centre，因為natural的英文翻譯需要用到 rehabilitation 這種明顯遠超過 A1/A2 程度的單字，才能完整表達，這樣學生會被卡在不相關的生字上，而不是練習目標單字本身；應該換成國小生活詞彙就能講清楚的情境（例如「市中心」「購物中心」）。自我檢查：情境裡如果有目標單字以外、學生翻譯時「非用不可」的字，那個字的難度也要跟這個等級差不多，不能自己選了一個超綱的字。
-只輸出純 JSON（不要加 markdown 或其他文字）：
-{"word":"${word}","zh_sentence":"自然的中文句子（10-20字，口語化）","hint":"英文語法提示（可選，如果太難才加）","definition":"這個單字的英文解釋（簡短，15字內，給英語學習者看）","translation":"這個單字最常用的繁體中文翻譯（1-3個意思，用/分隔）"}`;
-    const[txt,dict]=await Promise.all([callClaude(prompt,1000),fetchDict(word)]);
-    curSentQ=parseJSON(txt);
+    // 之前出過的同一個單字的中文句子，用來擋重複。通常是空陣列（實測 1.18 次/字），
+    // 所以放進 user 訊息幾乎不花 token，卻能在重出時直接告訴模型要避開哪幾句。
+    const recentZh=recentZhFor(word);
+    const qUserPrompt=(retryNote)=>`目標單字：${word}
+這個單字的詞性：${posLabel(pos)}
+這次的練習等級：${curLevel}
+${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
+請依照 system prompt 的規則出一題，只輸出規定格式的純 JSON。`;
+    const dictP=fetchDict(word);
+    let parsed=null,lastQErr=null,issues=[];
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const txt=await callClaude(qUserPrompt(attempt>0?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
+        const cand=parseJSON(txt);
+        issues=questionIssues(cand,word,recentZh);
+        parsed=cand;
+        if(issues.length===0) break;
+        console.log('questionIssues:',issues.join('；'));
+      }catch(e){
+        lastQErr=e;
+        // 比照 submitSent：額度用完/登入過期/上游逾時重打只是再失敗一次，直接讓外層顯示訊息
+        if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e;
+      }
+    }
+    if(!parsed) throw lastQErr||new AIError('http','出題失敗');
+    const dict=await dictP;
+    curSentQ=parsed;
+    curSentQ.word=word;   // 不讓模型改動目標單字本身
     curSentQ.level=curLevel;
     curSentQ.pos=pos;
     const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
@@ -939,15 +1056,50 @@ async function renderSentQ(){
   <button class="prac-submit" id="sentBtn" onclick="submitSent()">提交答案 →</button>`;
 }
 
-// 目標單字（或其自然變化形，如時態、單複數）有沒有出現在文字裡——粗略字幹比對即可
+// 衍生字尾：接上去會換掉詞性（danger→dangerous、continuous→continuously、economy→economic）。
+// 屈折變化（-s/-ed/-ing/-er 這種時態單複數比較級）不換詞性，算同一個字。
+const DERIV_SUFFIX=/^(ly|ous|ious|eous|ness|tion|ation|sion|ment|ive|ative|itive|al|ial|ical|ic|able|ible|ful|iful|less|ish|ist|ism|ity|ify|ize|ise|ary|ory|ant|ent|ance|ence|hood|ship|ly's)$/;
+// 不規則變化：拼字上看不出關聯，但確實是同一個字的屈折形，不列進來會被誤判成「沒用到目標單字」
+// 而白白重打一次批改（用真實 senthist 抽樣驗過，say/said、am/I'm 這類就是這樣被誤殺的）。
+const IRREGULAR={
+  be:['am','is','are','was','were','been','being'],am:['be','was','been'],is:['be','was','been'],are:['be','were','been'],
+  have:['has','had','having'],do:['does','did','done','doing'],say:['said','says'],go:['went','gone','goes'],
+  get:['got','gotten'],make:['made'],know:['knew','known'],think:['thought'],take:['took','taken'],see:['saw','seen'],
+  come:['came'],give:['gave','given'],find:['found'],tell:['told'],become:['became'],leave:['left'],feel:['felt'],
+  bring:['brought'],begin:['began','begun'],keep:['kept'],hold:['held'],write:['wrote','written'],stand:['stood'],
+  hear:['heard'],mean:['meant'],meet:['met'],run:['ran'],pay:['paid'],sit:['sat'],speak:['spoke','spoken'],
+  lead:['led'],grow:['grew','grown'],lose:['lost'],fall:['fell','fallen'],send:['sent'],build:['built'],
+  understand:['understood'],draw:['drew','drawn'],break:['broke','broken'],spend:['spent'],rise:['rose','risen'],
+  drive:['drove','driven'],buy:['bought'],wear:['wore','worn'],choose:['chose','chosen'],throw:['threw','thrown'],
+  catch:['caught'],win:['won'],forget:['forgot','forgotten'],eat:['ate','eaten'],drink:['drank','drunk'],
+  fly:['flew','flown'],sleep:['slept'],teach:['taught'],sell:['sold'],sing:['sang','sung'],swim:['swam','swum'],
+  ride:['rode','ridden'],wake:['woke','woken'],hide:['hid','hidden'],
+  child:['children'],man:['men'],woman:['women'],person:['people'],foot:['feet'],tooth:['teeth'],mouse:['mice'],
+  life:['lives'],knife:['knives'],wife:['wives'],leaf:['leaves'],good:['better','best'],bad:['worse','worst']
+};
+// 目標單字（或其屈折變化形）有沒有出現在文字裡。
+// 舊版是「字幹前綴 + includes()」，"dangerous" 含子字串 "danger" 會直接判定通過——
+// 等於把 danger/continuous/economy 那一整批「情境逼學生換詞性」的回報從批改端遮掉了
+// （2026-08-12 danger 回報查出來的）。改成逐字比對 + 擋掉衍生字尾。
 function hasTargetWord(text,word){
   if(!text) return true;
-  const t=text.toLowerCase();
   const w=(word||'').toLowerCase().trim();
   if(!w) return true;
-  const stems=new Set([w]);
-  if(w.length>3){ stems.add(w.slice(0,-1)); stems.add(w.slice(0,-2)); stems.add(w.slice(0,-3)); }
-  return [...stems].some(s=>s&&t.includes(s));
+  const stem=w.replace(/[ey]$/,'');
+  const irr=IRREGULAR[w]||[];
+  // 縮寫：I'm / he's / they're 也是 am/is/are 的合法形式
+  const contraction={am:"'m",is:"'s",are:"'re",have:"'ve",will:"'ll",not:"n't"}[w];
+  for(const tok of (text.toLowerCase().match(/[a-z']+/g)||[])){
+    if(tok===w||irr.includes(tok)) return true;
+    if(contraction&&tok.endsWith(contraction)) return true;
+    if(tok.startsWith(w)&&!DERIV_SUFFIX.test(tok.slice(w.length))) return true;
+    // 拼字微調的屈折：study→studies、make→making（字尾 y/e 會被吃掉）
+    if(stem.length>=3&&stem!==w&&tok.startsWith(stem)){
+      const tail=tok.slice(stem.length);
+      if(!DERIV_SUFFIX.test(tail)&&!DERIV_SUFFIX.test(tail.replace(/^i/,''))) return true;
+    }
+  }
+  return false;
 }
 // b2_example/c1_example/corrected_sentence 依 prompt 規則都必須用到目標單字，這裡檢查 AI 有沒有真的照做
 function missingTargetWordFields(r,word){
@@ -989,8 +1141,11 @@ function invalidGrammarCategory(r){
   return (r.corrections||[]).filter(c=>c.category&&!GRAMMAR_CATEGORIES.includes(c.category)).map(c=>c.error||c.category);
 }
 // why 依 754(3)(4) 不能用「跟主要子句時態一致」這種站不住腳的說法帶過，也不能說「兩者都對/都可以」卻還留在 corrections 裡
+// 2026-08-12 覆盤未讀回報時發現原本的 regex 太窄，同樣的毛病換個措辭就繞過去了：
+// actor 那筆寫的是「主句…時態呼應不夠自然」（不是「主要子句…一致」）跟「played 也可以接受」
+// （不是「兩者都可以」），educational 那筆寫「在語法上沒有錯」卻還是留在 corrections 裡扣分。
 function badReasoningCorrections(r){
-  const bannedWhy=/主要子句[^。]{0,25}(一致|吻合)|時態[^。]{0,15}主要子句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤/;
+  const bannedWhy=/主要?子?句[^。]{0,35}(一致|吻合|呼應)|時態[^。]{0,15}主要?子?句|也完全正確|兩者(文法)?都(對|可以|可接受)|不算嚴格錯誤|也可以接受|也是可以的|語法上(並)?沒有錯|本身(在語法上)?沒有(錯|問題)/;
   return (r.corrections||[]).filter(c=>c.why&&bannedWhy.test(c.why)).map(c=>c.error);
 }
 // tip 依 762 規定，如果沒有真的更好的說法就該留空，不能寫出「其實兩個一樣好」這種等於承認沒建議的內容
@@ -1013,6 +1168,51 @@ function cefrUnderstated(r,ans){
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
   return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
+}
+
+// ─── 就地修掉、不重打的檢查 ────────────────────────────────────────────────
+// 上面 gradeResultIssues 抓到問題會整個重打一次批改，那要多付一次 output token
+// （約 NT$0.11）跟 4-7 秒等待——2026-08-11 才處理過「批改變慢」，不該為了不影響分數的欄位再加。
+// 所以以下三項改成「偵測到就地清掉／夾值」，token 成本是 0。
+
+// precision_note 後半段整段變成韓文（2026-08-07 bee 回報）。批改 prompt 各欄位雖然都寫了
+// 「繁體中文」，但沒有任何程式檢查。這裡直接偵測非中英文的書寫系統（韓文/日文假名/西里爾/阿拉伯/泰文）。
+const FOREIGN_SCRIPT=/[가-힯぀-ゟ゠-ヿЀ-ӿ؀-ۿ฀-๿]/;
+// precision_note/tip 裡「宣稱學生寫了什麼」的說法必須是學生逐字寫過的（prompt 1108 已有這條規則，
+// 但實測遵從度不穩：educational 那筆說「學生答案裡用了 but」，學生根本沒寫 but；
+// beauty 那筆說「原句說 'it's captivating'」，也是捏造的）。
+// 只比對「宣稱句」帶出來的片段，不比對它建議的替代說法（那本來就不在學生答案裡）。
+const CLAIM_QUOTE=/(?:學生(?:的)?(?:答案|原句|句子)?(?:裡|中)?(?:寫|用|說)(?:了|成)?|原句(?:裡|中)?(?:寫|用|說)(?:了|成)?)\s*[「'"‘“]?([A-Za-z][A-Za-z' -]{0,40})/g;
+function fabricatedClaim(text,ans){
+  if(!text) return false;
+  // 前後補空白再比對，避免子字串誤判：beauty 那筆捏造的是 it's captivating，
+  // 只用 includes() 的話 "it" 會被學生答案裡的 "its" 吃掉，等於檢查失效。
+  const na=' '+normLoose(ans)+' ';
+  CLAIM_QUOTE.lastIndex=0;
+  let m;
+  while((m=CLAIM_QUOTE.exec(text))!==null){
+    const frag=normLoose(m[1].replace(/['"\s-]+$/,''));
+    if(frag&&!na.includes(' '+frag+' ')) return true;
+  }
+  return false;
+}
+// chinglish_percent 依 prompt 規則要對應「句子裡屬於中式英文的部分佔比」，一號之後那些部分
+// 本來就會逐項列進 chinglish_issues。列不出任何一項卻給了百分比，就是沒有依據
+// （2026-08-04 belt 回報：兩項修正是主詞動詞一致跟 loss/loose 拼錯，都跟中文思維無關，卻給 50%）。
+// 直接夾成 0 比重打一次批改更省、也更正確——這個數字會影響「精通」判定，不能放著不管。
+function sanitizeGradeResult(r,ans){
+  const fixed=[];
+  for(const f of ['precision_note','tip','overall']){
+    if(typeof r[f]!=='string'||!r[f]) continue;
+    if(FOREIGN_SCRIPT.test(r[f])){ r[f]=''; fixed.push(f+':非中英文'); continue; }
+    if(f!=='overall'&&fabricatedClaim(r[f],ans)){ r[f]=''; fixed.push(f+':捏造引用'); }
+  }
+  if(typeof r.chinglish_percent==='number'&&Array.isArray(r.chinglish_issues)
+     &&r.chinglish_issues.length===0&&r.chinglish_percent>0){
+    r.chinglish_percent=0; fixed.push('chinglish_percent→0');
+  }
+  if(fixed.length) console.log('sanitizeGradeResult:',fixed.join(', '));
+  return fixed;
 }
 
 async function submitSent(){
@@ -1107,6 +1307,13 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
+【不可以跟出題提示自相矛盾】
+如果 user 訊息裡有「出題時給學生的提示」，代表學生是照著那個提示寫的。批改時不可以反過來把提示教的用法判成錯誤——學生按照提示做卻被扣分，是系統自己前後不一致，不是學生的問題。
+遇到這種情況分兩種處理：
+- 提示本身是對的，只是學生套用的方式有問題（位置、搭配、詞序）：corrections 要針對「套用方式」講清楚，不要寫成「這個用法不需要／不存在」這種否定提示本身的說法。例如提示說可以用 combine ... with，學生寫成 combine with A and B together，該指出的是 with 的位置放錯、together 冗贅，而不是宣稱「combine 是及物動詞，不需要 with」——combine A with B 本來就是成立的標準用法。
+- 提示本身在這個語境裡確實不適用：直接在 overall 裡用一句話說明「這題的提示不適合這個句子」，不要默默把學生依提示寫出來的部分列進 corrections 扣分。
+另外，corrections 的 why 不可以對一個字的用法下「從來不能這樣用／不需要這個介系詞」這種一竿子打翻的絕對斷言，除非你確定那個用法在英文裡真的不存在。如果問題只是「在這個句子的結構下不該這樣接」，就要把話講在這個句子上，不要推廣成通則。
+
 【用字精準度提醒（跟文法錯誤分開處理，不算 corrections）】
 以下情況不算文法錯誤，不影響 chinglish_percent 或 CEFR 等級，寫進獨立的「precision_note」欄位：
 - 學生的說法本身沒有錯，但有更貼切、更能呼應原意的表達方式（例如介系詞搭配、同義字選擇），這種「不算錯但有更好的說法」的建議都寫在這裡，不要放進 corrections。
@@ -1125,9 +1332,12 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
     // 讓 gradeSystemPrompt 逐字不變、能被 Anthropic prompt caching 命中（見 callClaude 的 system 參數）——
     // 這份 system 本身內容多（CEFR/中式英文/28 個文法分類等規則），命中快取後波及的是這次改動最主要想解決的兩件事：
     // 批改變慢（cache 命中後不用重新處理整份規則）、批改變貴（cache read 只收約 1/10 的 input token 費用）。
+    // hint 也要帶進來：出題跟批改是兩次獨立呼叫，批改端原本看不到出題時給過什麼提示，
+    // 結果出現「出題提示說可以用 combine...with，寫了之後批改又說不需要 with」這種自相矛盾
+    // （2026-08-07 combine 回報）。約 30 個 token，未快取段全價也只要 NT$0.001/題。
     const gradeUserPrompt=`中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
-學生答案：「${ans}」
+${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學生答案：「${ans}」
 
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
     // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
@@ -1147,6 +1357,9 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
       }
     }
     if(!r) throw lastErr||new AIError('http','批改失敗');
+    // 就地清掉不影響分數的壞欄位、夾正沒有依據的 chinglish_percent。
+    // 一定要在 mastered 之前跑：夾值會影響下面的精通判定。
+    sanitizeGradeResult(r,ans);
     const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
       if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
