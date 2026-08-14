@@ -1650,32 +1650,38 @@ function agoLabel(ts){
 }
 
 // field: 'corrections'（比 error）或 'chinglish_issues'（比 phrase）
-function priorFragmentHits(fragment,category,field){
+function priorFragmentHits(fragment,field){
   const key=normFragment(fragment);
-  const same=[], sameCat=[];
+  if(!key) return [];
+  const same=[];
   for(const h of SENT_HISTORY){
     for(const c of (h[field]||[])){
-      const k=normFragment(field==='corrections'?c.error:c.phrase);
-      if(key && k===key) same.push({ts:h.ts,userAns:h.userAns});
-      else if(category && field==='corrections' && c.category && c.category===category) sameCat.push({ts:h.ts,userAns:h.userAns});
+      if(normFragment(field==='corrections'?c.error:c.phrase)===key) same.push({ts:h.ts,userAns:h.userAns});
     }
   }
-  const byNewest=(a,b)=>b.ts-a.ts;
-  return {same:same.sort(byNewest), sameCat:sameCat.sort(byNewest)};
+  return same.sort((a,b)=>b.ts-a.ts);
 }
 
-// 同一個片段優先講（最具體）；沒有的話退而講同一個文法點，但要犯過 2 次以上才提，
-// 不然第二次就跳警告會太吵，反而稀釋掉真正重複的那種。「其他」分類永遠不提。
+/* 什麼時候該打斷使用者：
+   (1) 同一個片段逐字重複——最具體，實測只佔 2.6%，很安全，無條件提。
+   (2) 同一個文法點：只在「待複習」時提，也就是**學過了、學完之後還在錯**。
+       原本寫成「同分類犯過 3 次以上」，實測會在 56.6% 的錯誤上跳警告——那不是提示是壁紙，
+       而且會把 (1) 真正有價值的訊號淹掉。更關鍵的是，對一個還沒教過的文法點一直說
+       「你又錯了」只是嘮叨；該學什麼是 Dashboard 的 CTA 在管的事，不是這裡。
+   「其他」永遠不提（那不是文法點，見 UNCLASSIFIED_CAT）。 */
 function repeatNoteHTML(fragment,category,field){
-  const {same,sameCat}=priorFragmentHits(fragment,category,field);
+  const same=priorFragmentHits(fragment,field);
   if(same.length){
     const last=same[0];
     return `<div class="corr-repeat">⚠️ 這個寫法你是第 ${same.length+1} 次用了 · 上次：${agoLabel(last.ts)}
       <div class="corr-repeat-prev">當時：${last.userAns||''}</div>
     </div>`;
   }
-  if(field==='corrections' && category && category!==UNCLASSIFIED_CAT && sameCat.length>=2){
-    return `<div class="corr-repeat">⚠️「${category}」你已經錯過 ${sameCat.length} 次 · 最近一次：${agoLabel(sameCat[0].ts)}</div>`;
+  if(field==='corrections' && category && category!==UNCLASSIFIED_CAT
+     && grammarCategoryStatus(category)==='needs_relearning'){
+    const log=grammarLearningLog[category]||[];
+    const n=pendingErrorCount(category);
+    return `<div class="corr-repeat">⚠️「${category}」你學過之後，這是第 ${n+1} 次又錯 · 上次學習：${agoLabel(log[log.length-1].ts)}</div>`;
   }
   return '';
 }
