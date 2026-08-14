@@ -185,6 +185,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .corr-err{font-size:13px;color:var(--bad);margin-bottom:3px}
 .corr-fix{font-size:14px;color:var(--good);font-weight:600;margin-bottom:3px}
 .corr-why{font-size:12px;color:var(--dim)}
+/* 重複犯錯提示：放在錯誤修正的最上面，比修正本身更醒目——「你又來了」是這一刻最該傳達的事 */
+.corr-repeat{font-size:12px;color:var(--accent-light);background:var(--accent-wash);border-left:2px solid var(--accent);border-radius:0 6px 6px 0;padding:6px 9px;margin-bottom:6px;line-height:1.5}
+.corr-repeat-prev{color:var(--faint2);font-size:11px;font-style:italic;margin-top:3px}
+/* 家族排行：Dashboard 的主要內容，讓「介系詞是你最大的問題」一眼看得出來 */
+.fam-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.fam-name{font-size:12px;color:var(--text-soft);width:92px;flex-shrink:0}
+.fam-bar{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
+.fam-bar-fill{height:100%;background:var(--accent);border-radius:4px}
+.fam-n{font-size:11px;color:var(--faint2);width:30px;text-align:right;flex-shrink:0}
+.fam-more{font-size:11px;color:var(--faint);margin-top:8px}
 .cefr-badge{background:var(--accent-wash);color:var(--accent-light);border:1px solid var(--accent)}
 .sent-def{font-size:12px;color:var(--dim);font-style:italic;margin-bottom:10px}
 .hist-btn{background:var(--card2);border:1px solid var(--border);color:var(--dim2);padding:7px 12px;border-radius:20px;font-size:12px;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:2px}
@@ -814,6 +824,66 @@ const GRAMMAR_CATEGORIES=['現在簡單式 vs 現在進行式','過去簡單式 
 // 「你該去學 X」的推薦、清單、CTA，也不允許生成教材。
 const UNCLASSIFIED_CAT='其他';
 const learnableCats=cats=>cats.filter(c=>c!==UNCLASSIFIED_CAT);
+
+/* 28 個文法點 → 11 個家族。
+   為什麼要這一層：28 個分類太細，同一個弱點會被切碎。實測 Jack 的資料，介系詞的錯誤
+   散在 3 個分類裡、冠詞散在 2 個，每一個單獨看都排不進前面，所以排行從來沒告訴他
+   「介系詞是你最大的問題」。
+   家族只做兩件事：把數字加總、決定排序。它「不帶狀態」——待學習/待複習/已掌握永遠
+   留在葉節點上，二號的學習迴圈一個字都不用改，也不會出現兩套狀態互相打架。
+   「其他」沒有家族：它不是文法點，見 UNCLASSIFIED_CAT。 */
+const GRAMMAR_FAMILIES={
+  '介系詞':['介系詞 in/on/at（時間）','介系詞 in/on/at（地點）','常見動詞固定搭配介系詞'],
+  '冠詞':['冠詞 a/an/the 的基本用法','零冠詞（不可數名詞、複數泛指）'],
+  '時態':['現在簡單式 vs 現在進行式','過去簡單式 vs 現在完成式','未來式：will vs be going to','過去完成式'],
+  '主詞動詞一致':['主詞動詞一致（第三人稱單數）'],
+  '名詞單複數':['可數與不可數名詞','不規則複數形','集合名詞的單複數一致'],
+  '連接詞':['連接詞 although/because/so','對等連接詞 and/but/or 的句子平衡'],
+  '動名詞與不定詞':['動名詞當主詞/受詞','不定詞 vs 動名詞'],
+  '語序':['形容詞順序','疑問句/間接問句語序','副詞位置'],
+  '被動語態':['被動語態基本結構','被動語態常見誤用（中文直翻）'],
+  '情態與假設語氣':['情態助動詞 can/could/may/might/must','第一/第二/第三類條件句','假設語氣 wish + 過去式/過去完成式'],
+  '關係子句':['關係代名詞 who/which/that','限定 vs 非限定關係子句'],
+};
+
+// 對照表漏掉一個分類，那個分類就會從排行上「無聲消失」——沒有錯誤、只是靜靜不見。
+// 所以載入時直接檢查兩個方向：有分類沒家族、有家族成員不在分類清單裡。
+(function checkFamilyCoverage(){
+  const mapped=new Set(Object.values(GRAMMAR_FAMILIES).flat());
+  const missing=GRAMMAR_CATEGORIES.filter(c=>c!==UNCLASSIFIED_CAT&&!mapped.has(c));
+  const unknown=[...mapped].filter(c=>!GRAMMAR_CATEGORIES.includes(c));
+  if(missing.length) console.error('[家族對照表] 這些分類沒有對應家族，會從排行消失：',missing);
+  if(unknown.length) console.error('[家族對照表] 這些家族成員不在 GRAMMAR_CATEGORIES 裡（可能拼錯）：',unknown);
+})();
+
+const familyOf=cat=>Object.keys(GRAMMAR_FAMILIES).find(f=>GRAMMAR_FAMILIES[f].includes(cat))||null;
+// 目前分類法認得的分類。8/8 改版前的舊 13 分類對不到家族，會被這道濾網擋在待辦之外
+// （它們永遠不會有新資料、也永遠不可能變成「已掌握」，留在待辦清單裡只會佔位子）。
+const currentTaxonomyCats=cats=>cats.filter(c=>familyOf(c));
+
+/* 「還欠多少」：已掌握的算 0（那是做完的事，不該再排進待辦），
+   待複習算「學完之後又犯幾次」，待學習算累計錯誤數——跟葉節點清單用的是同一個量，
+   家族只是把它們加起來，不另外定義窗口或規則。 */
+function catOutstanding(cat){
+  const st=grammarCategoryStatus(cat);
+  if(st==='mastered') return 0;
+  if(st==='needs_relearning') return pendingErrorCount(cat);
+  return grammarStats[cat]||0;
+}
+
+function familyRanking(){
+  return Object.keys(GRAMMAR_FAMILIES).map(fam=>{
+    const leaves=GRAMMAR_FAMILIES[fam].filter(c=>grammarStats[c]);
+    return {family:fam,n:leaves.reduce((s,c)=>s+catOutstanding(c),0),leaves};
+  }).filter(f=>f.n>0).sort((a,b)=>b.n-a.n);
+}
+
+// 家族內部挑一個葉節點當 CTA：待複習優先（學過又錯最急），其次是錯最多的待學習
+function topLeafIn(leaves){
+  const relearn=leaves.filter(c=>grammarCategoryStatus(c)==='needs_relearning').sort((a,b)=>pendingErrorCount(b)-pendingErrorCount(a));
+  if(relearn.length) return relearn[0];
+  return leaves.filter(c=>grammarCategoryStatus(c)==='needs_learning').sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0))[0]||null;
+}
 
 // 一律以台北時間(Asia/Taipei)判斷「今天」，避免 UTC 造成的日期偏移（凌晨0-8點誤算成昨天）
 function taipeiDateStr(ts){
@@ -1462,12 +1532,14 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
     </div>`:''}
     ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">${ic('search',14)} 錯誤修正</div>
     ${r.corrections.map(c=>`<div class="corr-item">
+      ${repeatNoteHTML(c.error,c.category,'corrections')}
       <div class="corr-err">✗ ${c.error}</div>
       <div class="corr-fix">✓ ${c.fix}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:`<div style="color:var(--good);font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
     ${r.chinglish_issues?.length?`<div class="card-lbl" style="margin:12px 0 8px">🀄 中式英文類型</div>
     ${r.chinglish_issues.map(c=>`<div class="corr-item">
+      ${repeatNoteHTML(c.phrase,null,'chinglish_issues')}
       <span class="score-badge" style="background:rgba(var(--accent-rgb),.15);color:var(--accent-light);border:1px solid var(--accent-light);padding:2px 9px;font-size:11px;margin-bottom:5px;display:inline-block">${c.type}</span>
       <div class="corr-err">✗ ${c.phrase}</div>
       <div class="corr-fix">✓ ${c.natural}</div>
@@ -1562,6 +1634,52 @@ async function renderSentResult(userAns,r){
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
 
+/* ── 批改當下的「你又犯了」提示 ──
+   純本地查 SENT_HISTORY，不打 API。submitSent() 是先 renderSentResult 再 saveSentHistory，
+   所以這裡讀到的一定是「這次之前」的紀錄，當下這一次不會被算進去。
+   比對用原始片段字串（corrections[].error / chinglish_issues[].phrase），不經過文法分類，
+   所以分類器準不準完全不影響這個功能。 */
+function normFragment(s){ return String(s||'').toLowerCase().replace(/[.,!?;:'"“”‘’()\[\]]/g,'').replace(/\s+/g,' ').trim(); }
+
+function agoLabel(ts){
+  const d=taipeiDateStr(ts);
+  if(d===todayStr()) return '今天稍早';
+  const days=Math.round((new Date(todayStr()+'T12:00:00Z')-new Date(d+'T12:00:00Z'))/86400000);
+  if(days===1) return '昨天';
+  return days<=30 ? `${days} 天前` : d.slice(5).replace('-','/');
+}
+
+// field: 'corrections'（比 error）或 'chinglish_issues'（比 phrase）
+function priorFragmentHits(fragment,category,field){
+  const key=normFragment(fragment);
+  const same=[], sameCat=[];
+  for(const h of SENT_HISTORY){
+    for(const c of (h[field]||[])){
+      const k=normFragment(field==='corrections'?c.error:c.phrase);
+      if(key && k===key) same.push({ts:h.ts,userAns:h.userAns});
+      else if(category && field==='corrections' && c.category && c.category===category) sameCat.push({ts:h.ts,userAns:h.userAns});
+    }
+  }
+  const byNewest=(a,b)=>b.ts-a.ts;
+  return {same:same.sort(byNewest), sameCat:sameCat.sort(byNewest)};
+}
+
+// 同一個片段優先講（最具體）；沒有的話退而講同一個文法點，但要犯過 2 次以上才提，
+// 不然第二次就跳警告會太吵，反而稀釋掉真正重複的那種。「其他」分類永遠不提。
+function repeatNoteHTML(fragment,category,field){
+  const {same,sameCat}=priorFragmentHits(fragment,category,field);
+  if(same.length){
+    const last=same[0];
+    return `<div class="corr-repeat">⚠️ 這個寫法你是第 ${same.length+1} 次用了 · 上次：${agoLabel(last.ts)}
+      <div class="corr-repeat-prev">當時：${last.userAns||''}</div>
+    </div>`;
+  }
+  if(field==='corrections' && category && category!==UNCLASSIFIED_CAT && sameCat.length>=2){
+    return `<div class="corr-repeat">⚠️「${category}」你已經錯過 ${sameCat.length} 次 · 最近一次：${agoLabel(sameCat[0].ts)}</div>`;
+  }
+  return '';
+}
+
 /* ── 造句歷史 ── */
 function saveSentHistory(userAns,r){
   SENT_HISTORY.unshift({
@@ -1632,7 +1750,8 @@ function buildSummaryMaterial(){
   const buckets=[]; for(let i=13;i>=0;i--) buckets.push({key:taipeiDaysAgo(i),label:''});
   const daily=aggregateTrend(buckets, ts=>taipeiDateStr(ts), 'all').map((d,i)=>({date:buckets[i].key,count:d.count,acc:d.acc,ching:d.ching}));
   // learnableCats：不把「其他」餵進去，模型就不可能建議「去複習其他」這種做不到的事
-  const cats=learnableCats(Object.keys(grammarStats));
+  // currentTaxonomyCats：舊分類同樣擋掉，不然總結會叫人去學一個清單上已經不存在的東西
+  const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
   const relearn=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').map(c=>({category:c,pendingErrors:pendingErrorCount(c)}));
   const learn=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').map(c=>({category:c,count:grammarStats[c]}));
   const mastered=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
@@ -1645,7 +1764,9 @@ function buildSummaryMaterial(){
     const oldRate=rateOf(sorted.slice(0,mid)), newRate=rateOf(sorted.slice(mid));
     noImprove=learnableCats(Object.keys(oldRate)).filter(cat=>oldRate[cat]>0 && (newRate[cat]||0)>=oldRate[cat]);
   }
-  return {daily,relearn,learn,mastered,noImprove,...recentMistakeMaterial()};
+  // 家族排行是卡片上緊接著這段文字顯示的內容——一起餵進去，總結才不會跟它打架
+  const families=familyRanking().slice(0,5).map(f=>({family:f.family,outstanding:f.n}));
+  return {daily,relearn,learn,mastered,noImprove,families,...recentMistakeMaterial()};
 }
 
 // 只餵彙總數字的話，14 天平均一天動不了多少，AI 每天只能寫出同一段話。
@@ -1681,6 +1802,9 @@ async function generateDashboardSummary(){
 過去 14 天的造句練習資料（依日期排序，count 是題數，acc 是平均文法正確度，ching 是平均中式英文比例，count 是 0 代表那天沒有練習，acc/ching 這種情況會是 null，不是「考了 0 分」）：
 ${JSON.stringify(m.daily)}
 
+錯誤最集中的家族（outstanding = 還沒解決的錯誤次數，這份排行會以長條圖顯示在你這段文字的正下方）：
+${JSON.stringify(m.families)}
+
 文法分類目前狀態：
 待複習（學過之後又犯錯，最需要優先處理）：${JSON.stringify(m.relearn)}
 待學習（有錯誤紀錄但還沒學過）：${JSON.stringify(m.learn)}
@@ -1700,7 +1824,7 @@ ${prev.length?`\n前幾次總結已經講過的內容（不要重複同樣的觀
 要求：
 1. 寫 2-4 句繁體中文，像老師當面講評，連貫一段話，不要條列、不要標題或前綴，只輸出這段文字本身。
 2. 一定要至少引用一個學生自己寫過的具體片段（逐字照抄，用「」框起來），講清楚錯在哪、正確會怎麼寫。優先講 isNew 的、或重複犯的。沒有具體例子的空泛評語不要寫。
-3. 只有在數字真的出現明顯變化時才提百分比；沒有變化就不要重述趨勢，把篇幅留給具體的錯誤。
+3. 只有在數字真的出現明顯變化時才提百分比；沒有變化就不要重述趨勢，把篇幅留給具體的錯誤。家族排行的長條圖就在你這段文字下面，不要逐條複述那些數字（那是重複），但你可以用它來解釋「為什麼是這個」——例如指出前兩名其實是同一種中文干擾造成的。
 4. 結尾給一件今天就能動手做的事，優先是「待複習」的分類或某個重複犯的片段。
 5. 不要用「這說明你」「越來越自然道地」「希望你繼續保持」「更上一層樓」這類套話，也不要跟前幾次用一樣的開場。`;
   const text=(await callClaude(prompt,600)).trim();
@@ -1848,12 +1972,20 @@ async function dashboardHTML(){
   const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
 
   // 文法分類三態清單（AI 總結卡下面的展開按鈕用）
-  const cats=learnableCats(Object.keys(grammarStats));
+  // currentTaxonomyCats：擋掉 8/8 改版前的舊 13 分類，它們永遠不會更新也永遠學不完
+  const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
   const relearnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').sort((a,b)=>pendingErrorCount(b)-pendingErrorCount(a));
   const learnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0));
   const masteredCats=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
-  const primaryCat=relearnCats[0]||learnCats[0];
   const unclassified=grammarStats[UNCLASSIFIED_CAT]||0;
+  const legacyCount=Object.keys(grammarStats).filter(c=>c!==UNCLASSIFIED_CAT&&!familyOf(c)).reduce((s,c)=>s+grammarStats[c],0);
+
+  // 家族排行：CTA 先選出「錯最集中的家族」，再從家族裡挑一個具體的葉節點去學
+  const famRank=familyRanking();
+  const topFam=famRank[0];
+  const primaryCat=topFam?topLeafIn(topFam.leaves):null;
+  const famMax=topFam?topFam.n:1;
+  const famRest=famRank.slice(3).reduce((s,f)=>s+f.n,0);
 
   const chinglishRanking=Object.entries(chinglishStats).sort((a,b)=>b[1]-a[1]);
 
@@ -1885,15 +2017,28 @@ async function dashboardHTML(){
       </div>
     </div>
     <div class="use-t" id="dashSummaryText" style="font-size:14px;color:var(--text-soft);line-height:1.8;margin-bottom:16px">${summaryText}</div>
-    ${primaryCat?`<button class="prac-submit" onclick="openGrammarCategory('${primaryCat}');switchTab('grammar')">前往${relearnCats[0]?'複習':'學習'}「${primaryCat}」→</button>`:''}
+    ${famRank.length?`<div class="card-lbl" style="margin:0 0 10px">${ic('chart',14)} 錯誤最集中的地方</div>
+    ${famRank.slice(0,3).map(f=>`<div class="fam-row">
+      <div class="fam-name">${f.family}</div>
+      <div class="fam-bar"><div class="fam-bar-fill" style="width:${Math.max(4,Math.round(f.n/famMax*100))}%"></div></div>
+      <div class="fam-n">${f.n}</div>
+    </div>`).join('')}
+    ${famRank.length>3?`<div class="fam-more">其餘 ${famRank.length-3} 個項目合計 ${famRest} 次</div>`:''}
+    <div style="height:14px"></div>`:''}
+
+    ${primaryCat?`<button class="prac-submit" onclick="openGrammarCategory('${primaryCat}');switchTab('grammar')">
+      前往${grammarCategoryStatus(primaryCat)==='needs_relearning'?'複習':'學習'}「${primaryCat}」→
+      <div style="font-size:11px;font-weight:400;opacity:.75;margin-top:4px">${topFam.family}是你錯最多的地方（${topFam.n} 次），這是其中最該先處理的一項</div>
+    </button>`:''}
 
     <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
       ${relearnCats.length?`<button class="filt" id="dashBtn-relearn" onclick="toggleDashCatList('relearn')">⚠️ 待複習 (${relearnCats.length})</button>`:''}
       ${learnCats.length?`<button class="filt" id="dashBtn-learn" onclick="toggleDashCatList('learn')">📖 待學習 (${learnCats.length})</button>`:''}
       ${masteredCats.length?`<button class="filt" id="dashBtn-mastered" onclick="toggleDashCatList('mastered')">✅ 已掌握 (${masteredCats.length})</button>`:''}
     </div>
-    ${unclassified?`<div style="font-size:11px;color:var(--faint);margin-top:10px;line-height:1.6">
-      另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它安排學習。
+    ${(unclassified||legacyCount)?`<div style="font-size:11px;color:var(--faint);margin-top:10px;line-height:1.6">
+      ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它安排學習。`:''}
+      ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄，不列入待辦。`:''}
     </div>`:''}
     <div id="dashCatList-relearn" style="display:none;margin-top:12px">
       ${relearnCats.map(cat=>`<div class="hist-item" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
@@ -2234,8 +2379,9 @@ function materialFor(cat){
 }
 
 function renderGrammarHome(){
-  const cats=learnableCats(Object.keys(grammarStats));
+  const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
   const unclassified=grammarStats[UNCLASSIFIED_CAT]||0;
+  const legacyCount=Object.keys(grammarStats).filter(c=>c!==UNCLASSIFIED_CAT&&!familyOf(c)).reduce((s,c)=>s+grammarStats[c],0);
   const active=cats.filter(c=>['needs_learning','needs_relearning'].includes(grammarCategoryStatus(c)))
     .sort((a,b)=>{
       const pa=grammarCategoryStatus(a)==='needs_relearning'?0:1, pb=grammarCategoryStatus(b)==='needs_relearning'?0:1;
@@ -2276,8 +2422,9 @@ function renderGrammarHome(){
       </div>`;
     }).join('')}
   </div>`:''}
-  ${unclassified?`<div style="font-size:11px;color:var(--faint);padding:0 4px;line-height:1.6">
-    另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它生成教學。
+  ${(unclassified||legacyCount)?`<div style="font-size:11px;color:var(--faint);padding:0 4px;line-height:1.6">
+    ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它生成教學。`:''}
+    ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄。`:''}
   </div>`:''}`;
 }
 
