@@ -623,6 +623,18 @@ function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
 let ESSAY_HISTORY = JSON.parse(lsGet('c_essay_hist','[]'));
 let REPORTS = JSON.parse(lsGet('c_reports','[]'));
+/* REPORTS 依時間由新到舊排序，所以一筆時間戳在未來的紀錄會「永遠」卡在待處理清單第一位。
+   實際有一筆 2286-11-21 的測試殘留（word=brand_new_local_only）就是這樣。
+   載入時清掉明顯不可能的時間戳；雲端如果還有，下次同步後這裡會再清一次。 */
+(function pruneBogusReports(){
+  const limit=Date.now()+86400000;
+  const kept=REPORTS.filter(r=>!(r.ts>limit));
+  if(kept.length!==REPORTS.length){
+    console.log(`pruneBogusReports: 清掉 ${REPORTS.length-kept.length} 筆時間戳在未來的回報`);
+    REPORTS=kept;
+    lsSet('c_reports',JSON.stringify(REPORTS));
+  }
+})();
 let curLevel = lsGet('c_cur_level','B1');
 let levelProgress = JSON.parse(lsGet('c_level_progress','{}'));
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
@@ -1117,14 +1129,19 @@ async function startSent(){
 ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
 請依照 system prompt 的規則出一題，只輸出規定格式的純 JSON。`;
     const dictP=fetchDict(word);
-    let parsed=null,lastQErr=null,issues=[];
-    for(let attempt=0;attempt<2;attempt++){
+    /* 原本是 `parsed=cand` 寫在檢查之前——兩次都不合格時，最後一個候選照樣被拿去出題。
+       questionIssues() 當下就知道「自然英譯裡沒有目標單字」，然後還是出給使用者，
+       這是 danger／economy／continuous／birth 那幾筆回報的直接來源。
+       改成合格的才進 parsed；都不合格就用 fallback，但標記起來讓使用者知道可以跳過。
+       重試次數維持 2 次（不加成本）——要不要加第三次或換單字，等下面記錄的失敗率出來再決定。 */
+    let parsed=null,fallback=null,lastQErr=null,issues=[],usedAttempt=0;
+    for(let attempt=1;attempt<=2;attempt++){
       try{
-        const txt=await callClaude(qUserPrompt(attempt>0?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
+        const txt=await callClaude(qUserPrompt(attempt>1?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
         const cand=parseJSON(txt);
         issues=questionIssues(cand,word,recentZh);
-        parsed=cand;
-        if(issues.length===0) break;
+        fallback=fallback||cand;
+        if(issues.length===0){ parsed=cand; usedAttempt=attempt; break; }
         console.log('questionIssues:',issues.join('；'));
       }catch(e){
         lastQErr=e;
@@ -1132,7 +1149,15 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
         if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e;
       }
     }
+    const qUnverified=!parsed&&!!fallback;
+    if(qUnverified){
+      parsed=fallback;
+      console.warn('出題兩次都沒通過檢查，硬出：',word,issues.join('；'));
+    }
     if(!parsed) throw lastQErr||new AIError('http','出題失敗');
+    parsed.qUnverified=qUnverified;
+    parsed.qIssues=qUnverified?issues.join('；'):'';
+    parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
     const dict=await dictP;
     curSentQ=parsed;
     curSentQ.word=word;   // 不讓模型改動目標單字本身
@@ -1159,6 +1184,10 @@ async function renderSentQ(){
     </div>
     ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
     ${(showTranslation&&curSentQ.translation)?`<div class="sent-def">${ic('translate',13)} ${curSentQ.translation}</div>`:''}
+    ${curSentQ.qUnverified?`<div class="corr-repeat" style="margin:8px 0">⚠️ 這題可能無法自然用到「${curSentQ.word}」
+      <div class="corr-repeat-prev">系統檢查沒通過（${curSentQ.qIssues}）。可以直接換一題，不用浪費時間。</div>
+      <button class="next-btn" style="font-size:12px;padding:6px;margin-top:6px" onclick="startSent()">${ic('refresh',13)} 換一題</button>
+    </div>`:''}
     <div class="prac-zh">${curSentQ.zh_sentence}</div>
     ${curSentQ.hint?`<div class="prac-hint">${ic('bulb',13)} 提示：${curSentQ.hint}</div>`:''}
   </div>
@@ -1310,7 +1339,47 @@ function fabricatedClaim(text,ans){
 // 本來就會逐項列進 chinglish_issues。列不出任何一項卻給了百分比，就是沒有依據
 // （2026-08-04 belt 回報：兩項修正是主詞動詞一致跟 loss/loose 拼錯，都跟中文思維無關，卻給 50%）。
 // 直接夾成 0 比重打一次批改更省、也更正確——這個數字會影響「精通」判定，不能放著不管。
-function sanitizeGradeResult(r,ans){
+// 一號規格的五個中式英文類型。二號的 28 個文法分類有 invalidGrammarCategory 把關，
+// 一號這五類卻連常數都沒有、只寫在 prompt 文字裡，所以完全沒得驗——實測 analyse 那筆
+// 寫出「生硬句式/主題優先」（正確值後面自己加尾巴）。抽成常數才能檢查。
+const CHINGLISH_TYPES=['字面直譯','搭配詞不道地','中文語序','冗餘與堆疊','生硬句式'];
+
+function editDistance(a,b){
+  const m=a.length,n=b.length;
+  if(!m||!n) return Math.max(m,n);
+  let prev=Array.from({length:n+1},(_,j)=>j);
+  for(let i=1;i<=m;i++){
+    const cur=[i];
+    for(let j=1;j<=n;j++){
+      cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    }
+    prev=cur;
+  }
+  return prev[n];
+}
+
+// 拼字錯誤不是文法錯誤。實測「其他」分類裡有 35% 是這種（childern→children、pans→pants、
+// resturant→restaurant），它們現在被記成文法錯誤，同時污染文法統計跟拉低文法正確度。
+// 判準保守：單字對單字、只有英文字母、編輯距離 1-2 才算，避免把真的文法修正誤判成拼字。
+// 詞形變化（health→healthy 詞性誤用、problem→problems 單複數）編輯距離也很小，
+// 但那些是真的文法錯誤，不能當拼字放掉。判準：短的是長的前綴、且多出來的是已知字尾。
+const INFLECT_SUFFIX=/^(s|es|ed|d|ing|er|est|y|ies)$/;
+function isWordFormChange(a,b){
+  const [s,l]=a.length<=b.length?[a,b]:[b,a];
+  if(!l.startsWith(s)) return false;
+  const suf=l.slice(s.length);
+  return DERIV_SUFFIX.test(suf)||INFLECT_SUFFIX.test(suf);
+}
+function isSpellingFix(c){
+  const a=(c.error||'').trim().toLowerCase(), b=(c.fix||'').trim().toLowerCase();
+  if(!a||!b||a===b) return false;
+  if(!/^[a-z']+$/.test(a)||!/^[a-z']+$/.test(b)) return false;   // 有空白或標點就不是單一個字
+  if(isWordFormChange(a,b)) return false;                        // 詞性/單複數變化是文法，不是拼字
+  const d=editDistance(a,b);
+  return d>=1&&d<=2;
+}
+
+function sanitizeGradeResult(r,ans,word){
   const fixed=[];
   for(const f of ['precision_note','tip','overall']){
     if(typeof r[f]!=='string'||!r[f]) continue;
@@ -1321,6 +1390,40 @@ function sanitizeGradeResult(r,ans){
      &&r.chinglish_issues.length===0&&r.chinglish_percent>0){
     r.chinglish_percent=0; fixed.push('chinglish_percent→0');
   }
+
+  // 中式英文的類型不在五類清單裡：是「正確值＋多餘尾巴」就截掉，完全對不上就清空
+  // （片段跟建議照常顯示，只是不掛一個假的類型標籤，也不讓它污染 chinglishStats）
+  for(const issue of (r.chinglish_issues||[])){
+    if(!issue.type||CHINGLISH_TYPES.includes(issue.type)) continue;
+    const prefix=CHINGLISH_TYPES.find(t=>issue.type.startsWith(t));
+    if(prefix){ fixed.push(`type「${issue.type}」→「${prefix}」`); issue.type=prefix; }
+    else{ fixed.push(`type「${issue.type}」不在五類內，清空`); issue.type=''; }
+  }
+
+  // ✗ 跟 ✓ 一模一樣的空修正（#5 hate）。fixDuplicatesError 本來就抓得到，但它掛在
+  // gradeResultIssues 上只會觸發重打，重打兩次還是一樣就照樣顯示。這裡直接刪掉那一項：
+  // 它是純噪音，而且現在還會被記成一次文法錯誤。
+  const noop=fixDuplicatesError(r);
+  if(noop.length){
+    r.corrections=(r.corrections||[]).filter(c=>!noop.includes(c.error));
+    fixed.push(`刪掉 ${noop.length} 項空修正`);
+  }
+
+  /* 重打耗盡後的安全網（缺目標單字）。用「修正版有沒有目標單字」分辨是誰的錯：
+     - 修正版有 → 這個字塞得進這個情境，題目沒問題，是批改寫範例句時偷懶 → 藏掉那句範例
+     - 修正版也沒有 → 這個字根本塞不進去，是題目層級的失敗 → 標記 questionFlawed，
+       由 submitSent 跳過計分。使用者抱怨的從來不是「範例句不好看」，是「我被爛題目扣分」。 */
+  if(word){
+    const miss=missingTargetWordFields(r,word);
+    if(miss.includes('b2_example')){ r.b2_example=''; fixed.push('b2_example 缺目標字→隱藏'); }
+    if(miss.includes('c1_example')){ r.c1_example=''; fixed.push('c1_example 缺目標字→隱藏'); }
+    if(miss.includes('corrected_sentence')){
+      r.questionFlawed=true;
+      r.corrected_sentence='';
+      fixed.push('corrected_sentence 缺目標字→判定題目有問題，不計分');
+    }
+  }
+
   if(fixed.length) console.log('sanitizeGradeResult:',fixed.join(', '));
   return fixed;
 }
@@ -1469,20 +1572,24 @@ ${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學�
     if(!r) throw lastErr||new AIError('http','批改失敗');
     // 就地清掉不影響分數的壞欄位、夾正沒有依據的 chinglish_percent。
     // 一定要在 mastered 之前跑：夾值會影響下面的精通判定。
-    sanitizeGradeResult(r,ans);
-    const mastered=cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
+    sanitizeGradeResult(r,ans,curSentQ.word);
+    // questionFlawed：目標單字塞不進這個情境，整題的判定都不可信——精通、文法統計、
+    // 中式英文統計全部跳過。你這一題還是看得到逐項修正，只是不會被它扣到分。
+    const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
     if(mastered){
       if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
       if(!levelProgress[curSentQ.level].mastered.includes(curSentQ.word)) levelProgress[curSentQ.level].mastered.push(curSentQ.word);
       lsSet('c_level_progress',JSON.stringify(levelProgress));
     }
-    if(r.corrections?.length){
+    if(r.corrections?.length&&!r.questionFlawed){
       for(const c of r.corrections){
-        if(c.category) grammarStats[c.category]=(grammarStats[c.category]||0)+1;
+        // 拼字錯誤照樣顯示給學生看（那個回饋有價值），但不記進文法統計——
+        // 它不是文法問題，記進去只會灌爆「其他」分類並拉低文法正確度
+        if(c.category&&!isSpellingFix(c)) grammarStats[c.category]=(grammarStats[c.category]||0)+1;
       }
       lsSet('c_grammar_stats',JSON.stringify(grammarStats));
     }
-    if(r.chinglish_issues?.length){
+    if(r.chinglish_issues?.length&&!r.questionFlawed){
       for(const issue of r.chinglish_issues){
         if(issue.type) chinglishStats[issue.type]=(chinglishStats[issue.type]||0)+1;
       }
@@ -1525,6 +1632,9 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
       <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
       ${mastered?`<span class="score-badge score-excellent">${ic('award',13)} 已精通</span>`:''}
     </div>
+    ${r.questionFlawed?`<div class="corr-repeat" style="margin-top:12px">⚠️ 這題的目標單字「${word}」放不進這個情境，是題目本身的問題
+      <div class="corr-repeat-prev">下面的修正仍可參考，但這題<b>不列入計分與統計</b>，不會影響你的進度。</div>
+    </div>`:''}
     ${r.overall?`<div style="font-size:14px;color:var(--text);line-height:1.6;margin-top:12px;padding:10px 12px;background:rgba(var(--accent-rgb),.08);border-radius:10px">${r.overall}</div>`:''}
     ${r.corrected_sentence?`<div class="model-box" style="margin-top:12px">
       <div class="model-lbl">修正版（基於你的句子）</div>
@@ -1691,6 +1801,9 @@ function saveSentHistory(userAns,r){
   SENT_HISTORY.unshift({
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
+    // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
+    // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
+    qAttempt:curSentQ.qAttempt||0, qUnverified:!!curSentQ.qUnverified, questionFlawed:!!r.questionFlawed,
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
