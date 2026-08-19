@@ -455,8 +455,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 function lsGet(k,def=''){
   try{ const v=localStorage.getItem(k); return v===null?def:v; }catch(e){ return def; }
 }
-function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+// localStorage 目前用量（字元數）。不能用 navigator.storage.estimate()——2026-08-18 在 iPhone
+// 實測它回報 usage 0，但當下 localStorage 實際有 1.07 MB，Safari 的 estimate() 不計入 localStorage。
+function lsBytes(){ try{ return Object.keys(localStorage).reduce((n,k)=>n+k.length+localStorage[k].length,0); }catch(e){ return 0; } }
+const LS_WARN_BYTES = 2.5*1048576;   // 實測 iPhone 上限約 3-4 MB，留一段緩衝才有時間反應
+let lsQuotaHit=false;
+// 原本是 catch(e){} 直接吞掉。實測 iPhone 在現有 1.07 MB 之外只剩約 2 MB 可寫，以當時每週約
+// 370 KB 的成長速度，5-8 週就會滿。滿了之後寫入靜默失敗、本機快取停在最後一次成功的狀態，
+// 而使用者完全不會知道；最壞情況是離線時用那份凍結的快照整包覆蓋雲端。所以改成會回報。
+// 回傳布林值供未來的呼叫端判斷，既有呼叫端不檢查回傳值也不受影響（不會 throw）。
+function lsSet(k,v){
+  try{ localStorage.setItem(k,v); return true; }
+  catch(e){
+    if(!lsQuotaHit){
+      lsQuotaHit=true;
+      console.error('lsSet 失敗，localStorage 可能已滿:',k,e&&e.name,'目前用量',(lsBytes()/1048576).toFixed(2),'MB');
+      // toast 可能還沒定義（開機早期）或 DOM 還沒好，包起來避免連帶炸掉呼叫端
+      if(typeof toast==='function'){ try{ toast('⚠️ 本機空間已滿，新紀錄只會存到雲端'); }catch(_){} }
+    }
+    return false;
+  }
+}
 function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+// 字典/單字本時代留下的孤兒 key，現在的程式碼完全沒有引用（grep 過，index.html 裡零次出現）。
+// c_key 特別重要：那是瀏覽器直連 api.anthropic.com 時期，使用者自己貼上、明文存在裝置裡的
+// Anthropic API Key（見舊版 index-chatgpt.html:412）。改走 Worker 代理後從來沒有清掉過。
+const ORPHAN_KEYS=['c_key','c_cache','c_recent'];
+function lsCleanupOrphans(){
+  for(const k of ORPHAN_KEYS){ if(lsGet(k,null)!==null){ lsDel(k); console.log('已清除孤兒資料:',k); } }
+}
 
 /* ── SUPABASE SYNC ── */
 const SB_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co';
@@ -670,6 +697,10 @@ let curAudio=null, curTab='prac';
 
 function boot(){
   authResetLocalIfNewUser();
+  lsCleanupOrphans();
+  const lsUsed=lsBytes();
+  console.log('localStorage 用量:',(lsUsed/1048576).toFixed(2),'MB');
+  if(lsUsed>LS_WARN_BYTES) setTimeout(()=>toast(`⚠️ 本機已用 ${(lsUsed/1048576).toFixed(1)} MB，接近上限`),1200);
   document.getElementById('authView').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('setDailyGoal').value=dailyGoal;
@@ -1609,8 +1640,17 @@ ${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學�
     // 這裡不同步：syncToCloud() 一次上傳全部 key，dailyLevelCount 在下面 saveSentHistory()
     // 的那次呼叫裡照樣會送上去。原本這裡多呼叫一次，兩批 fire-and-forget 請求會重疊，
     // 每個 key 都被寫成兩筆重複 row，而且第一次的 senthist 快照少了正在存的這一題。
-    await renderSentResult(ans,r);
+    // renderSentResult 只負責把結果畫出來。它如果丟例外（批改期間使用者切走、pracBody 不在了，
+    // 或 curSentQ 被下一題覆蓋），舊寫法會讓整個 try 跳到下面的 catch，saveSentHistory 完全
+    // 不執行——批改其實成功、AI 也已經計費，紀錄卻整筆消失，使用者只看到「批改失敗，請重試」。
+    // 畫面失敗不該賠上資料，所以把 render 的例外隔離在這裡。
+    // 順序仍然是先 render 再 save，不能對調：priorFragmentHits() 依賴「當下這筆還沒進
+    // SENT_HISTORY」才不會比對到自己（見該函式上方註解）。
+    let renderFailed=false;
+    try{ await renderSentResult(ans,r); }
+    catch(e){ renderFailed=true; console.error('renderSentResult:',e); }
     saveSentHistory(ans,r);
+    if(renderFailed) toast('已儲存這題的批改結果，但畫面顯示失敗');
   }catch(e){
     btn.disabled=false;btn.textContent='提交答案 →';
     toast(aiErrorMsg(e,'批改失敗，請重試'));
