@@ -596,7 +596,7 @@ function authResetLocalIfNewUser(){
     // c_sent_pushed_ts 一定要一起清：那是「已上傳到 sentence_history 的最大 ts」水位。
     // 沒清的話，新使用者接手這台裝置時會沿用前一個人的水位，自己的紀錄因為 ts 比水位小
     // 而被判定為「已上傳」，於是永遠不會進雲端，而且完全沒有錯誤訊息。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts'].forEach(lsDel);
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id'].forEach(lsDel);
     SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
   }
   lsSet('c_last_uid',uid);
@@ -652,12 +652,15 @@ async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=
 // 下一次 syncToCloud 就會用空陣列整包蓋掉雲端。upsert 是單一請求，沒有這個窗口。
 // user_id 明確帶上（不靠 default auth.uid()），因為 on_conflict 的目標欄位要它。
 async function sbSet(k,v){try{const t=await authToken();if(!t)return;const uid=authSession?.user?.id;if(!uid)return;const r=await fetch(`${SB_URL}/rest/v1/user_data?on_conflict=user_id,key`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:uid,key:k,value:v})});if(!r.ok)console.log('sbSet:',k,r.status,await r.text());}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[sh,eh,lp,dl,gs,cs,rpts,dg,gll,dsum]=await Promise.all([sbGet('senthist'),sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('grammarlearninglog'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}
+async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,gll,dsum]=await Promise.all([sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('grammarlearninglog'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}
     /* 合併有可能把雲端的壞資料帶回本機，所以這裡再清一次；清掉了就立刻把乾淨的版本推回雲端，
        否則雲端那筆會在下一次 syncFromCloud() 又被拉回來，永遠清不掉。 */
     if(pruneBogusReports()) sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});
-    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}if(sh){const remote=JSON.parse(sh);const merged=[...SENT_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.word===rh.word))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(SENT_HISTORY)){SENT_HISTORY=merged;lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));}}if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
-function syncToCloud(){sbSet('senthist',JSON.stringify(SENT_HISTORY)).catch(()=>{});sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});sbSet('grammarlearninglog',JSON.stringify(grammarLearningLog)).catch(()=>{});sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});sbSet('dailygoal',String(dailyGoal)).catch(()=>{});}
+    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+function syncToCloud(){/* senthist 不再整包上傳：改由 pushSentHistory() 一題 append 一列到 sentence_history。
+   這一行是每答一題 1 MB 上傳量的來源（實測 senthist blob 1.04 MB）。拿掉之後
+   syncToCloud() 剩下的 9 個 key 合計約 85 KB。舊的 user_data.senthist 保留不刪，
+   當作回滾快照，只是不再更新。 */sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});sbSet('grammarlearninglog',JSON.stringify(grammarLearningLog)).catch(()=>{});sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});sbSet('dailygoal',String(dailyGoal)).catch(()=>{});}
 
 /* ── STATE ── */
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
@@ -1913,6 +1916,46 @@ function toRow(uid,h){
           cefr:h.cefr??null, chinglish_percent:h.chinglish_percent??null,
           grammar_accuracy:h.grammar_accuracy??null,
           corrections:h.corrections||[], chinglish_issues:h.chinglish_issues||[], payload};
+}
+
+// 伺服器的一列 → 本機的一筆。跟 toRow() 相反：把拉平的欄位和 payload 併回原本的形狀。
+function fromRow(row){
+  return {...(row.payload||{}), ts:row.ts_ms, word:row.word, level:row.level,
+          userAns:row.user_ans, cefr:row.cefr,
+          chinglish_percent:row.chinglish_percent, grammar_accuracy:row.grammar_accuracy,
+          corrections:row.corrections||[], chinglish_issues:row.chinglish_issues||[]};
+}
+
+/* 增量拉取。游標用伺服器的 id，不是紀錄自己的 ts——這點很重要：
+   若用「本機最大 ts」當游標，桌機 10:00 上傳、手機離線練到 14:00，手機恢復連線時
+   since=14:00 就永遠抓不到桌機那批，而且不會自癒。id 是依 insert 順序遞增，與 ts 無關。
+   減去 PULL_OVERLAP 是為了 identity 的「先配號、後提交」空隙，重疊的部分本機自己去重。 */
+const PULL_OVERLAP=50;
+async function pullSentHistory(){
+  try{
+    const t=await authToken(); if(!t) return;
+    let cursor=Math.max(0,(parseInt(lsGet('c_sent_pulled_id','0'),10)||0)-PULL_OVERLAP);
+    const seen=new Set(SENT_HISTORY.map(h=>h.ts));
+    let maxId=cursor, added=0;
+    for(let page=0;page<200;page++){            // 上限只是安全網，正常情況跑 1 頁就結束
+      const r=await fetch(`${SB_URL}/rest/v1/sentence_history?id=gt.${cursor}&order=id.asc&limit=200`,
+        {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
+      if(!r.ok){ console.log('pullSentHistory:',r.status,await r.text()); return; }
+      const rows=await r.json();
+      if(!rows.length) break;
+      for(const row of rows){
+        if(row.id>maxId) maxId=row.id;
+        if(!seen.has(row.ts_ms)){ seen.add(row.ts_ms); SENT_HISTORY.push(fromRow(row)); added++; }
+      }
+      cursor=rows[rows.length-1].id;
+      if(rows.length<200) break;
+    }
+    if(added){
+      SENT_HISTORY.sort((a,b)=>(b.ts||0)-(a.ts||0));
+      lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
+    }
+    lsSet('c_sent_pulled_id',String(maxId));
+  }catch(e){ console.log('pullSentHistory:',e); }
 }
 
 // c_sent_pushed_ts = 已確認上傳的最大 ts。離線期間累積的紀錄會在下次成功時一併補送；
