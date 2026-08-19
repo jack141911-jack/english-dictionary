@@ -1080,10 +1080,10 @@ const SENT_Q_SYSTEM=`你是英語口語練習老師，負責出「中翻英」�
 【非目標單字的難度不可以超綱】
 除了目標單字之外，學生要完整翻出這句話「非用不可」的其他字，難度也要落在這次的練習等級附近。不能自己選了一個超綱的字，害學生卡在跟目標單字無關的生字上。
 例如等級是 A1、目標單字是 centre，不要出「復健中心」——自然的英文翻譯需要 rehabilitation，那是遠超過 A1 的字。應該換成國小生活詞彙就講得清楚的情境：「市中心」「購物中心」「這家醫院有一個很大的中心」。
-自我檢查：把你心裡的自然英譯逐字看過，有沒有哪個字明顯超過這次的等級。有就換情境。
+自我檢查：把你寫的 natural_en 逐字看過，有沒有哪個字明顯超過這次的等級。有就換情境重寫。
 
 【句型複雜度要跟練習等級走】
-中文情境的複雜度要跟著等級走，但目標是「母語者自然翻出來就會用到那個句型」，不是「硬性要求句型」：
+natural_en 的句型複雜度要跟著等級走，中文情境也就跟著到位。目標是「母語者講這件事本來就會用到那個句型」，不是「硬性要求句型」：
 - A1：單一子句，最基本的直述句或問句，現在式或最單純的過去式。
 - A2：以單一子句為主，可以有簡單的時間或地點副詞、簡單的並列連接詞（and / but / so / because）。
 - B1：情境自然包含時間、原因或對比關係（「他到職之後…」「因為…所以…」「雖然…但…」），讓母語者翻譯時自然會用到連接詞或現在完成式，不是刻意湊長句。
@@ -1114,38 +1114,43 @@ hint 是給還沒下筆的學生看的提示，不是解答也不是講解。
 - definition 要對應這次情境用到的那個意思。一個字有多個意思時，不要寫一個跟這題無關的解釋。
 - translation 只放最常用的 1 到 3 個中文意思，用 / 分隔。不要寫整句翻譯，也不要把這題的中文句子抄進去。
 
-【輸出前的自我檢查，這是最重要的一步】
-輸出之前，先在心裡把你出的這句中文翻成最自然的英文，寫進 natural_en 欄位，然後對著 natural_en 逐條檢查：
-1. 目標單字有沒有真的出現在 natural_en 裡？沒有就代表情境選錯了，重選一個情境。
-2. 出現的形式是不是指定的那個詞性？如果變成了同字根的其他詞性變化形（形容詞變副詞、名詞變形容詞、名詞變動詞等），一樣是情境選錯，重選。
-3. natural_en 裡有沒有明顯超過這次等級的生字？有就重選。
-4. natural_en 是不是忠實翻譯了你寫的那句中文？人稱、單複數、時間都要對得上，不可以自己改掉——中文寫「我媽媽」就不能翻成 your mom。
-natural_en 只給系統檢查用、不會顯示給學生看，但一定要誠實填寫你真正認為最自然的翻譯。不要為了通過檢查硬把單字塞進去寫出不自然的句子；塞不進去時，正確的做法是換情境，不是改 natural_en。
+【生成順序：先寫英文，再寫中文。這是最重要的一步】
+不要先寫中文再回頭檢查有沒有用到單字，那樣發現情境選錯也來不及了。照這個順序做：
+
+第一步，寫 natural_en：一句目標單字以指定詞性自然出現的英文，母語者日常真的會這樣講。目標單字必須是你寫這句話時本來就會選的字，不是事後塞進去的——塞不進去代表情境選錯了，換一個情境重寫，不要為了讓單字出現而寫出不自然的英文。
+第二步，寫 zh_sentence：把 natural_en 講的同一件事，用道地的中文口語重新講一遍。這不是逐字直譯，而是「同一個意思，中文母語者會怎麼說」——語序、語氣、該省略的地方都照中文的習慣來，不要留下英文的骨架。學生看到的只有這句中文，它必須讀起來就是一句人話。
+
+兩句都寫完後逐條檢查：
+1. 目標單字有沒有真的出現在 natural_en 裡，而且正好是指定的那個詞性？如果變成同字根的其他詞性變化形（形容詞變副詞、名詞變形容詞、名詞變動詞等），是情境選錯，整題重寫。
+2. natural_en 裡有沒有明顯超過這次等級的生字？有就換情境。
+3. zh_sentence 跟 natural_en 講的是不是同一件事？人稱、單複數、時間都要對得上。
+4. 把 zh_sentence 單獨唸一遍：它讀起來像中文母語者會講的話，還是像從英文翻過來的？像翻譯腔就把中文重寫一次，英文不用動。
+natural_en 只給系統檢查用、不會顯示給學生看，但一定要誠實填寫。
 
 【各欄位規則】
-- zh_sentence：自然口語的中文句子，10-20 字，句子裡不要出現任何英文或提示。
-- natural_en：你心中最自然的英文翻譯，供上面的自我檢查使用。
+- natural_en：先寫這一句。目標單字以指定詞性自然出現的英文，母語者日常會這樣講的長度與語氣。只給系統檢查用，不會顯示給學生。
+- zh_sentence：後寫這一句。把 natural_en 的意思用道地的中文口語重講一遍，10-20 字，句子裡不要出現任何英文或提示。
 - hint：只有在句型真的有難度、學生可能不知道要用哪個結構時才寫，寫英文語法提示（例如「這裡要用現在完成式」）。沒必要就留空字串。寫了就必須跟批改標準一致——不要提示一個等一下會被判成錯誤的用法。
 - definition：這個單字的英文解釋，15 字以內，寫給英語學習者看。
 - translation：這個單字最常用的繁體中文翻譯，1-3 個意思，用 / 分隔。
 
 【完整範例】
-以下是三個合格的輸出，注意它們的 natural_en 都真的用到了目標單字、而且詞性正確：
+以下是三個合格的輸出。注意欄位順序：natural_en 先寫、zh_sentence 後寫，而且每一句中文都讀得出是中文，不是英文的骨架換上中文的字。
 
 目標單字 danger（名詞）、等級 A2：
-{"word":"danger","zh_sentence":"他在那場車禍中有生命危險，幸好後來沒事。","natural_en":"He was in danger during that car accident, but luckily he was fine afterwards.","hint":"","definition":"the possibility of harm or death","translation":"危險／險境"}
-這題合格的原因：中文用「有生命危險」而不是「很危險」，母語者自然翻成 in danger，用到的是名詞本身，不會變成形容詞 dangerous。
+{"word":"danger","natural_en":"He was in danger during that car accident, but luckily he was fine afterwards.","zh_sentence":"他在那場車禍中有生命危險，幸好後來沒事。","hint":"","definition":"the possibility of harm or death","translation":"危險／險境"}
+這題合格的原因：英文先定住 in danger 這個名詞用法，中文再用「有生命危險」講同一件事——如果中文寫成「很危險」，母語者會用形容詞 dangerous，那就不合格了。
 
 目標單字 continuous（形容詞）、等級 B1：
-{"word":"continuous","zh_sentence":"這家公司這幾年的成長一直都沒有中斷過。","natural_en":"The company has seen continuous growth over the past few years.","hint":"這裡適合用現在完成式","definition":"happening without stopping or breaking","translation":"持續的／不間斷的"}
-這題合格的原因：情境讓形容詞去修飾名詞 growth，不是修飾動詞——如果中文寫成「這家公司一直不斷地成長」，母語者會用副詞 continuously，那就不合格了。
+{"word":"continuous","natural_en":"The company has seen continuous growth over the past few years.","zh_sentence":"這家公司這幾年的成長一直都沒有中斷過。","hint":"這裡適合用現在完成式","definition":"happening without stopping or breaking","translation":"持續的／不間斷的"}
+這題合格的原因：英文裡形容詞修飾的是名詞 growth，不是修飾動詞；中文沒有寫成「一直不斷地成長」（那會讓母語者改用副詞 continuously），而是把重點放在「成長」這個名詞上。
 
 目標單字 apply（動詞）、等級 B1：
-{"word":"apply","zh_sentence":"她上個月申請了那家公司的工作，還在等結果。","natural_en":"She applied for a job at that company last month and is still waiting to hear back.","hint":"","definition":"to ask formally for a job or place","translation":"申請／應用"}
-這題合格的原因：情境裡有明確的動作，動詞自然出現，不會退化成名詞 application。
+{"word":"apply","natural_en":"She applied for a job at that company last month and is still waiting to hear back.","zh_sentence":"她上個月申請了那家公司的工作，還在等結果。","hint":"","definition":"to ask formally for a job or place","translation":"申請／應用"}
+這題合格的原因：英文裡有明確的動作，動詞自然出現，不會退化成名詞 application；中文用「申請了」也保住了動作感。
 
-只輸出純 JSON，不要加 markdown、不要加任何說明文字：
-{"word":"目標單字原樣","zh_sentence":"自然的中文句子","natural_en":"最自然的英文翻譯","hint":"英文語法提示或空字串","definition":"英文解釋","translation":"繁體中文翻譯"}`;
+只輸出純 JSON，不要加 markdown、不要加任何說明文字。欄位順序就是你該生成的順序，不要跳著寫：
+{"word":"目標單字原樣","natural_en":"目標單字自然出現的英文句子","zh_sentence":"用道地中文口語重講同一件事","hint":"英文語法提示或空字串","definition":"英文解釋","translation":"繁體中文翻譯"}`;
 
 // 中文句子正規化後的重疊度比對，用來抓「同一個單字又出了幾乎一樣的句子」
 // （2026-08-06 April 回報：「這句我記得我寫過了」）。純客戶端比對，不花任何 token——
@@ -1497,6 +1502,16 @@ function isSpellingFix(c){
 
 function sanitizeGradeResult(r,ans,word){
   const fixed=[];
+  /* 2026-08-20：schema 裡的 "chinglish_percent":20,"grammar_accuracy":90 是寫死的數字，
+     對沒有 thinking 的模型來說那是錨點——實際分數會被往 20/90 拉。改成描述性佔位符
+     （「0-100 的整數」）之後錨點沒了，但模型有機會照著佔位符回一個字串 "90"。
+     下游有兩處 typeof==='number' 的判斷（分數徽章、chinglish_percent 夾正），
+     收到字串會靜默不顯示，所以在這裡先把數字字串轉回數字。 */
+  for(const f of ['grammar_accuracy','chinglish_percent']){
+    if(typeof r[f]==='string'&&/^\d+(\.\d+)?$/.test(r[f].trim())){
+      r[f]=Number(r[f]); fixed.push(f+':字串→數字');
+    }
+  }
   for(const f of ['precision_note','tip','overall']){
     if(typeof r[f]!=='string'||!r[f]) continue;
     if(FOREIGN_SCRIPT.test(r[f])){ r[f]=''; fixed.push(f+':非中英文'); continue; }
@@ -1593,7 +1608,7 @@ C2：近乎母語者水準，能運用細膩的語氣、豐富的慣用語、文
 
 反過來也要注意：上面這些「不要灌水」的校準，只適用於「整句真的找不到任何對應等級結構標記、單純聽起來自然」的情況。只要句子裡真的出現了某個等級定義列出的具體結構（例如 B2 定義裡的被動語態、較複雜關係子句、條件句、間接引述），就必須判到該等級，不能因為想避免灌水而過度保守地往下砍——例如「This is the book my sister wrote last year.」裡 the book (that) my sister wrote 是省略關係代名詞的受格關係子句，明確符合 B2 定義，必須判 B2，不能因為整句看起來簡短就打成 B1。
 
-CEFR 判斷完後，回頭比對一次你自己等一下要寫的 b2_example：如果學生的句子在文法複雜度或用字道地程度上跟你的 b2_example 相當、沒有被簡化，但你給的 CEFR 卻比 B2 低，代表判斷前後矛盾了，要重新檢查一次。
+判斷 CEFR 時，回頭比對一次你在上面已經寫好的 b2_example：如果學生的句子在文法複雜度或用字道地程度上跟那句 b2_example 相當、沒有被簡化，CEFR 就不該判得比 B2 低。真的比較低的話，代表 b2_example 跟 CEFR 有一邊判錯了，要重新檢查一次再填。
 
 【中式英文（Chinglish）判斷標準】
 只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
@@ -1617,6 +1632,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 5. 生硬句式/主題優先：整句框架照中文腔（中式開場套語、主題優先句式）。例：About this problem, I think...、This book, I really like it（應為 I really like this book）、There have many people（應為 There are many people，中文「有」直翻）。邊界：這是整句結構層級的問題，跟前面詞組/搭配/語序層級不同。
 
 輸出到 chinglish_issues 陣列，每一項格式：{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版（如適用盡量仍用到目標單字本身）","why":"為什麼這是翻譯腔（繁體中文1句）"}。沒有翻譯腔就輸出空陣列 []。跟 corrections 的 error 欄位一樣，"phrase" 必須是學生答案裡逐字實際出現的內容，寫之前務必回頭逐字核對學生答案原文，不可以憑空捏造或誤植學生沒有寫過的內容。
+另外，寫每一項之前先檢查這個 phrase 有沒有已經出現在你上面列好的 corrections 裡（同一個片段、同一個修正方向）——有的話代表同一個觀察點會出現在兩個欄位，這一項就不要重複列進 chinglish_issues。
 
 【三個回饋欄位的分工（corrections / chinglish_issues / precision_note，避免同一個觀察點重複出現在多個欄位）】
 每一個觀察點只能歸類到其中一個欄位，判斷順序如下：
@@ -1626,8 +1642,8 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 同一個觀察點只能出現在以上其中一個欄位，三個欄位都寫完後務必檢查一次有沒有內容重疊（哪怕只是換句話說一次同一個觀察點），有重疊就刪掉重複的那一份，只留最貼切的一個欄位。
 
 【文法正確度（grammar_accuracy）】
-這是一個獨立的百分比，純粹反映「這句英文文法對不對、錯多嚴重」，跟上面的 CEFR 等級（句型複雜度，句子簡單也可以是滿分）、chinglish_percent（錯誤是不是源自中文思維）完全分開，不能互相影響。
-從 100 分開始計算：corrections 是空陣列（完全沒有文法錯誤）就是 100 分。如果 corrections 非空，依每一項錯誤對「文法對不對」的影響程度扣分，不是看列了幾項就跳分數：
+這是一個獨立的百分比，純粹反映「這句英文文法對不對、錯多嚴重」，跟 CEFR 等級（句型複雜度，句子簡單也可以是滿分）、chinglish_percent（錯誤是不是源自中文思維）完全分開，不能互相影響。
+對著你上面已經列好的 corrections 逐項計算，不要憑印象給分：corrections 是空陣列（完全沒有文法錯誤）就是 100 分。如果 corrections 非空，從 100 分開始，依每一項錯誤對「文法對不對」的影響程度扣分，不是看列了幾項就跳分數：
 - 輕微（母語者聽了完全聽得懂，只是形式上不夠嚴謹，例如慣用搭配的介系詞選擇、可數/不可數名詞的細節）：每項扣 5-10 分。
 - 中度（有明確文法錯誤，母語者聽了會注意到，但整句意思還是聽得懂，例如時態誤用、冠詞遺漏、單複數或主詞動詞不一致）：每項扣 10-20 分。
 - 嚴重（違反核心文法規則或影響理解，母語者聽了會覺得不通順甚至誤解語意，例如動詞形式錯到改變句意、句子結構破碎不成句）：每項扣 20-35 分。
@@ -1642,7 +1658,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 （最後一項「其他」只在以上都對不上的極少數情況才選，不能因為不確定就先選這個。）
 把 category 直接、完整、逐字複製上面選中的那一條文字（例如「過去完成式」、「其他」），不要填數字編號、不要加額外說明、不要自己簡化或改寫成清單上找不到的字串——寫完後檢查一次這個 category 的值是否跟清單裡某一項一字不差。corrections 只放「這句英文本身真的有錯誤（不合文法規則，不是母語者選字習慣問題）」的項目——如果你自己判斷這其實不算文法錯誤，只是搭配詞不夠道地、語序不自然、用字比較籠統這類「文法上站得住腳、但有更好的說法」，不要放進 corrections（不可以在 why 裡自己說「這不算嚴格錯誤」卻還是列進 corrections），先看是不是屬於上面 chinglish_issues 的五種類型之一（例如 big dislike → strong dislike 這種形容詞跟名詞搭配不道地，文法完全正確，只能進 chinglish_issues，不能進 corrections），是的話只寫進 chinglish_issues；如果跟中文干擾無關，才改寫進下面的 precision_note。corrections 也不要放「有沒有把中文原句的每個細節都翻出來」——這種內容/精準度的落差同樣改寫進 precision_note，不算文法錯誤。
-每一項 corrections 寫完後務必自我檢查這七件事：(0)「category」欄位的值必須跟前面清單裡的某一項一字不差（不能是縮寫、簡化、或清單以外的字串，例如「冠詞」「時態」「連接詞」這種簡稱都不合法，正確答案必須是完整寫法，如「冠詞 a/an/the 的基本用法」）；(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 檢查這一項的「phrase」有沒有已經出現在你自己列的 chinglish_issues 裡（同一個片段、同一個修正方向）——有的話代表你把同一個觀察點放進了兩個欄位，只能留 chinglish_issues 那一份，corrections 裡這一項要整個刪掉。
+每一項 corrections 寫完後務必自我檢查這七件事：(0)「category」欄位的值必須跟前面清單裡的某一項一字不差（不能是縮寫、簡化、或清單以外的字串，例如「冠詞」「時態」「連接詞」這種簡稱都不合法，正確答案必須是完整寫法，如「冠詞 a/an/the 的基本用法」）；(1)「error」欄位必須是學生答案裡逐字實際出現的片段，不可以憑空捏造或誤植學生沒有寫過的內容；(2)「error」的內容不能跟「fix」裡列出的可接受選項重複——如果你在 fix 裡把學生原本的寫法也列成一個可以接受的答案，代表這根本不是錯誤，整項都不該列進 corrections；(3) 如果 why 裡出現「也完全正確」「兩者都可以」「不算嚴格錯誤」這類字眼，代表這項不是真正的錯誤，要嘛整項刪掉、要嘛移到 chinglish_issues/precision_note，不能留在 corrections 裡；(4)「why」裡的原因必須是這個文法點真正成立的底層理由，不能用「要跟主要子句時態一致」這種聽起來像規則但其實禁不起檢驗的說法帶過（例如子句該用什麼時態，通常是子句本身描述的事件本質決定的，不是機械地跟主要子句時態一致）；如果 fix 比另一個選項明顯更貼切（例如更能呼應主要子句的語意、更符合語境），要具體講出為什麼更貼切，不能用「兩者都對，X 只是稍微更常用」這種語焉不詳的說法把明顯的選擇講成無關緊要的偏好；(5)「why」只能講這一項 error 對應的那一個文法判斷點，不能把「這個字/搭配比另一個更精準、更貼切、更能呼應原意」這種用字選擇層面的比較也寫進同一個 why 裡——常見的錯誤示範是像「economy 在此應改為 economic」（真正的文法/詞性錯誤）跟「用 maintain 比 balance 更貼切」（純粹用字精準度）混在同一項的 why 裡；如果一項 correction 的 why 裡同時出現文法理由跟「更精準/更貼切/更能呼應原意/通常搭配」這類字眼，要把後面這段用字精準度的比較整個抽出來、只留純粹文法理由在 why 裡，抽出來的內容如果值得一提就寫進 precision_note（值得提醒才寫，不用勉強）；(6) 這一項真的是文法錯誤，而不是後面五種中式英文類型之一嗎？corrections 寫在 chinglish_issues 前面，這裡放錯了後面就補救不了，所以判斷不確定時，寧可不要列進 corrections，把它留給 chinglish_issues。
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
@@ -1664,9 +1680,10 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 
 【整體講評（overall）】
-在列出詳細的 corrections 之前，先用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據 corrections 的數量/嚴重度、chinglish_percent、grammar_accuracy 整體判斷：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
-只輸出純 JSON（不要加 markdown）：
-{"overall":"整體講評（繁體中文1句）","cefr":"B1","chinglish_percent":20,"grammar_accuracy":90,"corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 28 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）"}`;
+這是最後一個欄位，前面全部寫完才寫它。用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據你上面已經寫好的 corrections 數量/嚴重度、chinglish_percent、grammar_accuracy 做總結，不要憑印象另外給一個跟前面對不上的評語：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
+只輸出純 JSON（不要加 markdown）。欄位順序就是你該生成的順序：先把證據寫完（corrections / chinglish_issues / 範例句），最後才根據那些證據給分數跟講評，不要跳著寫、也不要先想好分數再回頭湊證據：
+{"corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 ${GRAMMAR_CATEGORIES.length} 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）","grammar_accuracy":"文法正確度百分比（0-100 的整數，依上面 corrections 逐項扣分算出來）","chinglish_percent":"中式英文佔比百分比（0-100 的整數，依上面 chinglish_issues 判斷）","cefr":"A1/A2/B1/B2/C1/C2 其中一個","overall":"整體講評（繁體中文1句）"}
+grammar_accuracy 跟 chinglish_percent 這兩個欄位的值要輸出純數字、不要加引號（例如 85，不是 "85"）。`;
     // gradeUserPrompt 只放每次呼叫都會變的內容（中文原句/目標單字/學生答案），刻意跟上面的 gradeSystemPrompt 分開，
     // 讓 gradeSystemPrompt 逐字不變、能被 Anthropic prompt caching 命中（見 callClaude 的 system 參數）——
     // 這份 system 本身內容多（CEFR/中式英文/28 個文法分類等規則），命中快取後波及的是這次改動最主要想解決的兩件事：
@@ -1861,14 +1878,24 @@ async function askFollowUp(){
   box.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">思考中...</div></div>`;
   try{
     const{word,zh,userAns,r}=curResultCtx;
+    /* 學生的追問幾乎都是針對某一條修正（「為什麼這裡要用 X？」），
+       原本只帶 cefr 跟 corrected_sentence，模型看不到當初為什麼那樣改，
+       只能重新推理一次，答案可能跟批改自相矛盾——跟 combine 那筆回報同一類問題。
+       corrections 的 error/fix/why 加上 precision_note 大約多 100-200 token。 */
+    const corrBlock=(r.corrections||[]).length
+      ? `這次批改列出的修正：\n`+r.corrections.map(c=>`- 「${c.error}」→「${c.fix}」：${c.why}`).join('\n')+'\n'
+      : '這次批改沒有列出任何文法錯誤。\n';
+    const precBlock=r.precision_note?`用字精準度提醒：${r.precision_note}\n`:'';
     const ans=await callClaude(`你是英語文法教學老師。學生正在練習造句，以下是這題的完整脈絡：
 中文原句：「${zh}」
 目標單字：${word}
 學生答案：「${userAns}」
 批改結果：CEFR ${r.cefr}，修正版：${r.corrected_sentence||'（無需修正）'}
-
+${corrBlock}${precBlock}
 學生現在有個文法問題想問：「${q}」
-請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。只輸出純文字，不要 JSON、不要 markdown。`,800);
+請針對這個問題直接回答，用繁體中文，簡潔但講清楚原因，需要的話可以舉一個簡短例子，控制在4-5句以內。
+如果問題是針對上面某一條修正，回答必須跟那條修正的立場一致——不可以反過來說學生原本的寫法其實也可以、或給出跟當初批改相反的建議。真的認為當初那條修正有問題，就明講「這一條當初標得太嚴格」，不要含糊帶過。
+只輸出純文字，不要 JSON、不要 markdown。`,800);
     box.innerHTML=`<div class="use-item" style="border:none;padding:0"><span class="use-ico">${ic('help',18)}</span><div><div class="use-lbl">你的提問：${q}</div><div class="use-t" style="margin-top:4px">${ans.trim()}</div></div></div>
     <button class="next-btn" style="margin-top:8px;font-size:12px;padding:8px" onclick="showFollowUpForm()">再問一次</button>`;
   }catch(e){
@@ -2663,8 +2690,13 @@ let curEssayTopic=null;
 async function startEssay(){
   document.getElementById('essayBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
+    /* 出題 prompt 原本沒有任何歷史，同一個學生多練幾次很容易一直拿到環境／科技／教育類的題目。
+       比照造句的 recentZhFor，把最近 5 題塞進來要求避開。這條路徑沒有快取、但一天只跑一次，
+       5 個題目約 200 token，成本可以忽略。 */
+    const recentTopics=ESSAY_HISTORY.slice(0,5).map(h=>h.topic).filter(Boolean);
     const txt=await callClaude(`你是 IELTS 寫作老師。請出一個 IELTS Task 2 題目，適合中高級英語學習者。
 請提供一個段落式大綱，每段給一句可以讓學生「直接接著往下寫」的英文起手句（不是抽象建議），幫助不知道怎麼下筆的學生。
+${recentTopics.length?`這位學生最近已經寫過以下題目，這次要換一個明顯不同的主題領域——不是換個問法，而是換一個領域（例如已經考過環境就別再出環境，教育、健康、工作、媒體、都市發展、文化、科技、犯罪與司法、消費、家庭等等都可以輪流用）：\n${recentTopics.map(t=>'- '+t).join('\n')}\n`:''}
 只輸出純 JSON（不要加 markdown）：
 {"topic":"完整題目（英文，2-3句）","type":"Opinion Essay/Discussion Essay/Problem-Solution Essay/Two-part Question","outline":[
   {"section":"開頭","hint":"這段要做什麼（繁體中文，1句）","starter":"可以直接接著寫的英文起手句"},
@@ -2746,8 +2778,9 @@ async function submitEssay(){
 作文：
 ${essay}
 
-只輸出純 JSON（不要加 markdown）：
-{"band":6.5,"scores":{"task_achievement":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"coherence":{"score":6,"comment":"評語（繁體中文，1-2句）"},"lexical":{"score":6.5,"comment":"評語（繁體中文，1-2句）"},"grammar":{"score":6,"comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,1800,'claude-sonnet-4-6');
+四個項目分數各自獨立評定，不要因為其中一項而把其他項往同一個數字靠；band 是四項的平均（四捨五入到最近的 0.5），不是先想一個總分再回頭湊四項。
+只輸出純 JSON（不要加 markdown）。所有分數欄位輸出純數字、不要加引號（例如 7，不是 "7"）：
+{"band":"總分（0-9，以 0.5 為單位）","scores":{"task_achievement":{"score":"0-9，以 0.5 為單位","comment":"評語（繁體中文，1-2句）"},"coherence":{"score":"0-9，以 0.5 為單位","comment":"評語（繁體中文，1-2句）"},"lexical":{"score":"0-9，以 0.5 為單位","comment":"評語（繁體中文，1-2句）"},"grammar":{"score":"0-9，以 0.5 為單位","comment":"評語（繁體中文，1-2句）"},"chinese_style":{"level":"無/輕微/中度/嚴重","comment":"中式英文說明（繁體中文，1句）"}},"strengths":["優點1","優點2"],"improvements":["改進建議1","改進建議2","改進建議3"],"overall_comment":"整體評語（繁體中文，2-3句）"}`,1800,'claude-sonnet-4-6');
     const r=parseJSON(txt);
     renderEssayResult(essay,wc,r);
     saveEssayHistory(essay,wc,r);
@@ -2926,6 +2959,28 @@ function renderGrammarHome(){
   </div>`:''}`;
 }
 
+/* 測驗選項洗牌。schema 範例寫的是 "answerIndex":0，模型有把正確答案放第一個的強烈傾向，
+   而 renderGrammarQuizQuestion 直接照順序渲染，學生很快就會發現「都選 A」。
+   prompt 那邊也加了一句要求輪流放，但那只是勸導，這裡才是保證。
+   洗牌一定要在這裡做（parse 完、存進 grammarLearningLog 之前）而不是在 render 時做：
+   lesson 會被存起來，複習模式重播的是存下來的那份，而且答錯時「再試一次這一題」
+   會重跑 render——在 render 洗會讓同一題每次看到的順序都不一樣。 */
+function shuffleQuizOptions(lesson){
+  for(const q of (lesson&&Array.isArray(lesson.quiz)?lesson.quiz:[])){
+    if(!Array.isArray(q.options)||typeof q.answerIndex!=='number') continue;
+    if(q.answerIndex<0||q.answerIndex>=q.options.length) continue;
+    const correct=q.options[q.answerIndex];
+    for(let i=q.options.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [q.options[i],q.options[j]]=[q.options[j],q.options[i]];
+    }
+    // 用值找回正確答案的新位置。選項文字重複時 indexOf 會取第一個，
+    // 但那種情況下兩個選項本來就等價，指到哪一個都對。
+    q.answerIndex=q.options.indexOf(correct);
+  }
+  return lesson;
+}
+
 async function openGrammarCategory(cat){
   // 沒有 UI 路徑會走到這裡了，但擋著比較安全：對「其他」生成教材只會產出一份沒有主題的講義
   if(cat===UNCLASSIFIED_CAT){ toast('「其他」不是具體文法點，無法生成教學'); return; }
@@ -2938,16 +2993,18 @@ async function openGrammarCategory(cat){
   try{
     const material=await materialFor(cat);
     const prompt=`你是英語文法教學老師。學生在「${cat}」這個文法分類反覆出錯，以下是他自己實際寫過的錯誤（繁體中文原句、學生英文答案、AI 批改抓到的錯誤）：
-${JSON.stringify(material,null,2)}
+${JSON.stringify(material)}
 
 請根據這些真實錯誤，生成一份針對這個學生的客製化教學，並出 3 題測驗題檢驗他是否真的理解（不要直接照搬上面學生寫過的句子出題，要換新句子測同一個文法規則，避免學生只是背答案）。
 
 「yourMistakes」最多列 5 個最有代表性、彼此錯誤樣態不重複的例子就好，不需要把上面素材裡的句子全部寫進去——寧可少而精，也不要為了求全導致內容被截斷。「explanation」控制在 3-4 句話，不用鉅細靡遺涵蓋每個子規則。
+「explain」裡不可以用 A、B、C、D 或「第一個選項」這種位置說法指稱選項（選項顯示前會被重新排序，位置說法會指錯），要直接引用選項的文字內容，例如「have 這個選項…」。
+正確答案不要固定放在第一個選項，四個位置都要輪流用到。
 
 只輸出純 JSON（不要加 markdown）：
 {"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細，但不要超過4句）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
     const txt=await callClaude(prompt,3000);
-    curLesson=parseJSON(txt); curLessonCat=cat; curQuizIsReview=false;
+    curLesson=shuffleQuizOptions(parseJSON(txt)); curLessonCat=cat; curQuizIsReview=false;
     renderGrammarLessonScreen();
   }catch(e){
     console.log('openGrammarCategory:',e);
