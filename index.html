@@ -715,6 +715,7 @@ let curAudio=null, curTab='prac';
 function boot(){
   authResetLocalIfNewUser();
   lsCleanupOrphans();
+  migrateLocalHistoryToIndex();   // 一次性：本機歷史降級成索引（1,013 KB → 約 280 KB）
   const lsUsed=lsBytes();
   console.log('localStorage 用量:',(lsUsed/1048576).toFixed(2),'MB');
   if(lsUsed>LS_WARN_BYTES) setTimeout(()=>toast(`⚠️ 本機已用 ${(lsUsed/1048576).toFixed(1)} MB，接近上限`),1200);
@@ -877,6 +878,12 @@ function clearData(){
 
 /* ── 造句練習：分級單字挑戰 ── */
 let curSentQ=null;
+/* 同一題的作答歷程 [{userAns, corrections}]，換題時清空（#1 following 回報 2026-08-18）。
+   實測那一題連續四次的批改：介系詞 in→for→over→for 繞回原點，時態 goes→will go→goes→will go，
+   第 4 次甚至叫學生用 went（過去式，對「接下來的三個月」根本不成立）。
+   根因是每次批改都是獨立呼叫、看不到自己說過什麼。只帶「上一次」不夠——第 4 次要擋掉的
+   `for` 是「第 2 次」否定過的，所以必須帶整題累積的全部修正。 */
+let sentAttempts=[];
 let lastSentWord=null;
 let levelTotalCache={};
 const CEFR_LEVELS=['A1','A2','B1','B2','C1','C2'];
@@ -1214,6 +1221,7 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
     parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
     const dict=await dictP;
     curSentQ=parsed;
+    sentAttempts=[];      // 換新題目，清空同一題的作答歷程（見 sentAttempts 宣告處）
     curSentQ.word=word;   // 不讓模型改動目標單字本身
     curSentQ.level=curLevel;
     curSentQ.pos=pos;
@@ -1302,6 +1310,40 @@ function missingTargetWordFields(r,word){
   if(r.corrected_sentence&&!hasTargetWord(r.corrected_sentence,word)) miss.push('corrected_sentence');
   return miss;
 }
+/* 重打兩次之後 b2_example / c1_example 仍然沒用到目標單字時的補救。
+   為什麼不是把重打次數從 2 拉到 3：整份重打要重新產生全部欄位（約 300-450 output token、
+   4-7 秒），而且會把已經批改正確的 corrections 一起重擲；實測失敗的幾乎都只是範例句。
+   改成只補寫那一兩句：一次約 100 token，而且指令範圍小，遵從率比整份重打高。
+
+   量測（2026-08-19，本機 1,023 筆）：c1_example 13.4%、b2_example 4.4% 沒用到目標單字。
+   c1 特別高是結構性的——C1 等級的改寫本來就傾向換更高階的同義字（die→passed away、
+   heart→wholeheartedly、few→a handful of、danger→dangerous）。
+
+   corrected_sentence（4.3%）刻意不補寫：它跟 corrections[] 有一致性關聯，
+   單獨重寫會讓「訂正後的句子」對不上前面列出的每一條修正，反而製造新的矛盾。 */
+async function rewriteMissingExamples(r,word){
+  const miss=missingTargetWordFields(r,word).filter(f=>f==='b2_example'||f==='c1_example');
+  if(!miss.length) return;
+  const label={b2_example:'B2 等級的示範句',c1_example:'C1 等級的示範句'};
+  const prompt=`目標單字：${word}
+
+下面這些示範句必須包含目標單字「${word}」本身，但目前沒有——它們把這個字換成了同義字或改了詞性。
+請各重寫一句，保持原本的語意、情境跟難度等級，只把目標單字放回去。
+可以做時態、單複數、第三人稱等屈折變化，但不可以換成同義字，也不可以換成同字根的其他詞性。
+
+${miss.map(f=>`${f}（${label[f]}）目前是：「${r[f]}」`).join('\n')}
+
+只輸出純 JSON，不要加 markdown、不要加說明：
+{${miss.map(f=>`"${f}":"重寫後的句子"`).join(',')}}`;
+  try{
+    const fixed=parseJSON(await callClaude(prompt,300,'claude-haiku-4-5-20251001'));
+    for(const f of miss){
+      // 只在補寫真的合格時才採用；補寫失敗就維持原樣，不會比現在更差
+      if(fixed?.[f]&&hasTargetWord(fixed[f],word)) r[f]=fixed[f];
+    }
+  }catch(e){ console.log('rewriteMissingExamples:',e); }  // 失敗不影響批改本身
+}
+
 function normLoose(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').trim().replace(/\s+/g,' '); }
 // corrections[].error 依 prompt 規則必須是學生答案裡逐字出現的片段，這裡檢查 AI 有沒有捏造
 function fabricatedCorrections(r,ans){
@@ -1371,6 +1413,26 @@ function gradeResultIssues(r,ans,word){
 // precision_note 後半段整段變成韓文（2026-08-07 bee 回報）。批改 prompt 各欄位雖然都寫了
 // 「繁體中文」，但沒有任何程式檢查。這裡直接偵測非中英文的書寫系統（韓文/日文假名/西里爾/阿拉伯/泰文）。
 const FOREIGN_SCRIPT=/[가-힯぀-ゟ゠-ヿЀ-ӿ؀-ۿ฀-๿]/;
+
+/* 「把 X 放在句尾會更自然」——但 X 本來就在句尾（#7 ban 回報 2026-08-13）。
+   只處理句首／句尾這兩個位置：程式判得準。其他位置（動詞前、受詞後、主句之後）
+   要真的剖析句構才知道，判不準就不碰，寧可漏放也不要誤刪正確的建議。
+   建議對象取「位置關鍵字之前 20 字元內最近的那個英文詞」，而不是整段裡任何英文字——
+   否則像「in the public areas 這裡…recently 放句尾」這種句子會拿錯詞去比對。 */
+const POS_KEYWORD=/(句尾|句末|最後面|句首|句子開頭|最前面)/;
+const ADVICE_HINT=/更自然|比較自然|會更好|更順|更道地|讀起來/;
+function vacuousPositionAdvice(note,ans){
+  if(!ADVICE_HINT.test(note)) return false;
+  const m=note.match(POS_KEYWORD);
+  if(!m) return false;
+  const wantEnd=/句尾|句末|最後面/.test(m[1]);
+  const before=note.slice(Math.max(0,m.index-20),m.index);
+  const near=(before.match(/[A-Za-z][A-Za-z']*/g)||[]).pop();
+  if(!near) return false;
+  const toks=(ans||'').toLowerCase().match(/[a-z']+/g)||[];
+  if(!toks.length) return false;
+  return near.toLowerCase()===(wantEnd?toks[toks.length-1]:toks[0]);
+}
 // precision_note/tip 裡「宣稱學生寫了什麼」的說法必須是學生逐字寫過的（prompt 1108 已有這條規則，
 // 但實測遵從度不穩：educational 那筆說「學生答案裡用了 but」，學生根本沒寫 but；
 // beauty 那筆說「原句說 'it's captivating'」，也是捏造的）。
@@ -1443,6 +1505,16 @@ function sanitizeGradeResult(r,ans,word){
   if(typeof r.chinglish_percent==='number'&&Array.isArray(r.chinglish_issues)
      &&r.chinglish_issues.length===0&&r.chinglish_percent>0){
     r.chinglish_percent=0; fixed.push('chinglish_percent→0');
+  }
+
+  // 位置建議跟現況相同的空建議（#7 ban 回報 2026-08-13）：
+  // precision_note 說「recently 放在句尾會更自然」，但學生寫的
+  // 「...in the public areas recently.」它本來就在句尾。這不是判斷錯誤，是空話，
+  // 顯示出來只會讓學生以為自己寫錯了。程式判得出來就不必花 token 重打。
+  for(const f of ['precision_note','tip']){
+    if(typeof r[f]==='string'&&r[f]&&vacuousPositionAdvice(r[f],ans)){
+      r[f]=''; fixed.push(f+':位置建議與現況相同');
+    }
   }
 
   // 中式英文的類型不在五類清單裡：是「正確值＋多餘尾巴」就截掉，完全對不上就清空
@@ -1602,10 +1674,29 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
     // hint 也要帶進來：出題跟批改是兩次獨立呼叫，批改端原本看不到出題時給過什麼提示，
     // 結果出現「出題提示說可以用 combine...with，寫了之後批改又說不需要 with」這種自相矛盾
     // （2026-08-07 combine 回報）。約 30 個 token，未快取段全價也只要 NT$0.001/題。
+    /* 同一題重寫時，把上一次的修正帶進來（#1 following 回報 2026-08-18：
+       「改成 will 叫我用 goes，用了 goes 又叫我用 will」）。
+       根因是每次批改都是獨立呼叫、看不到自己上次說過什麼，而那句中文
+       （「他在接下來的三個月裡每週都去健身房」）goes 和 will go 其實都成立，
+       於是在兩個都對的選項之間擺盪。curResultCtx 記憶體裡就存著上次的結果，
+       「重寫這一題」又重用同一個 curSentQ——判斷條件和資料都是現成的，只是沒被用。
+       約 50-100 token，而且只有重寫時才付。 */
+    const prevBlock = sentAttempts.length
+      ? `\n【這是同一題的第 ${sentAttempts.length+1} 次作答，以下是你先前每一次給過的修正】\n`
+        +sentAttempts.map((a,i)=>`第 ${i+1} 次 學生寫：「${a.userAns}」\n`
+            +(a.corrections.length
+                ? a.corrections.map(c=>`  你要求：「${c.error}」→「${c.fix}」`).join('\n')
+                : '  你沒有列出任何錯誤')).join('\n')
+        +`\n\n學生是看過上面的修正之後才重寫的。三條規則，優先於其他所有批改標準：\n`
+        +`1. 學生已經照建議改好的地方，絕對不可以再改回原本的寫法。\n`
+        +`2. 上面任何一個「修正後的寫法」，這次都不可以被列為錯誤——你自己要求過的寫法，不能反過來說它是錯的。\n`
+        +`3. 同一個片段如果你前後給過不同建議，代表那幾種寫法其實都可以接受，這次一律不要列進 corrections；`
+        +`要講語感差異就寫進 precision_note，不要扣分。\n`
+      : '';
     const gradeUserPrompt=`中文原句：「${curSentQ.zh_sentence}」
 目標單字：${curSentQ.word}
 ${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學生答案：「${ans}」
-
+${prevBlock}
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
     // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
     // precision_note/b2_example/c1_example/tip，繁中約 1.5-2 token/字，錯誤抓多一點就會超過 750 被截斷。
@@ -1624,9 +1715,13 @@ ${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學�
       }
     }
     if(!r) throw lastErr||new AIError('http','批改失敗');
+    await rewriteMissingExamples(r,curSentQ.word);
     // 就地清掉不影響分數的壞欄位、夾正沒有依據的 chinglish_percent。
     // 一定要在 mastered 之前跑：夾值會影響下面的精通判定。
     sanitizeGradeResult(r,ans,curSentQ.word);
+    // 記進同一題的作答歷程，供下一次重寫時帶給批改端擋住前後矛盾。
+    // 放在 sanitize 之後：要記的是「真的顯示給學生看的那些修正」，被就地清掉的不算。
+    sentAttempts.push({userAns:ans,corrections:(r.corrections||[]).filter(c=>c.error&&c.fix)});
     // questionFlawed：目標單字塞不進這個情境，整題的判定都不可信——精通、文法統計、
     // 中式英文統計全部跳過。你這一題還是看得到逐項修正，只是不會被它扣到分。
     const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
@@ -1885,7 +1980,8 @@ function repeatNoteHTML(fragment,category,field){
 
 /* ── 造句歷史 ── */
 function saveSentHistory(userAns,r){
-  SENT_HISTORY.unshift({
+  // 完整紀錄進待上傳佇列（伺服器要留全部），本機主陣列只放索引（見 toIndex 的說明）
+  const full={
     word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
     definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
@@ -1894,10 +1990,12 @@ function saveSentHistory(userAns,r){
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
-  });
+  };
+  queuePendingSent(full);              // 完整版排隊上傳（伺服器保留全部欄位）
+  SENT_HISTORY.unshift(toIndex(full)); // 本機只放索引
   lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
   syncToCloud();
-  pushSentHistory();     // 階段 2 雙寫，見下方
+  pushSentHistory();
 }
 
 /* ── 階段 2：雙寫到 sentence_history 表 ──
@@ -1918,12 +2016,60 @@ function toRow(uid,h){
           corrections:h.corrections||[], chinglish_issues:h.chinglish_issues||[], payload};
 }
 
-// 伺服器的一列 → 本機的一筆。跟 toRow() 相反：把拉平的欄位和 payload 併回原本的形狀。
-function fromRow(row){
+// 伺服器的一列 → 完整的一筆（跟 toRow() 相反：把拉平的欄位和 payload 併回原本形狀）
+function rowToEntry(row){
   return {...(row.payload||{}), ts:row.ts_ms, word:row.word, level:row.level,
           userAns:row.user_ans, cefr:row.cefr,
           chinglish_percent:row.chinglish_percent, grammar_accuracy:row.grammar_accuracy,
           corrections:row.corrections||[], chinglish_issues:row.chinglish_issues||[]};
+}
+
+/* 完整紀錄 → 本機索引。實測完整紀錄 1,020 筆佔 1,013 KB，索引化後約 280 KB。
+   丟掉的是說明文字（corrections 的 fix/why、chinglish_issues 的 natural、tip、
+   b2/c1 範例句、definition、translation、audioURL），那些只有歷史詳情頁在看，
+   改由 fetchSentDetail() 向伺服器取。
+   保留 corrections/chinglish_issues 的「結構」但只留 error/category、phrase/type，
+   是為了讓 priorFragmentHits()、pendingErrorCount()、grammarCategoryStatus() 這三個
+   在畫面渲染路徑上被同步呼叫的函式完全不用改、也不用變成 async。 */
+function toIndex(h){
+  return {
+    ts:h.ts, word:h.word, level:h.level, userAns:h.userAns, zh_sentence:h.zh_sentence,
+    cefr:h.cefr, chinglish_percent:h.chinglish_percent, grammar_accuracy:h.grammar_accuracy,
+    corrections:(h.corrections||[]).map(c=>({error:c.error,category:c.category})),
+    chinglish_issues:(h.chinglish_issues||[]).map(c=>({phrase:c.phrase,type:c.type}))
+  };
+}
+function fromRow(row){ return toIndex(rowToEntry(row)); }
+
+/* 本機只留近三個月，更早的只存在伺服器。三個月約 4,700 筆、索引化後約 1.3 MB，
+   在實測的 3–4 MB 上限內，而且是「封頂」——不管再練多久都不會繼續長。
+   目前歷史只有 4 週，所以這個上限現在不會砍掉任何東西，純粹是把未來的成長關起來。 */
+/* 一次性遷移：把本機既有的完整紀錄降級成索引。
+   必須在降級「之前」把還沒確認上傳的完整紀錄補進待上傳佇列——那些紀錄的完整內容
+   只存在本機，一旦降級就永久遺失。判斷依據是舊版留下的 c_sent_pushed_ts 水位。
+   放在 boot() 裡執行而不是宣告處：LOCAL_KEEP_DAYS 是 const，在檔案後段才求值，
+   在宣告處呼叫會撞到 TDZ（這個專案先前已經因為同樣原因出過事）。 */
+function migrateLocalHistoryToIndex(){
+  if((parseInt(lsGet('c_hist_schema','1'),10)||1)>=2) return;
+  const pushed=parseInt(lsGet('c_sent_pushed_ts','0'),10)||0;
+  const unsent=SENT_HISTORY.filter(h=>h.ts>pushed);
+  for(const h of unsent) queuePendingSent(h);
+  SENT_HISTORY=SENT_HISTORY.map(toIndex);
+  trimLocalHistory();
+  lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
+  lsSet('c_hist_schema','2');
+  lsDel('c_sent_pushed_ts');   // 水位法已由待上傳佇列取代
+  console.log(`migrateLocalHistoryToIndex: ${SENT_HISTORY.length} 筆降級為索引，${unsent.length} 筆補進待上傳佇列`);
+}
+
+const LOCAL_KEEP_DAYS=90;
+function trimLocalHistory(){
+  const cutoff=Date.now()-LOCAL_KEEP_DAYS*86400000;
+  const kept=SENT_HISTORY.filter(h=>h.ts>=cutoff);
+  if(kept.length===SENT_HISTORY.length) return false;
+  console.log(`trimLocalHistory: 本機移除 ${SENT_HISTORY.length-kept.length} 筆超過 ${LOCAL_KEEP_DAYS} 天的索引（伺服器仍保留）`);
+  SENT_HISTORY=kept;
+  return true;
 }
 
 /* 增量拉取。游標用伺服器的 id，不是紀錄自己的 ts——這點很重要：
@@ -1952,35 +2098,81 @@ async function pullSentHistory(){
     }
     if(added){
       SENT_HISTORY.sort((a,b)=>(b.ts||0)-(a.ts||0));
+      trimLocalHistory();
       lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
     }
     lsSet('c_sent_pulled_id',String(maxId));
   }catch(e){ console.log('pullSentHistory:',e); }
 }
 
-// c_sent_pushed_ts = 已確認上傳的最大 ts。離線期間累積的紀錄會在下次成功時一併補送；
+/* 待上傳佇列（c_sent_pending）存的是「完整」紀錄。
+   為什麼不能沿用先前的 c_sent_pushed_ts 水位法：本機主陣列現在只留索引（沒有 tip、
+   範例句、corrections 的說明文字），上傳如果從主陣列取資料，送上雲端的就會是殘缺版本。
+   所以完整紀錄另外排隊，上傳成功才出列；失敗就留著下次重送，離線也不會遺失。 */
+function queuePendingSent(full){
+  try{
+    const q=JSON.parse(lsGet('c_sent_pending','[]'));
+    q.push(full);
+    lsSet('c_sent_pending',JSON.stringify(q));
+  }catch(e){ console.log('queuePendingSent:',e); }
+}
+
+// 分批送（每批 200 筆），成功一批就從佇列移除一批。
 // unique(user_id,ts_ms) + ignore-duplicates 讓重送是安全的 no-op。
-// 分批送（每批 200 筆）並逐批推進水位：第一次執行時 since=0 會涵蓋全部歷史，
-// 不分批的話是一包 1 MB，萬一失敗水位不前進，就會變成每答一題重傳 1 MB。
 async function pushSentHistory(){
   try{
+    let q=JSON.parse(lsGet('c_sent_pending','[]'));
+    if(!q.length) return;
     const t=await authToken(); if(!t) return;
     const uid=authSession?.user?.id; if(!uid) return;
-    const since=parseInt(lsGet('c_sent_pushed_ts','0'),10)||0;
-    const pending=SENT_HISTORY.filter(h=>h.ts>since).sort((a,b)=>a.ts-b.ts);  // 升冪，水位才推得對
-    if(!pending.length) return;
-    for(let i=0;i<pending.length;i+=200){
-      const chunk=pending.slice(i,i+200);
+    q.sort((a,b)=>a.ts-b.ts);
+    while(q.length){
+      const chunk=q.slice(0,200);
       const r=await fetch(`${SB_URL}/rest/v1/sentence_history?on_conflict=user_id,ts_ms`,{method:'POST',
         headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json',
                  'Prefer':'resolution=ignore-duplicates,return=minimal'},
         body:JSON.stringify(chunk.map(h=>toRow(uid,h)))});
-      if(!r.ok){ console.log('pushSentHistory:',r.status,await r.text()); return; }  // 失敗就停，下次重試
-      let max=parseInt(lsGet('c_sent_pushed_ts','0'),10)||0;
-      for(const h of chunk) if(h.ts>max) max=h.ts;
-      lsSet('c_sent_pushed_ts',String(max));
+      if(!r.ok){ console.log('pushSentHistory:',r.status,await r.text()); return; }  // 失敗就停，佇列留著下次重送
+      q=q.slice(chunk.length);
+      lsSet('c_sent_pending',JSON.stringify(q));
     }
   }catch(e){ console.log('pushSentHistory:',e); }
+}
+
+/* 向伺服器取單筆完整紀錄（歷史詳情頁用）。本機索引沒有 tip／範例句／corrections 說明。 */
+async function fetchSentDetail(ts){
+  try{
+    const t=await authToken(); if(!t) return null;
+    const r=await fetch(`${SB_URL}/rest/v1/sentence_history?ts_ms=eq.${ts}&limit=1`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
+    if(!r.ok) return null;
+    const rows=await r.json();
+    return rows[0]?rowToEntry(rows[0]):null;
+  }catch(e){ console.log('fetchSentDetail:',e); return null; }
+}
+
+/* 向伺服器取一段期間的完整紀錄（儀表板總結、文法教材用）。 */
+async function fetchSentSince(sinceTs,limit=200){
+  try{
+    const t=await authToken(); if(!t) return [];
+    const r=await fetch(`${SB_URL}/rest/v1/sentence_history?ts_ms=gt.${sinceTs}&order=ts_ms.desc&limit=${limit}`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
+    if(!r.ok) return [];
+    return (await r.json()).map(rowToEntry);
+  }catch(e){ console.log('fetchSentSince:',e); return []; }
+}
+
+/* 依文法分類取完整紀錄（客製化教材用）。用 jsonb 包含運算子在資料庫端篩，
+   不用把整段期間的資料全撈回來再過濾。 */
+async function fetchSentByCategory(cat,sinceTs,limit=8){
+  try{
+    const t=await authToken(); if(!t) return [];
+    const filter=encodeURIComponent(JSON.stringify([{category:cat}]));
+    const r=await fetch(`${SB_URL}/rest/v1/sentence_history?corrections=cs.${filter}&ts_ms=gt.${sinceTs}&order=ts_ms.desc&limit=${limit}`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
+    if(!r.ok) return [];
+    return (await r.json()).map(rowToEntry);
+  }catch(e){ console.log('fetchSentByCategory:',e); return []; }
 }
 
 async function renderSentHome(){
@@ -2036,7 +2228,9 @@ function aggregateTrend(buckets,keyFn,level){
 /* ── Dashboard：AI 學習總結（近 14 天），按日快取，手動重新整理需累積新造句紀錄才解鎖 ── */
 function sentencesSinceLastSummary(){ return SENT_HISTORY.filter(h=>h.ts>(dashboardSummary?.ts||0)).length; }
 
-function buildSummaryMaterial(){
+// 改成 async：近 14 天的錯誤清單要 corrections 的 fix 和 chinglish_issues 的 natural，
+// 本機索引沒有這兩個欄位，向伺服器取。日/週趨勢仍用本機索引算（那些欄位索引都有）。
+async function buildSummaryMaterial(){
   const buckets=[]; for(let i=13;i>=0;i--) buckets.push({key:taipeiDaysAgo(i),label:''});
   const daily=aggregateTrend(buckets, ts=>taipeiDateStr(ts), 'all').map((d,i)=>({date:buckets[i].key,count:d.count,acc:d.acc,ching:d.ching}));
   // learnableCats：不把「其他」餵進去，模型就不可能建議「去複習其他」這種做不到的事
@@ -2056,14 +2250,14 @@ function buildSummaryMaterial(){
   }
   // 家族排行是卡片上緊接著這段文字顯示的內容——一起餵進去，總結才不會跟它打架
   const families=familyRanking().slice(0,5).map(f=>({family:f.family,outstanding:f.n}));
-  return {daily,relearn,learn,mastered,noImprove,families,...recentMistakeMaterial()};
+  return {daily,relearn,learn,mastered,noImprove,families,...(await recentMistakeMaterial())};
 }
 
 // 只餵彙總數字的話，14 天平均一天動不了多少，AI 每天只能寫出同一段話。
 // 把學生逐字寫錯的片段餵進去，總結才有辦法講出昨天跟今天不一樣的東西。
-function recentMistakeMaterial(){
+async function recentMistakeMaterial(){
   const since=Date.now()-14*86400000, lastTs=dashboardSummary?.ts||0;
-  const recent=SENT_HISTORY.filter(h=>h.ts>=since).sort((a,b)=>b.ts-a.ts);
+  const recent=await fetchSentSince(since,200);   // 完整紀錄，本機索引沒有 fix/natural
   const norm=s=>String(s||'').trim().toLowerCase();
   const freq=new Map(); // 同一個片段重複犯 → 最值得講、也最不可能天天一樣的訊號
   const mistakes=[], chinglish=[];
@@ -2084,7 +2278,7 @@ function recentMistakeMaterial(){
 }
 
 async function generateDashboardSummary(){
-  const m=buildSummaryMaterial();
+  const m=await buildSummaryMaterial();
   // 前幾次講過的話一起送進去，不然沒有東西擋著它把同一段話再寫一次
   const prev=[...(dashboardSummary?.prev||[]),...(dashboardSummary?.text?[dashboardSummary.text]:[])].slice(-3);
   const prompt=`你是英語學習教練，要寫一段給這位學生看的學習總結。
@@ -2444,11 +2638,23 @@ function showSentHistory(){
   </div>`).join('')}`;
 }
 
-function showSentHistDetail(i){
+// 本機只有索引，詳情（tip／範例句／corrections 的說明文字）要向伺服器取。
+// 抓不到就退回用索引渲染——句子、你的答案、錯誤片段還是看得到，不會開天窗。
+async function showSentHistDetail(i){
   const h=SENT_HISTORY[i];
-  document.getElementById('pracBody').innerHTML=
-    `<button class="back-btn" onclick="showSentHistory()">← 返回歷史</button>`
-    +sentResultHTML(h.word,h.zh_sentence,h.userAns,h.definition,h.translation,h.level,h);
+  const back=`<button class="back-btn" onclick="showSentHistory()">← 返回歷史</button>`;
+  const body=document.getElementById('pracBody');
+  body.innerHTML=back+`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">載入紀錄中...</div></div>`;
+  let full=await fetchSentDetail(h.ts);
+  if(!full){
+    // 離線或伺服器出錯：用本機索引渲染。索引的 corrections 只有 error/category，
+    // 直接丟進去會渲染出「✓ undefined」，所以把缺的欄位補成空字串並標示原因。
+    toast('載入完整內容失敗，顯示簡化版');
+    full={...h,
+      corrections:(h.corrections||[]).map(c=>({...c,fix:'',why:'（無法載入完整說明）'})),
+      chinglish_issues:(h.chinglish_issues||[]).map(c=>({...c,natural:'',explanation:''}))};
+  }
+  body.innerHTML=back+sentResultHTML(full.word,full.zh_sentence,full.userAns,full.definition,full.translation,full.level,full);
 }
 
 /* ── 英文寫作 ── */
@@ -2659,13 +2865,15 @@ function pendingErrorCount(cat){
   const lastTs=log[log.length-1].ts;
   return SENT_HISTORY.filter(h=>h.ts>lastTs&&(h.corrections||[]).some(c=>c.category===cat)).length;
 }
-function materialFor(cat){
+// 改向伺服器取：教材要餵給 AI 的是 corrections 的完整內容（error/fix/why），
+// 本機索引只留 error/category，拿本機的資料生教材品質會掉。
+// 用 jsonb 包含運算子在資料庫端篩分類，不用把整段期間全撈回來再過濾。
+async function materialFor(cat){
   const log=grammarLearningLog[cat]||[];
   const since=log.length?log[log.length-1].ts:0;
-  return SENT_HISTORY
-    .filter(h=>h.ts>since&&(h.corrections||[]).some(c=>c.category===cat))
-    .slice(0,8)
-    .map(h=>({zh_sentence:h.zh_sentence,userAns:h.userAns,corrections:(h.corrections||[]).filter(c=>c.category===cat)}));
+  const rows=await fetchSentByCategory(cat,since,8);
+  return rows.map(h=>({zh_sentence:h.zh_sentence,userAns:h.userAns,
+                       corrections:(h.corrections||[]).filter(c=>c.category===cat)}));
 }
 
 function renderGrammarHome(){
@@ -2728,7 +2936,7 @@ async function openGrammarCategory(cat){
   }
   document.getElementById('grammarBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 根據你的錯誤生成教學中...</div></div>`;
   try{
-    const material=materialFor(cat);
+    const material=await materialFor(cat);
     const prompt=`你是英語文法教學老師。學生在「${cat}」這個文法分類反覆出錯，以下是他自己實際寫過的錯誤（繁體中文原句、學生英文答案、AI 批改抓到的錯誤）：
 ${JSON.stringify(material,null,2)}
 
