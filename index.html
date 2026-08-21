@@ -2232,9 +2232,15 @@ function taipeiDaysAgo(n){ const baseUTC=new Date(todayStr()+'T12:00:00Z'); retu
 function taipeiWeekday(dateStr){ return new Date(dateStr+'T12:00:00Z').getUTCDay(); } // 0=週日..6=週六
 function mondayOfWeek(dateStr){ const back=(taipeiWeekday(dateStr)+6)%7; return taipeiDateStr(new Date(dateStr+'T12:00:00Z').getTime()-back*86400000); }
 
+// 「日」看的是近 14 天（滾動視窗，最後一根一定是今天），不是本週一到週日：
+// 兩週才看得出趨勢，而且結尾對齊今天就不會像對齊整週那樣在右邊留一排還沒發生的空白。
+// 代價是 14 根裡週幾會重複，所以標籤改用 M/D，不能再用「週一…週日」。
 function buildDayBuckets(){
-  const mon=mondayOfWeek(todayStr()); const labels=['一','二','三','四','五','六','日']; const buckets=[];
-  for(let i=0;i<7;i++){ buckets.push({key:taipeiDateStr(new Date(mon+'T12:00:00Z').getTime()+i*86400000), label:`週${labels[i]}`}); }
+  const buckets=[];
+  for(let i=13;i>=0;i--){
+    const ds=taipeiDaysAgo(i); const [,m,d]=ds.split('-');
+    buckets.push({key:ds, label:`${parseInt(m)}/${parseInt(d)}`});
+  }
   return buckets;
 }
 function buildWeekBuckets(n){
@@ -2254,6 +2260,17 @@ function buildMonthBuckets(n){
 function dashGetBuckets(){ return dashGran==='day'?buildDayBuckets():dashGran==='week'?buildWeekBuckets(8):buildMonthBuckets(6); }
 function dashGetKeyFn(){ return dashGran==='day'?(ts=>taipeiDateStr(ts)):dashGran==='week'?(ts=>mondayOfWeek(taipeiDateStr(ts))):(ts=>taipeiDateStr(ts).slice(0,7)); }
 
+/* 練習量一律用「相異單字」口徑，跟首頁「今日已練習」一致：同一個字改寫重送只算一次。
+   跨日的桶子（週／月／累計）採「每天各自去重再相加」，不是整個區間去重——這樣週長條會剛好
+   等於它涵蓋那幾天的日長條總和，而且天天複習同一批字也不會被壓縮成個位數。 */
+function distinctWordVolume(records){
+  const byDay={};
+  for(const h of records){ const d=taipeiDateStr(h.ts); (byDay[d]=byDay[d]||new Set()).add(h.word); }
+  return Object.values(byDay).reduce((s,set)=>s+set.size,0);
+}
+
+// count 是相異單字數；acc／ching 仍然對「每一次送出批改」取平均——那是正確度不是練習量，
+// 用去重後的字去平均會把改寫後變好的分數丟掉。
 function aggregateTrend(buckets,keyFn,level){
   const records = level==='all' ? SENT_HISTORY : SENT_HISTORY.filter(h=>h.level===level);
   const map={};
@@ -2261,7 +2278,7 @@ function aggregateTrend(buckets,keyFn,level){
   const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
   return buckets.map(b=>{
     const arr=map[b.key]||[];
-    return arr.length ? {label:b.label,count:arr.length,acc:avg(arr,'grammar_accuracy'),ching:avg(arr,'chinglish_percent')}
+    return arr.length ? {label:b.label,count:distinctWordVolume(arr),acc:avg(arr,'grammar_accuracy'),ching:avg(arr,'chinglish_percent')}
                        : {label:b.label,count:0,acc:null,ching:null};
   });
 }
@@ -2324,7 +2341,7 @@ async function generateDashboardSummary(){
   const prev=[...(dashboardSummary?.prev||[]),...(dashboardSummary?.text?[dashboardSummary.text]:[])].slice(-3);
   const prompt=`你是英語學習教練，要寫一段給這位學生看的學習總結。
 
-過去 14 天的造句練習資料（依日期排序，count 是題數，acc 是平均文法正確度，ching 是平均中式英文比例，count 是 0 代表那天沒有練習，acc/ching 這種情況會是 null，不是「考了 0 分」）：
+過去 14 天的造句練習資料（依日期排序，count 是練習的相異單字數（同一個字改寫重送只算一次），acc 是平均文法正確度，ching 是平均中式英文比例，count 是 0 代表那天沒有練習，acc/ching 這種情況會是 null，不是「考了 0 分」）：
 ${JSON.stringify(m.daily)}
 
 錯誤最集中的家族（outstanding = 還沒解決的錯誤次數，這份排行會以長條圖顯示在你這段文字的正下方）：
@@ -2470,7 +2487,8 @@ function renderDashTrendLines(agg){
   }
   drawSeries('acc','var(--accent)');
   drawSeries('ching','var(--series2)');
-  agg.forEach((b,i)=>{ svg+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--faint)">${b.label}</text>`; });
+  const lblStep = n>10 ? 2 : 1;   // 從最後一根往回數，確保「今天」永遠有標籤
+  agg.forEach((b,i)=>{ if((n-1-i)%lblStep) return; svg+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--faint)">${b.label}</text>`; });
   document.getElementById('dashTrendChart').innerHTML=svg;
 }
 
@@ -2522,13 +2540,13 @@ async function dashboardHTML(){
 
   const levelRows=CEFR_LEVELS.map(l=>{
     const arr=SENT_HISTORY.filter(h=>h.level===l);
-    return {level:l,count:arr.length,ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
+    return {level:l,count:distinctWordVolume(arr),ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
   }).filter(r=>r.count>0);
 
   const summaryText=dashboardSummary?.text || '正在生成近 14 天的學習總結...';
 
   return `
-  <!-- AI 學習總結：唯一的頂層卡，回顧性事實（今天練了幾題/正確度）寫進這段文字裡有語境地帶到，
+  <!-- AI 學習總結：唯一的頂層卡，回顧性事實（今天練了幾個字/正確度）寫進這段文字裡有語境地帶到，
        不再用 stat-tile 單獨列——那些數字本身不是行動。分類清單預設收起來，點按鈕才展開。 -->
   <div class="prac-card" style="border-color:var(--accent-wash-strong)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px">
@@ -2595,7 +2613,7 @@ async function dashboardHTML(){
       <div class="prac-card">
         <div class="card-lbl">${ic('chart',14)} 至今整體進度</div>
         <div class="stat-grid" style="margin-bottom:12px">
-          <div class="stat-tile"><div class="stat-label">累計練習</div><div class="stat-value">${SENT_HISTORY.length}</div></div>
+          <div class="stat-tile"><div class="stat-label">累計練習字數</div><div class="stat-value">${distinctWordVolume(SENT_HISTORY)}</div></div>
           <div class="stat-tile"><div class="stat-label">總精通字數</div><div class="stat-value">${totalMastered}</div></div>
           <div class="stat-tile"><div class="stat-label">總字庫</div><div class="stat-value">${totalWords||'—'}</div></div>
         </div>
@@ -2610,7 +2628,7 @@ async function dashboardHTML(){
         ${levelRows.map(r=>`<div class="use-item">
           <span class="use-ico">${r.level}</span>
           <div style="flex:1">
-            <div class="use-lbl">練習 ${r.count} 題</div>
+            <div class="use-lbl">練習 ${r.count} 字</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
               ${r.ga!=null?`<span class="score-badge ${gAccClass(r.ga)}" style="padding:3px 10px;font-size:11px">文法 ${r.ga}%</span>`:''}
               ${r.ch!=null?`<span class="score-badge ${chingClass(r.ch)}" style="padding:3px 10px;font-size:11px">中式 ${r.ch}%</span>`:''}
@@ -2643,7 +2661,7 @@ async function dashboardHTML(){
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--series2);display:inline-block"></span>中式英文</div>
         </div>
         <svg id="dashTrendChart" viewBox="0 0 380 104" style="width:100%;display:block;overflow:visible"></svg>
-        <div style="font-size:10px;color:var(--faint);margin:12px 0 4px">題數</div>
+        <div style="font-size:10px;color:var(--faint);margin:12px 0 4px">練習單字數</div>
         <svg id="dashVolChart" viewBox="0 0 380 52" style="width:100%;display:block;overflow:visible"></svg>
       </div>
 
