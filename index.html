@@ -749,7 +749,9 @@ class AIError extends Error{
 function aiErrorMsg(e,fallback){
   if(e?.code==='quota'||e?.code==='upstream') return e.message;
   if(e?.code==='auth') return '登入已過期，請重新登入';
-  return fallback;
+  // 其餘（http / truncated / 前置流程的例外）原本一律只顯示 fallback，真正的原因被吞掉，
+  // 使用者跟開發者都看不到是 Anthropic 回 400、模型截斷、還是取單字失敗。把原始訊息接在後面。
+  return e?.message?`${fallback}（${e.message}）`:fallback;
 }
 // system 有帶的話走 Anthropic prompt caching：system 內容要在每次呼叫間逐字不變才會命中快取，
 // 呼叫端負責確保 system 字串不含每次呼叫都變動的內容（目標單字/學生答案這類動態值要放 prompt 裡，不要塞進 system）。
@@ -1235,6 +1237,7 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
     lastSentWord=curSentQ.word;
     renderSentQ();
   }catch(e){
+    console.error('startSent 失敗:',e?.code||'(no code)',e);
     document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'出題失敗，請重試')}</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
   }
 }
