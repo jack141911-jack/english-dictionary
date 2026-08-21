@@ -739,7 +739,11 @@ async function fetchDict(w){
 }
 
 /* ── CLAUDE API ── */
-const PROXY_URL='https://english-app-proxy.jack141911.workers.dev';
+// 2026-08-21：從 Cloudflare Worker 搬到 Supabase Edge Function。
+// 不是程式有問題——api.anthropic.com 前面的 Cloudflare 把 Cloudflare Workers 的對外位址段
+// 整段擋掉了（403 forbidden / Request not allowed），實測連全新的空白 Worker 也一樣被擋，
+// 程式端無解。舊的 proxy/worker.js 留著當紀錄，別再指回去。
+const PROXY_URL='https://qkkpjhffwpyyrzrdhxii.supabase.co/functions/v1/ai-proxy';
 // 用 code 區分失敗原因：quota/auth 再重試也沒用（而且沒燒到 API 費用），
 // truncated/http 則是「這次呼叫已經計費了」，值得也應該自動重打一次。
 class AIError extends Error{
@@ -770,8 +774,9 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   if(!r.ok){
     const e=await r.json().catch(()=>({}));
     const msg=e.error?.message||e.error||`API 錯誤 ${r.status}`;
-    // 504 是代理自己回的（上游連不上／逾時），訊息已經寫得夠清楚，標成 upstream 讓前端直接顯示
-    throw new AIError(r.status===429?'quota':r.status===401?'auth':r.status===504?'upstream':'http', msg);
+    // 504（上游連不上／逾時）跟 502（上游回 401/403，代理換成講得清楚的訊息）都是代理自己
+    // 產的文案，標成 upstream 讓前端直接顯示，不要再被通用文案蓋掉
+    throw new AIError(r.status===429?'quota':r.status===401?'auth':(r.status===504||r.status===502)?'upstream':'http', msg);
   }
   const d=await r.json();
   // stop_reason==='max_tokens' 代表輸出撞到 max_tokens 被硬切斷，內容一定不完整（JSON 會解析失敗）。
