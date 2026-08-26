@@ -656,7 +656,7 @@ async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,gll,dsum]=await 
     /* 合併有可能把雲端的壞資料帶回本機，所以這裡再清一次；清掉了就立刻把乾淨的版本推回雲端，
        否則雲端那筆會在下一次 syncFromCloud() 又被拉回來，永遠清不掉。 */
     if(pruneBogusReports()) sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});
-    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
 function syncToCloud(){/* senthist 不再整包上傳：改由 pushSentHistory() 一題 append 一列到 sentence_history。
    這一行是每答一題 1 MB 上傳量的來源（實測 senthist blob 1.04 MB）。拿掉之後
    syncToCloud() 剩下的 9 個 key 合計約 85 KB。舊的 user_data.senthist 保留不刪，
@@ -687,6 +687,44 @@ function pruneBogusReports(){
 pruneBogusReports();
 let curLevel = lsGet('c_cur_level','B1');
 let levelProgress = JSON.parse(lsGet('c_level_progress','{}'));
+/* 一次性：清掉 levelProgress 裡對不上現行 cefr_words 的精通紀錄（2026-08-26，共 21 筆）。
+   兩類：① 舊字表遺留的「字形」（am/came/eyes/got/has/seen/things/told/words…），2026-08-02
+   換成 Oxford 官方字表後這些字根本不在字表裡，永遠不會再被抽到，只是灌水儀表板的「精通 N」；
+   ② 當初達標的等級低於這個字現在的等級（例如 set 在 A1 達標、現在是 B1），那個精通不算數，
+   要在正確的等級重新達標。travel 是唯一搬家而不是刪掉的：B1 達標、現在是 A1，達標標準比較嚴，
+   所以紀錄仍然算數，只是要掛回 A1。
+
+   雲端那筆已經直接改乾淨（備份在 user_data 的 levelprogress_backup_20260826）。但本機這份
+   不清不行：syncFromCloud() 合併 levelProgress 用的是**聯集**，本機的舊紀錄會把雲端又灌回去，
+   syncToCloud() 再寫回雲端——跟 pruneBogusReports() 當初踩的是同一個坑，所以同樣要在合併
+   完之後再跑一次（見 syncFromCloud()）。 */
+const STALE_MASTERED={
+  A1:['case','due','set','yet','am','came','described','eyes','got','greater','has','rights','seen','things','told','words'],
+  B1:['agriculture','assistance','required','active','travel'],
+  B2:['resilient']
+};
+function pruneStaleMastered(){
+  let changed=false, n=0;
+  for(const lvl in STALE_MASTERED){
+    const drop=new Set(STALE_MASTERED[lvl]);
+    const cur=levelProgress[lvl]?.mastered||[];
+    const kept=cur.filter(w=>!drop.has(w));
+    if(kept.length===cur.length) continue;
+    n+=cur.length-kept.length;
+    levelProgress[lvl]={mastered:kept};
+    if(lvl==='B1'&&cur.includes('travel')){
+      levelProgress.A1=levelProgress.A1||{mastered:[]};
+      if(!levelProgress.A1.mastered.includes('travel')) levelProgress.A1.mastered.push('travel');
+    }
+    changed=true;
+  }
+  if(changed){
+    lsSet('c_level_progress',JSON.stringify(levelProgress));
+    console.log(`pruneStaleMastered: 清掉 ${n} 筆對不上字表的精通紀錄`);
+  }
+  return changed;
+}
+pruneStaleMastered();
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
 let dailyGoal = parseInt(lsGet('c_daily_goal','450'),10)||450;
 let showTranslation = lsGet('c_show_translation','1')==='1';
@@ -997,27 +1035,36 @@ async function getLevelTotal(level){
   }catch{ return 0; }
 }
 
-// 依目前選擇的等級，從 Supabase cefr_words 挑一個還沒精通、且不是上一題的字。
+// 依指定等級，從 Supabase cefr_words 挑一個還沒精通、且不是上一題的字。
 // 一整批（200個）都精通完了就往後翻頁；整個等級都精通完，就允許重複練習（不再排除已精通字）。
-async function pickLevelWord(){
+//
+// level 一定要由呼叫端傳進來，不可以在這裡讀 curLevel：出題全程橫跨數趟網路，
+// 使用者中途切等級會讓「挑字的等級」跟「記錄的等級」對不上（見 startSent() 的 qLevel）。
+async function pickLevelWord(level){
   ensureDailyLevelCount();
-  const mastered=new Set(levelProgress[curLevel]?.mastered||[]);
-  const seenToday=new Set(dailyLevelCount.byLevel?.[curLevel]||[]);
+  /* 精通清單跨等級取聯集，不能只看 level 這一級。
+     精通是記在 levelProgress[題目等級] 底下，用等級當 key；一旦某個字換了等級
+     （2026-08-02 換 Oxford 字表那次就動過一批），舊的精通紀錄留在舊 key，
+     新等級的池子完全看不到它，那個字就會被重複抽出來練。
+     實測 2026-07-22~08-26 有 6 個字因此跨天重複出題（active/agriculture/case/due/old/work）。
+     取聯集之後，不管字表分級以後再怎麼調整都不會再漏。 */
+  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+  const seenToday=new Set(dailyLevelCount.byLevel?.[level]||[]);
   // 先避開今天在這個等級已經練過的單字，避免同一天重複出到同一題
   for(let offset=0; offset<3000; offset+=200){
-    const rows=await sbSelectWords(curLevel,offset);
+    const rows=await sbSelectWords(level,offset);
     if(!rows.length) break;
     const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==lastSentWord && !seenToday.has(r.word));
     if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
   }
   // 今天這個等級的字都出過了才放寬限制，只避開剛剛那一題
   for(let offset=0; offset<3000; offset+=200){
-    const rows=await sbSelectWords(curLevel,offset);
+    const rows=await sbSelectWords(level,offset);
     if(!rows.length) break;
     const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==lastSentWord);
     if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
   }
-  const rows=await sbSelectWords(curLevel,0);
+  const rows=await sbSelectWords(level,0);
   const pool=rows.filter(r=>r.word!==lastSentWord);
   return pool.length?pool[Math.floor(Math.random()*pool.length)]:(rows[0]||null);
 }
@@ -1189,7 +1236,19 @@ function questionIssues(q,word,recentZh){
 async function startSent(){
   document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
-    const picked=await pickLevelWord();
+    /* 出題全程只認這一個等級快照。原本 curLevel 在這個函式裡被讀了三次
+       （挑字、寫進 prompt、寫進 curSentQ.level），中間隔著抓 cefr_words 那一頁
+       加上最多兩次 Claude 出題，好幾秒的窗口；使用者在「Claude 出題中」時
+       按等級鈕，selectLevel() 只改 curLevel 也不會取消進行中的出題，於是
+       「字是從舊等級挑的」卻被記成新等級。
+       後果不只是紀錄難看：精通被寫進 levelProgress[錯的等級]，那個字在它真正
+       的等級池裡就永遠沒被排除，之後還會再被抽到；儀表板的「某級精通 N/總數」
+       分子分母也對不起來；連出題 prompt 裡的「這次的練習等級」都跟挑字的等級不同，
+       題目難度和單字等級因此不匹配。
+       實測 2026-08-04 19:21–19:30 這段就踩到 5 次（old/work/travel 三個 A1 的字
+       被記成 A2/B1）。 */
+    const qLevel=curLevel;
+    const picked=await pickLevelWord(qLevel);
     if(!picked) throw new Error('no word available for level');
     const word=picked.word;
     const pos=picked.pos;
@@ -1198,7 +1257,7 @@ async function startSent(){
     const recentZh=recentZhFor(word);
     const qUserPrompt=(retryNote)=>`目標單字：${word}
 這個單字的詞性：${posLabel(pos)}
-這次的練習等級：${curLevel}
+這次的練習等級：${qLevel}
 ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
 請依照 system prompt 的規則出一題，只輸出規定格式的純 JSON。`;
     const dictP=fetchDict(word);
@@ -1235,7 +1294,7 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
     curSentQ=parsed;
     sentAttempts=[];      // 換新題目，清空同一題的作答歷程（見 sentAttempts 宣告處）
     curSentQ.word=word;   // 不讓模型改動目標單字本身
-    curSentQ.level=curLevel;
+    curSentQ.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
     curSentQ.pos=pos;
     const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
     curSentQ.audioURL=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
@@ -1775,11 +1834,21 @@ ${prevBlock}
       }
       lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));
     }
-    ensureDailyLevelCount();
-    if(!dailyLevelCount.words.includes(curSentQ.word)) dailyLevelCount.words.push(curSentQ.word);
-    if(!dailyLevelCount.byLevel[curSentQ.level]) dailyLevelCount.byLevel[curSentQ.level]=[];
-    if(!dailyLevelCount.byLevel[curSentQ.level].includes(curSentQ.word)) dailyLevelCount.byLevel[curSentQ.level].push(curSentQ.word);
-    lsSet('c_daily_level',JSON.stringify(dailyLevelCount));
+    /* 只有同一題的第一次送出才計入練習量。sentAttempts 在上面剛 push 過，
+       所以 ===1 就是第一次作答，>1 是改寫重送。
+       這一行原本無條件跑，改寫重送照樣 push 一次；同一天內因為 includes() 擋掉
+       所以看不出問題，但只要一題跨過午夜（23:59 送出、00:0x 改寫重送），
+       ensureDailyLevelCount() 已經把 dailyLevelCount 歸零成新的一天，同一個字
+       就在兩天各被記一次相異單字——「今日已練習」多 1，跨日相加也多 1。
+       那跟「練習量＝相異單字，同一個字改寫重送只算一次」的口徑直接牴觸。
+       實測歷史紀錄裡踩到 1 次（behave，2026-08-07 23:59 → 08-08 00:08）。 */
+    if(sentAttempts.length===1){
+      ensureDailyLevelCount();
+      if(!dailyLevelCount.words.includes(curSentQ.word)) dailyLevelCount.words.push(curSentQ.word);
+      if(!dailyLevelCount.byLevel[curSentQ.level]) dailyLevelCount.byLevel[curSentQ.level]=[];
+      if(!dailyLevelCount.byLevel[curSentQ.level].includes(curSentQ.word)) dailyLevelCount.byLevel[curSentQ.level].push(curSentQ.word);
+      lsSet('c_daily_level',JSON.stringify(dailyLevelCount));
+    }
     // 這裡不同步：syncToCloud() 一次上傳全部 key，dailyLevelCount 在下面 saveSentHistory()
     // 的那次呼叫裡照樣會送上去。原本這裡多呼叫一次，兩批 fire-and-forget 請求會重疊，
     // 每個 key 都被寫成兩筆重複 row，而且第一次的 senthist 快照少了正在存的這一題。
