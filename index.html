@@ -7,6 +7,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="超級英語學習平台">
 <meta name="theme-color" content="#0c1712">
+<!-- 每一次出題／批改的第一個請求都要先跟 supabase.co 建 TCP+TLS，實測這一段就要 0.21-1.21 秒
+     （量測 2026-08-26：連線建立 connect=0.21s / tls 到 1.21s，之後同連線的往返只剩 0.33s）。
+     preconnect 讓瀏覽器在還在讀 HTML 時就把連線建好，使用者按「開始練習」時已經是暖連線。
+     dictionaryapi.dev 是出題時平行去抓發音用的，同理。 -->
+<link rel="preconnect" href="https://qkkpjhffwpyyrzrdhxii.supabase.co" crossorigin>
+<link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
 <title>超級英語學習平台</title>
 <style>
 :root{
@@ -596,7 +602,7 @@ function authResetLocalIfNewUser(){
     // c_sent_pushed_ts 一定要一起清：那是「已上傳到 sentence_history 的最大 ts」水位。
     // 沒清的話，新使用者接手這台裝置時會沿用前一個人的水位，自己的紀錄因為 ts 比水位小
     // 而被判定為「已上傳」，於是永遠不會進雲端，而且完全沒有錯誤訊息。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id'].forEach(lsDel);
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id','c_prefetch_q'].forEach(lsDel);
     SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
   }
   lsSet('c_last_uid',uid);
@@ -763,8 +769,26 @@ function boot(){
   document.getElementById('authAccountEmail').textContent=authSession?.user?.email||'–';
   refreshSettingChips();
   switchTab('prac');
+  loadPrefetch();          // 上次沒用完的預抓題目，這次開 App 直接接著用，不重新出題
+  warmUpProxy();
   renderSentHome().catch(e=>console.error('renderSentHome:',e));
+  schedulePrefetchIdle(curLevel);   // 停在同一個等級 2.5 秒才抓，瀏覽等級不會白燒額度
   syncFromCloud();
+}
+
+/* 代理是 Supabase Edge Function，每個 isolate 冷的時候第一個請求要多等一段。
+   實測 2026-08-26：暖連線下「什麼都不做就回 401」的那條路徑要 0.33 秒，
+   而第一次連線（TCP+TLS）另外要 0.21-1.21 秒。開 App 時先送一個不帶 Authorization
+   的請求，代理在讀 body 之前就回 401（不驗證、不計額度、不呼叫上游），
+   把建連跟 isolate 啟動這兩段挪到使用者還在看首頁的時候完成。
+
+   Content-Type 刻意用 text/plain：那是 CORS 的安全清單值，瀏覽器會當成簡單請求直接送出。
+   用 application/json 或 method:'OPTIONS' 都會先觸發一次 preflight，變成兩趟往返才熱得起來。 */
+function warmUpProxy(){
+  const t0=Date.now();
+  fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:'warmup'})
+    .then(()=>console.log(`代理預熱完成，耗時 ${Date.now()-t0} ms`))
+    .catch(()=>{});   // 預熱失敗完全不影響功能，正式呼叫時自己會再建一次連線
 }
 
 /* ── DICTIONARY API（僅供發音查詢使用，沒有獨立字典 UI）── */
@@ -797,10 +821,15 @@ function aiErrorMsg(e,fallback){
 }
 // system 有帶的話走 Anthropic prompt caching：system 內容要在每次呼叫間逐字不變才會命中快取，
 // 呼叫端負責確保 system 字串不含每次呼叫都變動的內容（目標單字/學生答案這類動態值要放 prompt 裡，不要塞進 system）。
-async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001', system=null){
+// onDelta 有帶的話就開串流：每收到一段文字就用「目前累積的完整字串」呼叫一次 onDelta。
+// 為什麼要串流：批改的 JSON 有 400-600 個輸出 token，非串流要等到最後一個 token 生完才回，
+// 使用者盯著白畫面等好幾秒；串流讓第一段修正在一秒多就能顯示出來。體感差距是這次最大的一項。
+// onDelta 只影響「怎麼把結果交出來」，回傳值仍然是完整字串，呼叫端不帶 onDelta 時行為跟以前完全一樣。
+async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-20251001', system=null, onDelta=null){
   const t=await authToken();
   if(!t) throw new AIError('auth','請重新登入');
   const body={provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]};
+  if(onDelta) body.stream=true;
   // ttl:'1h' 而不是預設 5 分鐘：這份 system 是批改規則手冊，寫入成本很低（原價 2 倍 vs 1.25 倍，換算下來差不到 NT$0.3），
   // 但練習中間常常會停超過 5 分鐘（讀回饋、想下一句），拉長到 1 小時可以大幅減少重新寫入的次數。
   if(system) body.system=[{type:'text',text:system,cache_control:{type:'ephemeral',ttl:'1h'}}];
@@ -816,12 +845,97 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
     // 產的文案，標成 upstream 讓前端直接顯示，不要再被通用文案蓋掉
     throw new AIError(r.status===429?'quota':r.status===401?'auth':(r.status===504||r.status===502)?'upstream':'http', msg);
   }
+  // 要求了串流、而且代理真的回串流，才走串流解析。
+  // 這個判斷不能省：代理是分開部署的，前端更新後代理還是舊版的那段時間，舊代理會把 stream:true
+  // 原樣轉給 Anthropic 但用 text() 整包讀完再回，content-type 仍是 application/json——
+  // 那時候要安靜退回非串流路徑，而不是解析失敗變成「批改失敗」。
+  const isSSE=(r.headers.get('content-type')||'').includes('text/event-stream');
+  if(onDelta&&isSSE) return await readClaudeStream(r,maxTokens,onDelta);
   const d=await r.json();
   // stop_reason==='max_tokens' 代表輸出撞到 max_tokens 被硬切斷，內容一定不完整（JSON 會解析失敗）。
   // 這種回應 HTTP 是 200、Anthropic 那邊照樣計費，所以絕不能讓半截字串流到 parseJSON 變成看不出原因的錯誤，
   // 要在這裡就明確拋出，讓上層知道「值得重打一次」。
   if(d.stop_reason==='max_tokens') throw new AIError('truncated',`回應超過 ${maxTokens} tokens 被截斷`);
   return d.content[0].text;
+}
+
+// 讀 Anthropic 的 SSE（messages stream）。只取 content_block_delta 的文字，其餘事件忽略。
+// 錯誤語意刻意跟非串流路徑對齊：撞到 max_tokens 一樣丟 'truncated'，上層的重試邏輯不用改。
+async function readClaudeStream(r,maxTokens,onDelta){
+  const reader=r.body.getReader();
+  const dec=new TextDecoder();
+  let buf='',text='',stopReason=null,streamErr=null;
+  // onDelta 直接接到畫面更新，每個 token 都重畫一次會把主執行緒吃光（實測手機上很明顯）。
+  // 節流成最多每 80ms 一次：肉眼看起來仍然是連續浮現，但重畫次數少一個數量級。
+  let lastEmit=0;
+  const emit=(force)=>{
+    const now=Date.now();
+    if(!force&&now-lastEmit<80) return;
+    lastEmit=now;
+    try{ onDelta(text); }catch(e){ console.error('onDelta:',e); }
+  };
+  for(;;){
+    const {done,value}=await reader.read();
+    if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    // SSE 以空行分隔事件；最後一段可能只收到一半，留在 buf 等下一輪
+    const parts=buf.split('\n\n');
+    buf=parts.pop();
+    for(const part of parts){
+      for(const line of part.split('\n')){
+        if(!line.startsWith('data:')) continue;
+        const raw=line.slice(5).trim();
+        if(!raw||raw==='[DONE]') continue;
+        let ev; try{ ev=JSON.parse(raw); }catch{ continue; }
+        if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta'){ text+=ev.delta.text; emit(false); }
+        else if(ev.type==='message_delta'&&ev.delta?.stop_reason) stopReason=ev.delta.stop_reason;
+        // 串流中途上游出錯時，HTTP 早就已經是 200 了，錯誤只會以事件的形式出現在流裡面。
+        // 不接住的話使用者只會拿到一個解析失敗的半截 JSON，看不出真正原因。
+        else if(ev.type==='error') streamErr=ev.error?.message||'AI 服務串流中斷';
+      }
+    }
+  }
+  emit(true);
+  if(streamErr) throw new AIError('http',streamErr);
+  if(stopReason==='max_tokens') throw new AIError('truncated',`回應超過 ${maxTokens} tokens 被截斷`);
+  if(!text) throw new AIError('http','AI 沒有回傳任何內容');
+  return text;
+}
+
+/* 把「還沒生成完」的 JSON 盡量解析成物件，給串流過程中的漸進顯示用。
+   做法是把未閉合的字串／陣列／物件補上結尾再交給 JSON.parse：
+   - 在字串中間被切斷 → 補一個雙引號（如果剛好斷在跳脫字元後面，先把那個反斜線去掉）
+   - 尾巴是 , 或 : 這種不完整的鍵值 → 砍掉
+   - 剩下沒關的 { [ → 依堆疊補回 } ]
+   解析不出來就回 null，呼叫端當作「這一刻還沒有可顯示的內容」。
+   這只用於顯示途中的畫面，最終仍然是用 parseJSON 解析完整回應，不會把半截資料存進歷史。 */
+function parsePartialJSON(txt){
+  let s=String(txt||'').replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim();
+  if(!s) return null;
+  try{ return JSON.parse(s); }catch{}
+  const stack=[]; let inStr=false,esc=false;
+  for(let i=0;i<s.length;i++){
+    const c=s[i];
+    if(inStr){
+      if(esc) esc=false;
+      else if(c==='\\') esc=true;
+      else if(c==='"') inStr=false;
+      continue;
+    }
+    if(c==='"') inStr=true;
+    else if(c==='{'||c==='[') stack.push(c);
+    else if(c==='}'||c===']') stack.pop();
+  }
+  let out=s;
+  if(inStr){
+    if(esc) out=out.slice(0,-1);   // 斷在反斜線後面，補引號會變成跳脫掉引號本身
+    out+='"';
+  }
+  out=out.replace(/[,:]\s*$/,'');   // 尾巴是「等著填值」的逗號或冒號，砍掉
+  // 「"key" 已經寫完但值還沒開始」也是不完整的，一起砍掉
+  out=out.replace(/,\s*"[^"]*"\s*$/,'').replace(/\{\s*"[^"]*"\s*$/,'{');
+  for(let i=stack.length-1;i>=0;i--) out+=(stack[i]==='{'?'}':']');
+  try{ return JSON.parse(out); }catch{ return null; }
 }
 
 /* ── ICONS（細線條 SVG，取代 emoji）── */
@@ -1016,11 +1130,29 @@ function ensureDailyLevelCount(){
   else if(!dailyLevelCount.byLevel){ dailyLevelCount.byLevel={}; }
 }
 
+/* cefr_words 的分頁結果快取在本機。
+   實測 2026-08-26：這一頁（200 筆、7.2 KB）暖連線要 0.35-0.40 秒，冷連線 1.75 秒，
+   而且每一次出題都要打一次——它是「Claude 出題中」那個轉圈開始之前就已經花掉的時間。
+   字表是靜態資料（上一次變動是 2026-08-02 換 Oxford 字表），快取 7 天完全夠用，
+   真的換表時把 WORDS_CACHE_VER 加一就整批失效。
+   刻意存在 localStorage 而不是只放記憶體：這樣「開 App 後的第一題」也是零往返，
+   而那正是最慢的一次（要付冷連線的 1.75 秒）。 */
+const WORDS_CACHE_VER=1;
+const WORDS_CACHE_TTL=7*86400000;
 async function sbSelectWords(level,offset){
+  const ck=`c_words_v${WORDS_CACHE_VER}_${level}_${offset}`;
+  try{
+    const hit=JSON.parse(lsGet(ck,'null'));
+    if(hit&&Date.now()-hit.ts<WORDS_CACHE_TTL&&Array.isArray(hit.rows)) return hit.rows;
+  }catch{}
   try{
     const r=await fetch(`${SB_URL}/rest/v1/cefr_words?level=eq.${level}&select=word,pos&order=frequency.desc&limit=200&offset=${offset}`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
     if(!r.ok) return [];
-    return await r.json(); // [{word,pos}, ...]
+    const rows=await r.json(); // [{word,pos}, ...]
+    // 空陣列不要快取：那代表「這一頁沒有資料」或這次查詢出了問題，
+    // 存起來會讓 pickLevelWord 的翻頁迴圈在接下來 7 天都提早結束。
+    if(rows.length) lsSet(ck,JSON.stringify({ts:Date.now(),rows}));
+    return rows;
   }catch{ return []; }
 }
 
@@ -1040,8 +1172,12 @@ async function getLevelTotal(level){
 //
 // level 一定要由呼叫端傳進來，不可以在這裡讀 curLevel：出題全程橫跨數趟網路，
 // 使用者中途切等級會讓「挑字的等級」跟「記錄的等級」對不上（見 startSent() 的 qLevel）。
-async function pickLevelWord(level){
+async function pickLevelWord(level,avoidWord){
   ensureDailyLevelCount();
+  // avoidWord 由呼叫端傳入而不是在這裡讀 lastSentWord：背景預抓下一題時，「要避開的字」
+  // 是使用者正在作答的那一題，而那時候 lastSentWord 正好就是它——但把來源寫死在這裡的話，
+  // 預抓與正常出題的相對順序一旦改變就會靜靜地抽到重複的字。讓呼叫端明講。
+  if(avoidWord===undefined) avoidWord=lastSentWord;
   /* 精通清單跨等級取聯集，不能只看 level 這一級。
      精通是記在 levelProgress[題目等級] 底下，用等級當 key；一旦某個字換了等級
      （2026-08-02 換 Oxford 字表那次就動過一批），舊的精通紀錄留在舊 key，
@@ -1054,18 +1190,18 @@ async function pickLevelWord(level){
   for(let offset=0; offset<3000; offset+=200){
     const rows=await sbSelectWords(level,offset);
     if(!rows.length) break;
-    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==lastSentWord && !seenToday.has(r.word));
+    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==avoidWord && !seenToday.has(r.word));
     if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
   }
   // 今天這個等級的字都出過了才放寬限制，只避開剛剛那一題
   for(let offset=0; offset<3000; offset+=200){
     const rows=await sbSelectWords(level,offset);
     if(!rows.length) break;
-    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==lastSentWord);
+    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==avoidWord);
     if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
   }
   const rows=await sbSelectWords(level,0);
-  const pool=rows.filter(r=>r.word!==lastSentWord);
+  const pool=rows.filter(r=>r.word!==avoidWord);
   return pool.length?pool[Math.floor(Math.random()*pool.length)]:(rows[0]||null);
 }
 
@@ -1073,6 +1209,8 @@ function selectLevel(level){
   curLevel=level;
   lsSet('c_cur_level',level);
   renderSentHome();
+  // 使用者停在這個等級 2.5 秒才預抓；連按幾個等級瀏覽時，只有最後停住的那個會抓
+  schedulePrefetchIdle(level);
 }
 
 async function levelBarHTML(){
@@ -1233,77 +1371,166 @@ function questionIssues(q,word,recentZh){
   return issues;
 }
 
-async function startSent(){
-  document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+/* ── 預先出下一題 ──────────────────────────────────────────────
+   這是這次延遲優化裡最大的一項。出題的時間結構是固定的：挑字往返 + 代理往返 +
+   驗證往返 + Anthropic 生成，實測光是 Anthropic 開始生成之前就要 1.3-1.6 秒
+   （冷連線 3 秒以上）。這些時間本身很難再壓，但它們完全不必發生在使用者按下
+   「下一題」之後——使用者盯著題目想怎麼翻譯的那 30 秒到 2 分鐘，整條連線是閒著的。
+   所以改成：題目一顯示出來就在背景把下一題準備好，按「下一題」時直接拿現成的。
+
+   額度（每天 100 次）刻意不會因此變多：
+   - 一個等級同時只留一題存貨，不會重複預抓。
+   - 沒用到的存貨寫進 localStorage，下次開 App 還是這一題，不是丟掉重出。
+   - 存貨依等級分開存，切等級不會把另一個等級的存貨浪費掉。
+   真正會浪費的只剩「預抓完就再也不練這個等級了」，而那一題也還留在本機等著被用。 */
+const PREFETCH_VER=1;
+const PREFETCH_TTL=7*86400000;   // 存太久的題目先丟掉，避免用到字表更新前的舊字
+let prefetchQ={};                 // { 等級: 題目物件 } 現成存貨
+let prefetchInflight={};          // { 等級: Promise } 正在背景出的題
+let prefetchOff=false;            // 額度用完/登入過期就停掉預抓，不要一直白打
+
+function loadPrefetch(){
   try{
-    /* 出題全程只認這一個等級快照。原本 curLevel 在這個函式裡被讀了三次
-       （挑字、寫進 prompt、寫進 curSentQ.level），中間隔著抓 cefr_words 那一頁
-       加上最多兩次 Claude 出題，好幾秒的窗口；使用者在「Claude 出題中」時
-       按等級鈕，selectLevel() 只改 curLevel 也不會取消進行中的出題，於是
-       「字是從舊等級挑的」卻被記成新等級。
-       後果不只是紀錄難看：精通被寫進 levelProgress[錯的等級]，那個字在它真正
-       的等級池裡就永遠沒被排除，之後還會再被抽到；儀表板的「某級精通 N/總數」
-       分子分母也對不起來；連出題 prompt 裡的「這次的練習等級」都跟挑字的等級不同，
-       題目難度和單字等級因此不匹配。
-       實測 2026-08-04 19:21–19:30 這段就踩到 5 次（old/work/travel 三個 A1 的字
-       被記成 A2/B1）。 */
-    const qLevel=curLevel;
-    const picked=await pickLevelWord(qLevel);
-    if(!picked) throw new Error('no word available for level');
-    const word=picked.word;
-    const pos=picked.pos;
-    // 之前出過的同一個單字的中文句子，用來擋重複。通常是空陣列（實測 1.18 次/字），
-    // 所以放進 user 訊息幾乎不花 token，卻能在重出時直接告訴模型要避開哪幾句。
-    const recentZh=recentZhFor(word);
-    const qUserPrompt=(retryNote)=>`目標單字：${word}
+    const d=JSON.parse(lsGet('c_prefetch_q','null'));
+    if(!d||d.ver!==PREFETCH_VER) return;
+    for(const [lv,item] of Object.entries(d.items||{})){
+      if(item&&item.q&&Date.now()-item.ts<PREFETCH_TTL) prefetchQ[lv]=item.q;
+    }
+  }catch{}
+}
+function savePrefetch(){
+  const items={};
+  for(const [lv,q] of Object.entries(prefetchQ)) if(q) items[lv]={q,ts:Date.now()};
+  lsSet('c_prefetch_q',JSON.stringify({ver:PREFETCH_VER,items}));
+}
+// 背景預抓一題。已經有存貨或正在抓就什麼都不做——這是「不會多花額度」的保證所在。
+function schedulePrefetch(level){
+  if(prefetchOff||!level||prefetchQ[level]||prefetchInflight[level]) return;
+  const t0=Date.now();
+  prefetchInflight[level]=buildQuestion(level)
+    .then(q=>{
+      prefetchQ[level]=q; savePrefetch();
+      console.log(`預抓下一題完成（${level} / ${q.word}），耗時 ${Date.now()-t0} ms`);
+    })
+    .catch(e=>{
+      // 預抓失敗完全不打擾使用者：真正按「下一題」時會重新出題，錯誤在那時才顯示。
+      if(e?.code==='quota'||e?.code==='auth'){ prefetchOff=true; }
+      console.log('預抓下一題失敗（不影響操作）:',e?.code||'',e?.message||e);
+    })
+    .finally(()=>{ delete prefetchInflight[level]; });
+}
+// 切等級時的預抓：selectLevel() 會呼叫 renderSentHome()，如果在那裡直接預抓，
+// 使用者按過 A1→A2→B1 瀏覽一輪就白燒三次額度。延遲 2.5 秒、且只認最後停留的等級。
+let prefetchDebounce=null;
+function schedulePrefetchIdle(level){
+  clearTimeout(prefetchDebounce);
+  prefetchDebounce=setTimeout(()=>{ if(curLevel===level) schedulePrefetch(level); },2500);
+}
+
+/* 出一題（挑字 + Claude 出題 + 檢查 + 抓發音），回傳準備好的題目物件。
+   刻意不碰任何畫面、也不碰 curSentQ/lastSentWord 這些全域狀態——因為它同時被
+   「使用者正在等」跟「背景預抓」兩條路徑呼叫，背景那條絕不能動到目前這一題的狀態。
+   avoidWord 預設是 lastSentWord（剛出過的那題），預抓時就是使用者正在作答的那個字。 */
+async function buildQuestion(qLevel,avoidWord){
+  const t0=Date.now();
+  const picked=await pickLevelWord(qLevel,avoidWord===undefined?lastSentWord:avoidWord);
+  if(!picked) throw new Error('no word available for level');
+  const word=picked.word;
+  const pos=picked.pos;
+  const tPick=Date.now();
+  // 之前出過的同一個單字的中文句子，用來擋重複。通常是空陣列（實測 1.18 次/字），
+  // 所以放進 user 訊息幾乎不花 token，卻能在重出時直接告訴模型要避開哪幾句。
+  const recentZh=recentZhFor(word);
+  const qUserPrompt=(retryNote)=>`目標單字：${word}
 這個單字的詞性：${posLabel(pos)}
 這次的練習等級：${qLevel}
 ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
 請依照 system prompt 的規則出一題，只輸出規定格式的純 JSON。`;
-    const dictP=fetchDict(word);
-    /* 原本是 `parsed=cand` 寫在檢查之前——兩次都不合格時，最後一個候選照樣被拿去出題。
-       questionIssues() 當下就知道「自然英譯裡沒有目標單字」，然後還是出給使用者，
-       這是 danger／economy／continuous／birth 那幾筆回報的直接來源。
-       改成合格的才進 parsed；都不合格就用 fallback，但標記起來讓使用者知道可以跳過。
-       重試次數維持 2 次（不加成本）——要不要加第三次或換單字，等下面記錄的失敗率出來再決定。 */
-    let parsed=null,fallback=null,lastQErr=null,issues=[],usedAttempt=0;
-    for(let attempt=1;attempt<=2;attempt++){
-      try{
-        const txt=await callClaude(qUserPrompt(attempt>1?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
-        const cand=parseJSON(txt);
-        issues=questionIssues(cand,word,recentZh);
-        fallback=fallback||cand;
-        if(issues.length===0){ parsed=cand; usedAttempt=attempt; break; }
-        console.log('questionIssues:',issues.join('；'));
-      }catch(e){
-        lastQErr=e;
-        // 比照 submitSent：額度用完/登入過期/上游逾時重打只是再失敗一次，直接讓外層顯示訊息
-        if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e;
-      }
+  const dictP=fetchDict(word);
+  /* 原本是 `parsed=cand` 寫在檢查之前——兩次都不合格時，最後一個候選照樣被拿去出題。
+     questionIssues() 當下就知道「自然英譯裡沒有目標單字」，然後還是出給使用者，
+     這是 danger／economy／continuous／birth 那幾筆回報的直接來源。
+     改成合格的才進 parsed；都不合格就用 fallback，但標記起來讓使用者知道可以跳過。
+     重試次數維持 2 次（不加成本）——要不要加第三次或換單字，等下面記錄的失敗率出來再決定。 */
+  let parsed=null,fallback=null,lastQErr=null,issues=[],usedAttempt=0;
+  for(let attempt=1;attempt<=2;attempt++){
+    try{
+      const txt=await callClaude(qUserPrompt(attempt>1?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
+      const cand=parseJSON(txt);
+      issues=questionIssues(cand,word,recentZh);
+      fallback=fallback||cand;
+      if(issues.length===0){ parsed=cand; usedAttempt=attempt; break; }
+      console.log('questionIssues:',issues.join('；'));
+    }catch(e){
+      lastQErr=e;
+      // 比照 submitSent：額度用完/登入過期/上游逾時重打只是再失敗一次，直接讓外層顯示訊息
+      if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e;
     }
-    const qUnverified=!parsed&&!!fallback;
-    if(qUnverified){
-      parsed=fallback;
-      console.warn('出題兩次都沒通過檢查，硬出：',word,issues.join('；'));
+  }
+  const qUnverified=!parsed&&!!fallback;
+  if(qUnverified){
+    parsed=fallback;
+    console.warn('出題兩次都沒通過檢查，硬出：',word,issues.join('；'));
+  }
+  if(!parsed) throw lastQErr||new AIError('http','出題失敗');
+  parsed.qUnverified=qUnverified;
+  parsed.qIssues=qUnverified?issues.join('；'):'';
+  parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
+  const dict=await dictP;
+  parsed.word=word;      // 不讓模型改動目標單字本身
+  parsed.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
+  parsed.pos=pos;
+  const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
+  parsed.audioURL=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
+  console.log(`出題耗時：挑字 ${tPick-t0} ms + Claude ${Date.now()-tPick} ms = ${Date.now()-t0} ms`);
+  return parsed;
+}
+
+async function startSent(){
+  /* 出題全程只認這一個等級快照。原本 curLevel 在這個函式裡被讀了三次
+     （挑字、寫進 prompt、寫進 curSentQ.level），中間隔著抓 cefr_words 那一頁
+     加上最多兩次 Claude 出題，好幾秒的窗口；使用者在「Claude 出題中」時
+     按等級鈕，selectLevel() 只改 curLevel 也不會取消進行中的出題，於是
+     「字是從舊等級挑的」卻被記成新等級。
+     後果不只是紀錄難看：精通被寫進 levelProgress[錯的等級]，那個字在它真正
+     的等級池裡就永遠沒被排除，之後還會再被抽到；儀表板的「某級精通 N/總數」
+     分子分母也對不起來；連出題 prompt 裡的「這次的練習等級」都跟挑字的等級不同，
+     題目難度和單字等級因此不匹配。
+     實測 2026-08-04 19:21–19:30 這段就踩到 5 次（old/work/travel 三個 A1 的字
+     被記成 A2/B1）。 */
+  const qLevel=curLevel;
+  // 有現成存貨就直接用，一次網路往返都不用等——正常練習流程下這是最常走的一條路。
+  const ready=prefetchQ[qLevel];
+  if(ready){
+    delete prefetchQ[qLevel]; savePrefetch();
+    console.log('用預抓好的題目，零等待：',ready.word);
+    useQuestion(ready);
+    return;
+  }
+  document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  try{
+    // 背景正在抓同一個等級的題目時，等它就好，不要再開一次（那會白花一次額度、也不會更快）
+    let q;
+    if(prefetchInflight[qLevel]){
+      await prefetchInflight[qLevel];
+      q=prefetchQ[qLevel];
+      if(q){ delete prefetchQ[qLevel]; savePrefetch(); }
     }
-    if(!parsed) throw lastQErr||new AIError('http','出題失敗');
-    parsed.qUnverified=qUnverified;
-    parsed.qIssues=qUnverified?issues.join('；'):'';
-    parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
-    const dict=await dictP;
-    curSentQ=parsed;
-    sentAttempts=[];      // 換新題目，清空同一題的作答歷程（見 sentAttempts 宣告處）
-    curSentQ.word=word;   // 不讓模型改動目標單字本身
-    curSentQ.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
-    curSentQ.pos=pos;
-    const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
-    curSentQ.audioURL=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
-    lastSentWord=curSentQ.word;
-    renderSentQ();
+    if(!q) q=await buildQuestion(qLevel);
+    useQuestion(q);
   }catch(e){
     console.error('startSent 失敗:',e?.code||'(no code)',e);
     document.getElementById('pracBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'出題失敗，請重試')}</div><button class="prac-submit" onclick="startSent()" style="margin-top:12px">重試</button>`;
   }
+}
+
+// 把一份準備好的題目切換成「現在這一題」並畫出來。全域狀態的改動集中在這裡，
+// 才不會跟背景預抓那條路徑交錯（buildQuestion 完全不碰這些變數）。
+function useQuestion(q){
+  curSentQ=q;
+  sentAttempts=[];      // 換新題目，清空同一題的作答歷程（見 sentAttempts 宣告處）
+  lastSentWord=curSentQ.word;
+  renderSentQ();
 }
 
 async function renderSentQ(){
@@ -1327,6 +1554,11 @@ async function renderSentQ(){
   </div>
   <textarea class="prac-inp" id="sentInp" placeholder="用英文寫出你的翻譯..." onkeydown="submitOnCmdEnter(event,submitSent)"></textarea>
   <button class="prac-submit" id="sentBtn" onclick="submitSent()">提交答案 →</button>`;
+  /* 題目畫出來了，接下來使用者要花 30 秒到 2 分鐘想怎麼翻譯，這段時間連線完全閒著——
+     拿來把下一題先出好。延後 600ms 是為了不跟這次的畫面繪製搶主執行緒（手機上看得出差別）。
+     用 curSentQ.level 而不是 curLevel：要預抓的是「跟現在這題同一級」的下一題。 */
+  const lv=curSentQ.level;
+  setTimeout(()=>{ if(curSentQ&&curSentQ.level===lv) schedulePrefetch(lv); },600);
 }
 
 // 衍生字尾：接上去會換掉詞性（danger→dangerous、continuous→continuously、economy→economic）。
@@ -1393,9 +1625,11 @@ function missingTargetWordFields(r,word){
 
    corrected_sentence（4.3%）刻意不補寫：它跟 corrections[] 有一致性關聯，
    單獨重寫會讓「訂正後的句子」對不上前面列出的每一條修正，反而製造新的矛盾。 */
+// 回傳真的補寫成功的欄位名稱陣列（沒有要補、或補寫失敗都回空陣列），
+// 讓呼叫端知道要不要把畫面上那一格換掉。
 async function rewriteMissingExamples(r,word){
   const miss=missingTargetWordFields(r,word).filter(f=>f==='b2_example'||f==='c1_example');
-  if(!miss.length) return;
+  if(!miss.length) return [];
   const label={b2_example:'B2 等級的示範句',c1_example:'C1 等級的示範句'};
   const prompt=`目標單字：${word}
 
@@ -1407,13 +1641,23 @@ ${miss.map(f=>`${f}（${label[f]}）目前是：「${r[f]}」`).join('\n')}
 
 只輸出純 JSON，不要加 markdown、不要加說明：
 {${miss.map(f=>`"${f}":"重寫後的句子"`).join(',')}}`;
+  const applied=[];
   try{
     const fixed=parseJSON(await callClaude(prompt,300,'claude-haiku-4-5-20251001'));
     for(const f of miss){
       // 只在補寫真的合格時才採用；補寫失敗就維持原樣，不會比現在更差
-      if(fixed?.[f]&&hasTargetWord(fixed[f],word)) r[f]=fixed[f];
+      if(fixed?.[f]&&hasTargetWord(fixed[f],word)){ r[f]=fixed[f]; applied.push(f); }
     }
   }catch(e){ console.log('rewriteMissingExamples:',e); }  // 失敗不影響批改本身
+  return applied;
+}
+
+// 把補寫好的示範句換到已經畫出來的結果畫面上。找不到那一格（使用者已經切走、
+// 或該等級的顯示偏好本來就沒顯示這一句）就安靜跳過。
+function patchExampleInDOM(field,text){
+  const el=document.getElementById(field==='b2_example'?'b2ExampleText':'c1ExampleText');
+  if(!el||!text) return;
+  el.innerHTML=linkifyWords(text);
 }
 
 function normLoose(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').trim().replace(/\s+/g,' '); }
@@ -1641,6 +1885,12 @@ async function submitSent(){
   if(!ans){toast('請先寫出翻譯');return;}
   const btn=document.getElementById('sentBtn');
   btn.disabled=true;btn.textContent='Claude 批改中...';
+  /* 整個批改流程只認這一份題目快照，中途一律不再讀 curSentQ。
+     理由跟 startSent() 的 qLevel 是同一類：批改橫跨好幾趟網路，而「下一題」在加入
+     預抓之後變成瞬間完成——使用者在批改結果出來後馬上按下一題，curSentQ 立刻被換掉，
+     後面的 saveSentHistory()／精通判定／今日練習量就會全部記到新題目的單字上。
+     以前每次出題要等好幾秒，這個窗口小到踩不到；預抓把它變成一按就中。 */
+  const q0=curSentQ;
   try{
     // gradeSystemPrompt 逐字不含目標單字/學生答案/中文原句這些每次呼叫都會變的值，
     // 才能被 Anthropic prompt caching 命中（system 內容要跟上次呼叫逐字相同）；這些動態值全部放進 gradeUserPrompt。
@@ -1783,20 +2033,28 @@ grammar_accuracy 跟 chinglish_percent 這兩個欄位的值要輸出純數字�
        但 fix 寫「focuses on」把它變成動詞，等於叫學生別練這題要練的東西。
        system prompt 的自我檢查第 (7) 條會用到這個值，沒帶就是一條不可執行的規則。
        約 5 個 token，而且是動態值、放 user 訊息不影響 system 的快取。 */
-    const gradeUserPrompt=`中文原句：「${curSentQ.zh_sentence}」
-目標單字：${curSentQ.word}
-${curSentQ.pos?`這個單字在這題指定的詞性：${posLabel(curSentQ.pos)}\n`:''}${curSentQ.hint?`出題時給學生的提示：「${curSentQ.hint}」\n`:''}學生答案：「${ans}」
+    const gradeUserPrompt=`中文原句：「${q0.zh_sentence}」
+目標單字：${q0.word}
+${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}${q0.hint?`出題時給學生的提示：「${q0.hint}」\n`:''}學生答案：「${ans}」
 ${prevBlock}
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
     // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
     // precision_note/b2_example/c1_example/tip，繁中約 1.5-2 token/字，錯誤抓多一點就會超過 750 被截斷。
     // parseJSON 放進 try 裡面：截斷跟解析失敗才是最該重打的情況，原本寫在迴圈裡卻會直接 throw 出去，等於完全沒重試到。
     let r=null,lastErr=null;
+    const tGrade=Date.now();
     for(let attempt=0;attempt<2;attempt++){
       try{
-        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',gradeSystemPrompt);
+        /* 開串流並逐步顯示。這份 JSON 有 400-600 個輸出 token，非串流時使用者要等到
+           最後一個 token 生完才看得到任何東西；而 system prompt 規定的欄位順序是
+           「先寫證據（corrections / chinglish_issues）、最後才給分數跟講評」，
+           剛好最有價值的內容最早生成——實測（parsePartialJSON 逐字元回放）第一條
+           完整修正在整份輸出的 8% 位置就能顯示出來。
+           只有第一次嘗試需要逐步顯示；重打那次畫面上已經有東西了，安靜換掉就好。 */
+        const onDelta=attempt===0?renderGradingProgress:null;
+        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',gradeSystemPrompt,onDelta);
         r=parseJSON(txt);
-        if(gradeResultIssues(r,ans,curSentQ.word).length===0) break;
+        if(gradeResultIssues(r,ans,q0.word).length===0) break;
       }catch(e){
         lastErr=e;
         // 額度用完、登入過期、上游連不上／逾時，重打只是再等一輪然後再失敗一次，
@@ -1805,19 +2063,19 @@ ${prevBlock}
       }
     }
     if(!r) throw lastErr||new AIError('http','批改失敗');
-    await rewriteMissingExamples(r,curSentQ.word);
+    console.log(`批改耗時 ${Date.now()-tGrade} ms`);
     // 就地清掉不影響分數的壞欄位、夾正沒有依據的 chinglish_percent。
     // 一定要在 mastered 之前跑：夾值會影響下面的精通判定。
-    sanitizeGradeResult(r,ans,curSentQ.word);
+    sanitizeGradeResult(r,ans,q0.word);
     // 記進同一題的作答歷程，供下一次重寫時帶給批改端擋住前後矛盾。
     // 放在 sanitize 之後：要記的是「真的顯示給學生看的那些修正」，被就地清掉的不算。
     sentAttempts.push({userAns:ans,corrections:(r.corrections||[]).filter(c=>c.error&&c.fix)});
     // questionFlawed：目標單字塞不進這個情境，整題的判定都不可信——精通、文法統計、
     // 中式英文統計全部跳過。你這一題還是看得到逐項修正，只是不會被它扣到分。
-    const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(curSentQ.level)&&r.chinglish_percent<=30;
+    const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(q0.level)&&r.chinglish_percent<=30;
     if(mastered){
-      if(!levelProgress[curSentQ.level]) levelProgress[curSentQ.level]={mastered:[]};
-      if(!levelProgress[curSentQ.level].mastered.includes(curSentQ.word)) levelProgress[curSentQ.level].mastered.push(curSentQ.word);
+      if(!levelProgress[q0.level]) levelProgress[q0.level]={mastered:[]};
+      if(!levelProgress[q0.level].mastered.includes(q0.word)) levelProgress[q0.level].mastered.push(q0.word);
       lsSet('c_level_progress',JSON.stringify(levelProgress));
     }
     if(r.corrections?.length&&!r.questionFlawed){
@@ -1844,9 +2102,9 @@ ${prevBlock}
        實測歷史紀錄裡踩到 1 次（behave，2026-08-07 23:59 → 08-08 00:08）。 */
     if(sentAttempts.length===1){
       ensureDailyLevelCount();
-      if(!dailyLevelCount.words.includes(curSentQ.word)) dailyLevelCount.words.push(curSentQ.word);
-      if(!dailyLevelCount.byLevel[curSentQ.level]) dailyLevelCount.byLevel[curSentQ.level]=[];
-      if(!dailyLevelCount.byLevel[curSentQ.level].includes(curSentQ.word)) dailyLevelCount.byLevel[curSentQ.level].push(curSentQ.word);
+      if(!dailyLevelCount.words.includes(q0.word)) dailyLevelCount.words.push(q0.word);
+      if(!dailyLevelCount.byLevel[q0.level]) dailyLevelCount.byLevel[q0.level]=[];
+      if(!dailyLevelCount.byLevel[q0.level].includes(q0.word)) dailyLevelCount.byLevel[q0.level].push(q0.word);
       lsSet('c_daily_level',JSON.stringify(dailyLevelCount));
     }
     // 這裡不同步：syncToCloud() 一次上傳全部 key，dailyLevelCount 在下面 saveSentHistory()
@@ -1859,14 +2117,88 @@ ${prevBlock}
     // 順序仍然是先 render 再 save，不能對調：priorFragmentHits() 依賴「當下這筆還沒進
     // SENT_HISTORY」才不會比對到自己（見該函式上方註解）。
     let renderFailed=false;
-    try{ await renderSentResult(ans,r); }
+    try{ await renderSentResult(ans,r,q0); }
     catch(e){ renderFailed=true; console.error('renderSentResult:',e); }
-    saveSentHistory(ans,r);
+    /* 範例句補寫移出使用者的等待。它原本 await 在 render 之前，也就是每一次需要補寫的
+       批改（實測 b2 4.4% + c1 13.4%）都要在轉圈畫面上多等一整趟 Claude 呼叫，
+       但批改結果其實早就全部到齊了，缺的只是那一兩句示範句。
+       現在先把完整結果畫出來，補寫回來再就地換掉那一格。
+       存檔仍然排在補寫之後：這樣存進歷史的永遠是補寫後的版本，不會出現
+       「本機顯示的是補好的、雲端存的是沒補的」這種兩邊對不起來的狀況——
+       而且時間點跟改動前一樣（改動前也是補寫完才存），沒有變晚。 */
+    const fixed=await rewriteMissingExamples(r,q0.word);
+    if(fixed&&fixed.length&&curSentQ===q0) for(const f of fixed) patchExampleInDOM(f,r[f]);
+    saveSentHistory(ans,r,q0);
     if(renderFailed) toast('已儲存這題的批改結果，但畫面顯示失敗');
   }catch(e){
     btn.disabled=false;btn.textContent='提交答案 →';
+    // 串流途中失敗時，畫到一半的漸進顯示要收掉——留著會是一個永遠停在「批改中…」
+    // 的半截結果，而按鈕已經恢復成可按，兩邊講的事情互相矛盾。
+    document.getElementById('gradeLive')?.remove();
     toast(aiErrorMsg(e,'批改失敗，請重試'));
   }
+}
+
+/* ── 批改串流中的漸進顯示 ──────────────────────────────────
+   批改的 JSON 是邊生成邊送回來的，這裡把「目前收到多少」即時畫出來。
+   為什麼值得做：system prompt 規定的欄位順序是「先寫證據、最後才給分數跟講評」，
+   所以最有價值的逐項修正是最早生成的那一段——實測把一份典型輸出逐字元回放，
+   第一條完整的修正在整份輸出的 8% 位置就湊齊了。使用者不必等整份生完才看到東西。
+
+   這裡刻意畫一個獨立的輕量視圖，而不是重跑 sentResultHTML()：
+   後者要算精通、查歷史重複、設 curResultCtx，用半截資料跑會得到錯的結論，
+   而且每個 token 重畫一次那些邏輯太重。串流結束後照樣由 renderSentResult()
+   畫出正式的完整結果，兩者不會互相干擾。 */
+function escHTML(s){
+  return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function renderGradingProgress(sofar){
+  const r=parsePartialJSON(sofar);
+  if(!r) return;
+  let box=document.getElementById('gradeLive');
+  if(!box){
+    const btn=document.getElementById('sentBtn');
+    if(!btn||!btn.parentNode) return;   // 使用者已經切走，沒有地方可畫
+    box=document.createElement('div');
+    box.id='gradeLive';
+    btn.parentNode.insertBefore(box,btn.nextSibling);
+  }
+  const parts=[];
+  // 只畫已經寫完 fix 的那幾條：正在生成中的最後一條會缺欄位，畫出來只會閃一下又變樣
+  const corr=(r.corrections||[]).filter(c=>c&&c.error&&c.fix);
+  if(corr.length){
+    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">${ic('search',14)} 錯誤修正</div>`);
+    for(const c of corr) parts.push(`<div class="corr-item">
+      <div class="corr-err">✗ ${escHTML(c.error)}</div>
+      <div class="corr-fix">✓ ${escHTML(c.fix)}</div>
+      ${c.why?`<div class="corr-why">${escHTML(c.why)}</div>`:''}
+    </div>`);
+  }
+  const ching=(r.chinglish_issues||[]).filter(c=>c&&c.phrase&&c.natural);
+  if(ching.length){
+    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">🀄 中式英文類型</div>`);
+    for(const c of ching) parts.push(`<div class="corr-item">
+      <div class="corr-err">✗ ${escHTML(c.phrase)}</div>
+      <div class="corr-fix">✓ ${escHTML(c.natural)}</div>
+      ${c.why?`<div class="corr-why">${escHTML(c.why)}</div>`:''}
+    </div>`);
+  }
+  // corrections 是空陣列且後面的欄位已經開始生成，才敢說「沒有錯誤」——
+  // 只憑「目前還沒有任何 corrections」會在剛開始串流時誤報一次沒錯誤。
+  if(!corr.length&&Array.isArray(r.corrections)&&('chinglish_issues' in r)){
+    parts.push(`<div style="color:var(--good);font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`);
+  }
+  if(r.corrected_sentence) parts.push(`<div class="model-box" style="margin-top:12px">
+    <div class="model-lbl">修正版（基於你的句子）</div>
+    <div class="model-t">${escHTML(r.corrected_sentence)}</div>
+  </div>`);
+  if(!parts.length) return;   // 還沒有任何完整內容，繼續維持按鈕上的「批改中」就好
+  box.innerHTML=`<div class="prac-card" style="margin-top:12px">
+    <div class="card-lbl" style="display:flex;align-items:center;gap:8px">
+      <span class="spin" style="width:13px;height:13px;border-width:2px;margin:0"></span> 批改中…
+    </div>${parts.join('')}
+  </div>`;
+  if(!box._scrolled){ box._scrolled=true; box.scrollIntoView({behavior:'smooth',block:'nearest'}); }
 }
 
 function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score-needs'; }
@@ -1918,11 +2250,11 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r){
     ${r.precision_note?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('target',18)}</span><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
     ${(examplePref!=='c1'&&r.b2_example)?`<div class="model-box" style="margin-top:12px">
       <div class="model-lbl">B2 範例句 <span style="font-weight:400;color:var(--faint2)">（點單字可查意思）</span></div>
-      <div class="model-t">${linkifyWords(r.b2_example)}</div>
+      <div class="model-t" id="b2ExampleText">${linkifyWords(r.b2_example)}</div>
     </div>`:''}
     ${examplePref!=='b2'?`<div class="model-box" style="margin-top:12px">
       <div class="model-lbl">C1 範例句 <span style="font-weight:400;color:var(--faint2)">（點單字可查意思）</span></div>
-      <div class="model-t">${linkifyWords(r.c1_example)}</div>
+      <div class="model-t" id="c1ExampleText">${linkifyWords(r.c1_example)}</div>
     </div>`:''}
     ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
     <div id="followUpBox" style="margin-top:12px">
@@ -2028,10 +2360,13 @@ async function pushReport({word,reason,ts}){
   }catch(e){ console.log('pushReport:',e); }
 }
 
-async function renderSentResult(userAns,r){
+// q 是題目快照（見 submitSent 的 q0）。不要在這裡讀 curSentQ：使用者按下「下一題」的
+// 瞬間它就被換掉了，而預抓讓那一按變成即時。
+async function renderSentResult(userAns,r,q){
+  q=q||curSentQ;
   const bar=await levelBarHTML();
   document.getElementById('pracBody').innerHTML=bar
-    +sentResultHTML(curSentQ.word,curSentQ.zh_sentence,userAns,curSentQ.definition,curSentQ.translation,curSentQ.level,r)
+    +sentResultHTML(q.word,q.zh_sentence,userAns,q.definition,q.translation,q.level,r)
     +(r.corrections?.length?`<button class="next-btn" style="background:transparent" onclick="renderSentQ()">${ic('pencil',14)} 重寫這一題</button>`:'')
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
@@ -2089,14 +2424,16 @@ function repeatNoteHTML(fragment,category,field){
 }
 
 /* ── 造句歷史 ── */
-function saveSentHistory(userAns,r){
+// q 是題目快照（見 submitSent 的 q0），理由同 renderSentResult
+function saveSentHistory(userAns,r,q){
+  q=q||curSentQ;
   // 完整紀錄進待上傳佇列（伺服器要留全部），本機主陣列只放索引（見 toIndex 的說明）
   const full={
-    word:curSentQ.word, level:curSentQ.level, zh_sentence:curSentQ.zh_sentence,
-    definition:curSentQ.definition||'', translation:curSentQ.translation||'', audioURL:curSentQ.audioURL||'',
+    word:q.word, level:q.level, zh_sentence:q.zh_sentence,
+    definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
-    qAttempt:curSentQ.qAttempt||0, qUnverified:!!curSentQ.qUnverified, questionFlawed:!!r.questionFlawed,
+    qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!r.questionFlawed,
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
