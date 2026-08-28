@@ -322,22 +322,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
       </div>
     </div>
 
-    <!-- GRAMMAR panel -->
-    <div id="grammarPanel" class="panel" style="display:none;flex-direction:column">
-      <div class="prac-hd">
-        <h2><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v3M15 8v3"/></svg> 文法學習</h2>
-        <p>根據你自己造句寫錯的地方，客製化教學</p>
-      </div>
-      <div class="prac-body" id="grammarBody">
-        <div class="empty">
-          <div class="empty-ico"><svg class="ic" style="width:44px;height:44px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v3M15 8v3"/></svg></div>
-          <div class="empty-h">釐清你自己的文法誤區</div>
-          <div class="empty-p">AI 會用你自己造句寫錯的真實句子<br>生成客製化教學，學完再測驗確認真的學會</div>
-          <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderGrammarHome()">開始學習 →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- SETTINGS panel -->
     <div id="setPanel" class="panel" style="display:none;flex-direction:column">
       <div class="set-hd"><h2><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg> 設定</h2></div>
@@ -442,9 +426,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
     </button>
     <button class="tab" id="t-essay" onclick="switchTab('essay')">
       <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></span><span class="tab-lb">寫作</span>
-    </button>
-    <button class="tab" id="t-grammar" onclick="switchTab('grammar')">
-      <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v3M15 8v3"/></svg></span><span class="tab-lb">文法</span>
     </button>
     <button class="tab" id="t-set" onclick="switchTab('set')">
       <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span><span class="tab-lb">設定</span>
@@ -596,8 +577,8 @@ function authResetLocalIfNewUser(){
   if(!uid) return;
   const lastUid=lsGet('c_last_uid','');
   if(lastUid && lastUid!==uid){
-    // 只重設這裡：grammarStats/chinglishStats/grammarLearningLog/dashboardSummary/levelTotalCache
-    // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（文法區塊），這裡不能直接賦值
+    // 只重設這裡：grammarStats/chinglishStats/dashboardSummary/levelTotalCache
+    // 這幾個變數宣告在 boot() 呼叫時間點「之後」的程式碼（文法錯誤統計區塊），這裡不能直接賦值
     // （會撞到 let 的 TDZ），清掉 localStorage 就夠了，它們宣告時會自己用清空後的預設值初始化。
     // c_sent_pushed_ts 一定要一起清：那是「已上傳到 sentence_history 的最大 ts」水位。
     // 沒清的話，新使用者接手這台裝置時會沿用前一個人的水位，自己的紀錄因為 ts 比水位小
@@ -658,15 +639,15 @@ async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=
 // 下一次 syncToCloud 就會用空陣列整包蓋掉雲端。upsert 是單一請求，沒有這個窗口。
 // user_id 明確帶上（不靠 default auth.uid()），因為 on_conflict 的目標欄位要它。
 async function sbSet(k,v){try{const t=await authToken();if(!t)return;const uid=authSession?.user?.id;if(!uid)return;const r=await fetch(`${SB_URL}/rest/v1/user_data?on_conflict=user_id,key`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:uid,key:k,value:v})});if(!r.ok)console.log('sbSet:',k,r.status,await r.text());}catch(e){console.log('sbSet:',e);}}
-async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,gll,dsum]=await Promise.all([sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('grammarlearninglog'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}
+async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,dsum]=await Promise.all([sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}
     /* 合併有可能把雲端的壞資料帶回本機，所以這裡再清一次；清掉了就立刻把乾淨的版本推回雲端，
        否則雲端那筆會在下一次 syncFromCloud() 又被拉回來，永遠清不掉。 */
     if(pruneBogusReports()) sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});
-    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}if(gll){const remote=JSON.parse(gll);const merged={...grammarLearningLog};for(const cat in remote){const all=[...(merged[cat]||[]),...remote[cat]];const seen=new Set();const dedup=[];for(const e of all.sort((a,b)=>a.ts-b.ts)){if(!seen.has(e.ts)){seen.add(e.ts);dedup.push(e);}}merged[cat]=dedup;}if(JSON.stringify(merged)!==JSON.stringify(grammarLearningLog)){grammarLearningLog=merged;lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
 function syncToCloud(){/* senthist 不再整包上傳：改由 pushSentHistory() 一題 append 一列到 sentence_history。
    這一行是每答一題 1 MB 上傳量的來源（實測 senthist blob 1.04 MB）。拿掉之後
    syncToCloud() 剩下的 9 個 key 合計約 85 KB。舊的 user_data.senthist 保留不刪，
-   當作回滾快照，只是不再更新。 */sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});sbSet('grammarlearninglog',JSON.stringify(grammarLearningLog)).catch(()=>{});sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});sbSet('dailygoal',String(dailyGoal)).catch(()=>{});}
+   當作回滾快照，只是不再更新。 */sbSet('essayhist',JSON.stringify(ESSAY_HISTORY)).catch(()=>{});sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});sbSet('dailylevel',JSON.stringify(dailyLevelCount)).catch(()=>{});sbSet('grammarstats',JSON.stringify(grammarStats)).catch(()=>{});sbSet('chinglishstats',JSON.stringify(chinglishStats)).catch(()=>{});sbSet('dashboardsummary',JSON.stringify(dashboardSummary)).catch(()=>{});sbSet('dailygoal',String(dailyGoal)).catch(()=>{});}
 
 /* ── STATE ── */
 let SENT_HISTORY = JSON.parse(lsGet('c_sent_hist','[]'));
@@ -996,12 +977,11 @@ function copyW(w){ navigator.clipboard.writeText(w).then(()=>toast(`✓ 已複�
 /* ── TABS ── */
 function switchTab(tab){
   curTab=tab;
-  ['prac','essay','grammar','set'].forEach(t=>{
+  ['prac','essay','set'].forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('on',t===tab);
   });
   document.getElementById('pracPanel').style.display    = tab==='prac'    ? 'flex' : 'none';
   document.getElementById('essayPanel').style.display   = tab==='essay'   ? 'flex' : 'none';
-  document.getElementById('grammarPanel').style.display  = tab==='grammar' ? 'flex' : 'none';
   document.getElementById('setPanel').style.display      = tab==='set'    ? 'flex' : 'none';
 }
 
@@ -1029,8 +1009,8 @@ function refreshSettingChips(){
 }
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; grammarStats={}; chinglishStats={}; grammarLearningLog={}; dashboardSummary=null;
-  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');
+  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; grammarStats={}; chinglishStats={}; dashboardSummary=null;
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');  // c_grammar_learning_log 是已移除的文法學習頁留下的，繼續清掉避免換帳號後殘留
   toast('✓ 已清除');
   syncToCloud();
 }
@@ -1093,28 +1073,16 @@ const familyOf=cat=>Object.keys(GRAMMAR_FAMILIES).find(f=>GRAMMAR_FAMILIES[f].in
 // （它們永遠不會有新資料、也永遠不可能變成「已掌握」，留在待辦清單裡只會佔位子）。
 const currentTaxonomyCats=cats=>cats.filter(c=>familyOf(c));
 
-/* 「還欠多少」：已掌握的算 0（那是做完的事，不該再排進待辦），
-   待複習算「學完之後又犯幾次」，待學習算累計錯誤數——跟葉節點清單用的是同一個量，
-   家族只是把它們加起來，不另外定義窗口或規則。 */
-function catOutstanding(cat){
-  const st=grammarCategoryStatus(cat);
-  if(st==='mastered') return 0;
-  if(st==='needs_relearning') return pendingErrorCount(cat);
-  return grammarStats[cat]||0;
-}
+/* 「還欠多少」＝累計錯誤次數。文法學習頁移除後就沒有「學過沒學過」這個維度了
+   （原本的 mastered／needs_relearning 三態全部依賴那頁寫入的學習紀錄），
+   剩下的唯一事實是造句批改累積下來的錯誤次數，家族只是把葉節點加起來。 */
+function catOutstanding(cat){ return grammarStats[cat]||0; }
 
 function familyRanking(){
   return Object.keys(GRAMMAR_FAMILIES).map(fam=>{
     const leaves=GRAMMAR_FAMILIES[fam].filter(c=>grammarStats[c]);
     return {family:fam,n:leaves.reduce((s,c)=>s+catOutstanding(c),0),leaves};
   }).filter(f=>f.n>0).sort((a,b)=>b.n-a.n);
-}
-
-// 家族內部挑一個葉節點當 CTA：待複習優先（學過又錯最急），其次是錯最多的待學習
-function topLeafIn(leaves){
-  const relearn=leaves.filter(c=>grammarCategoryStatus(c)==='needs_relearning').sort((a,b)=>pendingErrorCount(b)-pendingErrorCount(a));
-  if(relearn.length) return relearn[0];
-  return leaves.filter(c=>grammarCategoryStatus(c)==='needs_learning').sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0))[0]||null;
 }
 
 // 一律以台北時間(Asia/Taipei)判斷「今天」，避免 UTC 造成的日期偏移（凌晨0-8點誤算成昨天）
@@ -2414,12 +2382,6 @@ function repeatNoteHTML(fragment,category,field){
       <div class="corr-repeat-prev">當時：${last.userAns||''}</div>
     </div>`;
   }
-  if(field==='corrections' && category && category!==UNCLASSIFIED_CAT
-     && grammarCategoryStatus(category)==='needs_relearning'){
-    const log=grammarLearningLog[category]||[];
-    const n=pendingErrorCount(category);
-    return `<div class="corr-repeat">⚠️「${category}」你學過之後，這是第 ${n+1} 次又錯 · 上次學習：${agoLabel(log[log.length-1].ts)}</div>`;
-  }
   return '';
 }
 
@@ -2476,8 +2438,8 @@ function rowToEntry(row){
    b2/c1 範例句、definition、translation、audioURL），那些只有歷史詳情頁在看，
    改由 fetchSentDetail() 向伺服器取。
    保留 corrections/chinglish_issues 的「結構」但只留 error/category、phrase/type，
-   是為了讓 priorFragmentHits()、pendingErrorCount()、grammarCategoryStatus() 這三個
-   在畫面渲染路徑上被同步呼叫的函式完全不用改、也不用變成 async。 */
+   是為了讓 priorFragmentHits() 這種在畫面渲染路徑上被同步呼叫的函式完全不用改、
+   也不用變成 async。 */
 function toIndex(h){
   return {
     ts:h.ts, word:h.word, level:h.level, userAns:h.userAns, zh_sentence:h.zh_sentence,
@@ -2609,18 +2571,6 @@ async function fetchSentSince(sinceTs,limit=200){
   }catch(e){ console.log('fetchSentSince:',e); return []; }
 }
 
-/* 依文法分類取完整紀錄（客製化教材用）。用 jsonb 包含運算子在資料庫端篩，
-   不用把整段期間的資料全撈回來再過濾。 */
-async function fetchSentByCategory(cat,sinceTs,limit=8){
-  try{
-    const t=await authToken(); if(!t) return [];
-    const filter=encodeURIComponent(JSON.stringify([{category:cat}]));
-    const r=await fetch(`${SB_URL}/rest/v1/sentence_history?corrections=cs.${filter}&ts_ms=gt.${sinceTs}&order=ts_ms.desc&limit=${limit}`,
-      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
-    if(!r.ok) return [];
-    return (await r.json()).map(rowToEntry);
-  }catch(e){ console.log('fetchSentByCategory:',e); return []; }
-}
 
 async function renderSentHome(){
   const bar=await levelBarHTML();
@@ -2700,9 +2650,9 @@ async function buildSummaryMaterial(){
   // learnableCats：不把「其他」餵進去，模型就不可能建議「去複習其他」這種做不到的事
   // currentTaxonomyCats：舊分類同樣擋掉，不然總結會叫人去學一個清單上已經不存在的東西
   const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
-  const relearn=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').map(c=>({category:c,pendingErrors:pendingErrorCount(c)}));
-  const learn=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').map(c=>({category:c,count:grammarStats[c]}));
-  const mastered=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
+  // 文法學習頁移除後沒有「學過／已掌握」這個維度了，只剩累計錯誤次數排行
+  const errorCats=cats.filter(c=>grammarStats[c]).sort((a,b)=>grammarStats[b]-grammarStats[a])
+                      .slice(0,8).map(c=>({category:c,count:grammarStats[c]}));
   // 哪些錯誤沒有改善：練習紀錄依時間切前半/後半，比較每題錯誤發生率有沒有下降（給 AI 當補充脈絡，不強制提到）
   const sorted=[...SENT_HISTORY].sort((a,b)=>a.ts-b.ts);
   let noImprove=[];
@@ -2714,11 +2664,11 @@ async function buildSummaryMaterial(){
   }
   // 家族排行是卡片上緊接著這段文字顯示的內容——一起餵進去，總結才不會跟它打架
   const families=familyRanking().slice(0,5).map(f=>({family:f.family,outstanding:f.n}));
-  return {daily,relearn,learn,mastered,noImprove,families,...(await recentMistakeMaterial())};
+  return {daily,errorCats,noImprove,families,...(await recentMistakeMaterial())};
 }
 
-// 只餵彙總數字的話，14 天平均一天動不了多少，AI 每天只能寫出同一段話。
-// 把學生逐字寫錯的片段餵進去，總結才有辦法講出昨天跟今天不一樣的東西。
+// 只餵彙總數字的話，14 天的平均值兩份總結之間動不了多少，寫出來會是同一段話。
+// 把學生逐字寫錯的片段餵進去，總結才有辦法講出上一份沒講過的東西。
 async function recentMistakeMaterial(){
   const since=Date.now()-14*86400000, lastTs=dashboardSummary?.ts||0;
   const recent=await fetchSentSince(since,200);   // 完整紀錄，本機索引沒有 fix/natural
@@ -2753,10 +2703,8 @@ ${JSON.stringify(m.daily)}
 錯誤最集中的家族（outstanding = 還沒解決的錯誤次數，這份排行會以長條圖顯示在你這段文字的正下方）：
 ${JSON.stringify(m.families)}
 
-文法分類目前狀態：
-待複習（學過之後又犯錯，最需要優先處理）：${JSON.stringify(m.relearn)}
-待學習（有錯誤紀錄但還沒學過）：${JSON.stringify(m.learn)}
-已掌握：${JSON.stringify(m.mastered)}
+錯誤次數最多的文法分類（count = 累計錯誤次數）：
+${JSON.stringify(m.errorCats)}
 ${m.noImprove.length?`最近一半練習跟前一半比較，這些分類錯誤比例沒有下降：${JSON.stringify(m.noImprove)}`:''}
 
 學生最近實際寫錯的句子（yourSentence 是他寫的原句，wrong 是錯的片段，fix 是正確版本，isNew 代表上次總結之後才發生的）：
@@ -2773,7 +2721,7 @@ ${prev.length?`\n前幾次總結已經講過的內容（不要重複同樣的觀
 1. 寫 2-4 句繁體中文，像老師當面講評，連貫一段話，不要條列、不要標題或前綴，只輸出這段文字本身。
 2. 一定要至少引用一個學生自己寫過的具體片段（逐字照抄，用「」框起來），講清楚錯在哪、正確會怎麼寫。優先講 isNew 的、或重複犯的。沒有具體例子的空泛評語不要寫。
 3. 只有在數字真的出現明顯變化時才提百分比；沒有變化就不要重述趨勢，把篇幅留給具體的錯誤。家族排行的長條圖就在你這段文字下面，不要逐條複述那些數字（那是重複），但你可以用它來解釋「為什麼是這個」——例如指出前兩名其實是同一種中文干擾造成的。
-4. 結尾給一件今天就能動手做的事，優先是「待複習」的分類或某個重複犯的片段。
+4. 結尾給一件今天就能動手做的事，優先是某個重複犯的片段、或錯誤次數最多的那個分類。
 5. 不要用「這說明你」「越來越自然道地」「希望你繼續保持」「更上一層樓」這類套話，也不要跟前幾次用一樣的開場。`;
   const text=(await callClaude(prompt,600)).trim();
   dashboardSummary={ts:Date.now(),date:todayStr(),text,prev};
@@ -2782,10 +2730,15 @@ ${prev.length?`\n前幾次總結已經講過的內容（不要重複同樣的觀
   return dashboardSummary;
 }
 
+/* 自動重生成的間隔。必須 <= buildSummaryMaterial() 的資料窗（14 天），否則兩次總結之間
+   會有練習紀錄從頭到尾沒被任何一份總結看過。兩個數字要一起改，不能只動一邊。 */
+const SUMMARY_INTERVAL_DAYS=14;
 async function ensureDashboardSummary(){
-  // 跨日就重生成的話，沒練習的日子等於花一次 API 費用產出同一段話。
+  // 舊規則是「跨日 + 有新紀錄」，實際頻率等於「有練習的每一天一次」——太頻繁：資料窗是 14 天，
+  // 一天之隔裡面的素材幾乎沒變，只能靠 prev 擋著硬寫出不一樣的說法。改成滿 14 天才自動重生成。
   // 一定要有新的造句紀錄才值得重寫，否則沿用上一份（時間戳會顯示是哪天的）。
-  if(dashboardSummary && (dashboardSummary.date===todayStr() || sentencesSinceLastSummary()===0)) return;
+  const fresh = dashboardSummary && (Date.now()-dashboardSummary.ts) < SUMMARY_INTERVAL_DAYS*86400000;
+  if(dashboardSummary && (fresh || sentencesSinceLastSummary()===0)) return;
   try{ await generateDashboardSummary(); }catch(e){ console.log('dashboard summary:',e); }
 }
 
@@ -2814,15 +2767,13 @@ async function refreshDashboardSummary(){
   updateSummaryRefreshGate();
 }
 
-/* ── Dashboard：文法分類展開清單（待複習/待學習/已掌握） ── */
+/* ── Dashboard：文法錯誤分類展開清單 ── */
 let dashOpenCat=null;
 function toggleDashCatList(k){
   dashOpenCat = dashOpenCat===k ? null : k;
-  ['relearn','learn','mastered'].forEach(o=>{
-    const list=document.getElementById('dashCatList-'+o), btn=document.getElementById('dashBtn-'+o);
-    if(list) list.style.display = dashOpenCat===o ? '' : 'none';
-    if(btn) btn.classList.toggle('on', dashOpenCat===o);
-  });
+  const list=document.getElementById('dashCatList-'+k), btn=document.getElementById('dashBtn-'+k);
+  if(list) list.style.display = dashOpenCat===k ? '' : 'none';
+  if(btn) btn.classList.toggle('on', dashOpenCat===k);
 }
 
 function toggleDashDetail(){
@@ -2839,13 +2790,34 @@ function renderDashLevelChips(){
 function dashSetGranularity(g){ dashGran=g; document.querySelectorAll('#dashGranSeg .seg-item').forEach(b=>b.classList.toggle('on',b.dataset.g===g)); renderDashTrend(); }
 function dashSetLevel(l){ dashLevel=l; renderDashLevelChips(); renderDashTrend(); }
 
+/* 原本 viewBox 寫死 380 寬配 width:100%，等於「1 個 viewBox 單位 = 容器寬/380 個 CSS px」——
+   容器一變寬，圖裡的字級、線寬、圓點半徑、圖表高度就全部一起等比放大，可是卡片其他東西
+   （標題 13px、圖例 11px、chip）都是固定 px，於是圖表跟周圍完全不成比例：
+     容器 390px → 縮放 0.83x（軸標 7.5px，比卡片標題小）
+     容器 700px → 縮放 1.65x（「89%」18px，卡片標題還是 13px）
+     容器1100px → 縮放 2.70x（軸標 24px，圖高 281px）
+   改成量到多寬就拿多寬當 viewBox 寬度，並把高度用 CSS 釘死，讓 1 單位恆等於 1 CSS px。
+   字級與圖高從此在所有螢幕寬度一致，只有折線的水平間距會隨寬度伸縮（那本來就該伸縮）。 */
+const DASH_TREND_H=104, DASH_VOL_H=52;
+function dashChartWidth(el){
+  const w=Math.round(el.getBoundingClientRect().width);
+  return w>0 ? Math.max(260,w) : 380;   // 卡片還沒排版完（display:none）時退回原本的 380
+}
 function renderDashTrend(){
   const chart=document.getElementById('dashTrendChart'); if(!chart) return;
+  const W=dashChartWidth(chart);
   const agg=aggregateTrend(dashGetBuckets(), dashGetKeyFn(), dashLevel);
   renderDashTrendHeadline(agg);
-  renderDashTrendLines(agg);
-  renderDashTrendVolume(agg);
+  renderDashTrendLines(agg,W);
+  renderDashTrendVolume(agg,W);
 }
+// 轉向／改變視窗寬度後水平間距要重算，否則折線會被 viewBox 拉伸回原本的錯誤比例
+let dashTrendResizeTimer=null;
+window.addEventListener('resize',()=>{
+  if(!document.getElementById('dashTrendChart')) return;
+  clearTimeout(dashTrendResizeTimer);
+  dashTrendResizeTimer=setTimeout(renderDashTrend,150);
+});
 
 function renderDashTrendHeadline(agg){
   const el=document.getElementById('dashTrendHeadline'); if(!el) return;
@@ -2859,8 +2831,8 @@ function renderDashTrendHeadline(agg){
   el.innerHTML=`📈 文法正確度平均從 ${Math.round(a1)}% ${up?'進步到':'下滑到'} ${Math.round(a2)}% <b style="color:${up?'var(--good)':'var(--bad)'}">(${delta>=0?'+':''}${delta})</b>`;
 }
 
-function renderDashTrendLines(agg){
-  const W=380,H=104,padL=28,padR=8,padT=20,padB=20;
+function renderDashTrendLines(agg,W){
+  const H=DASH_TREND_H,padL=28,padR=8,padT=20,padB=20;
   const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
   const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
   const y=v=>padT+(100-v)/100*chartH;
@@ -2895,11 +2867,13 @@ function renderDashTrendLines(agg){
   drawSeries('ching','var(--series2)');
   const lblStep = n>10 ? 2 : 1;   // 從最後一根往回數，確保「今天」永遠有標籤
   agg.forEach((b,i)=>{ if((n-1-i)%lblStep) return; svg+=`<text x="${x(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="var(--faint)">${b.label}</text>`; });
-  document.getElementById('dashTrendChart').innerHTML=svg;
+  const el=document.getElementById('dashTrendChart');
+  el.setAttribute('viewBox',`0 0 ${W} ${H}`); el.style.height=H+'px';
+  el.innerHTML=svg;
 }
 
-function renderDashTrendVolume(agg){
-  const W=380,H=52,padL=28,padR=8,padT=16,padB=2;
+function renderDashTrendVolume(agg,W){
+  const H=DASH_VOL_H,padL=28,padR=8,padT=16,padB=2;
   const n=agg.length, chartW=W-padL-padR, chartH=H-padT-padB;
   const x=i=> n>1 ? padL+i*(chartW/(n-1)) : padL+chartW/2;
   const maxC=Math.max(1,...agg.map(b=>b.count));
@@ -2911,7 +2885,9 @@ function renderDashTrendVolume(agg){
     svg+=`<rect x="${x(i)-barW/2}" y="${padT+chartH-h}" width="${barW}" height="${h}" rx="3" fill="var(--accent)" fill-opacity="0.4"/>`;
     svg+=`<text x="${x(i)}" y="${padT+chartH-h-4}" text-anchor="middle" font-size="10" font-weight="700" fill="var(--text-soft)">${b.count}</text>`;
   });
-  document.getElementById('dashVolChart').innerHTML=svg;
+  const el=document.getElementById('dashVolChart');
+  el.setAttribute('viewBox',`0 0 ${W} ${H}`); el.style.height=H+'px';
+  el.innerHTML=svg;
 }
 
 async function dashboardHTML(){
@@ -2923,16 +2899,13 @@ async function dashboardHTML(){
   // 文法分類三態清單（AI 總結卡下面的展開按鈕用）
   // currentTaxonomyCats：擋掉 8/8 改版前的舊 13 分類，它們永遠不會更新也永遠學不完
   const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
-  const relearnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_relearning').sort((a,b)=>pendingErrorCount(b)-pendingErrorCount(a));
-  const learnCats=cats.filter(c=>grammarCategoryStatus(c)==='needs_learning').sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0));
-  const masteredCats=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
+  // 文法學習頁移除後，分類只剩單一維度：累計錯誤次數由多到少
+  const errorCats=cats.filter(c=>grammarStats[c]).sort((a,b)=>(grammarStats[b]||0)-(grammarStats[a]||0));
   const unclassified=grammarStats[UNCLASSIFIED_CAT]||0;
   const legacyCount=Object.keys(grammarStats).filter(c=>c!==UNCLASSIFIED_CAT&&!familyOf(c)).reduce((s,c)=>s+grammarStats[c],0);
 
-  // 家族排行：CTA 先選出「錯最集中的家族」，再從家族裡挑一個具體的葉節點去學
   const famRank=familyRanking();
   const topFam=famRank[0];
-  const primaryCat=topFam?topLeafIn(topFam.leaves):null;
   const famMax=topFam?topFam.n:1;
   const famRest=famRank.slice(3).reduce((s,f)=>s+f.n,0);
 
@@ -2975,37 +2948,16 @@ async function dashboardHTML(){
     ${famRank.length>3?`<div class="fam-more">其餘 ${famRank.length-3} 個項目合計 ${famRest} 次</div>`:''}
     <div style="height:14px"></div>`:''}
 
-    ${primaryCat?`<button class="prac-submit" onclick="openGrammarCategory('${primaryCat}');switchTab('grammar')">
-      前往${grammarCategoryStatus(primaryCat)==='needs_relearning'?'複習':'學習'}「${primaryCat}」→
-      <div style="font-size:11px;font-weight:400;opacity:.75;margin-top:4px">${topFam.family}是你錯最多的地方（${topFam.n} 次），這是其中最該先處理的一項</div>
-    </button>`:''}
-
-    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
-      ${relearnCats.length?`<button class="filt" id="dashBtn-relearn" onclick="toggleDashCatList('relearn')">⚠️ 待複習 (${relearnCats.length})</button>`:''}
-      ${learnCats.length?`<button class="filt" id="dashBtn-learn" onclick="toggleDashCatList('learn')">📖 待學習 (${learnCats.length})</button>`:''}
-      ${masteredCats.length?`<button class="filt" id="dashBtn-mastered" onclick="toggleDashCatList('mastered')">✅ 已掌握 (${masteredCats.length})</button>`:''}
-    </div>
+    ${errorCats.length?`<button class="filt" id="dashBtn-cats" onclick="toggleDashCatList('cats')">📋 文法錯誤分類 (${errorCats.length})</button>`:''}
     ${(unclassified||legacyCount)?`<div style="font-size:11px;color:var(--faint);margin-top:10px;line-height:1.6">
-      ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它安排學習。`:''}
-      ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄，不列入待辦。`:''}
+      ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」）。`:''}
+      ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄。`:''}
     </div>`:''}
-    <div id="dashCatList-relearn" style="display:none;margin-top:12px">
-      ${relearnCats.map(cat=>`<div class="hist-item" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
+    <div id="dashCatList-cats" style="display:none;margin-top:12px">
+      ${errorCats.map(cat=>`<div class="hist-item" style="cursor:default">
         <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">已出現 ${grammarStats[cat]} 次錯誤 · 學過 ${grammarLearningLog[cat].length} 輪 · 距離上次學習後又錯 ${pendingErrorCount(cat)} 次 →</div>
+        <div class="hist-ans">已出現 ${grammarStats[cat]} 次錯誤</div>
       </div>`).join('')}
-    </div>
-    <div id="dashCatList-learn" style="display:none;margin-top:12px">
-      ${learnCats.map(cat=>`<div class="hist-item" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
-        <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">已出現 ${grammarStats[cat]} 次錯誤 · 還沒學過 →</div>
-      </div>`).join('')}
-    </div>
-    <div id="dashCatList-mastered" style="display:none;margin-top:12px">
-      ${masteredCats.map(cat=>{ const rc=relapseCount(cat); return `<div class="hist-item" style="opacity:.8" onclick="openGrammarCategory('${cat}');switchTab('grammar')">
-        <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">學過 ${grammarLearningLog[cat].length} 輪${rc?` · ${rc} 次學了又錯`:''}，之後穩定沒再犯</div>
-      </div>`; }).join('')}
     </div>
   </div>
 
@@ -3066,9 +3018,9 @@ async function dashboardHTML(){
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--accent);display:inline-block"></span>文法正確度</div>
           <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)"><span style="width:9px;height:9px;border-radius:50%;background:var(--series2);display:inline-block"></span>中式英文</div>
         </div>
-        <svg id="dashTrendChart" viewBox="0 0 380 104" style="width:100%;display:block;overflow:visible"></svg>
+        <svg id="dashTrendChart" viewBox="0 0 380 104" style="width:100%;height:104px;display:block;overflow:visible"></svg>
         <div style="font-size:10px;color:var(--faint);margin:12px 0 4px">練習單字數</div>
-        <svg id="dashVolChart" viewBox="0 0 380 52" style="width:100%;display:block;overflow:visible"></svg>
+        <svg id="dashVolChart" viewBox="0 0 380 52" style="width:100%;height:52px;display:block;overflow:visible"></svg>
       </div>
 
     </div>
@@ -3312,222 +3264,13 @@ function showEssayHistDetail(i){
     +essayResultHTML(h.topic,h.type,h.essay,h.wc,h);
 }
 
-/* ── 文法學習：固定教材 ── */
+/* ── 文法錯誤統計（由造句批改寫入，沒有獨立的文法練習頁） ── */
 let grammarStats=JSON.parse(lsGet('c_grammar_stats','{}'));
 let chinglishStats=JSON.parse(lsGet('c_chinglish_stats','{}'));
-let grammarLearningLog=JSON.parse(lsGet('c_grammar_learning_log','{}'));
-let curLessonCat=null, curLesson=null, curQuizIdx=0, curQuizIsReview=false;
 let dashboardSummary=JSON.parse(lsGet('c_dashboard_summary','null')); // {ts,date,text}
 let dashGran='day', dashLevel='all';
 const DASH_SUMMARY_REFRESH_THRESHOLD=5;
 
-/* ── 二號：AI 客製化文法講解 ── */
-function grammarCategoryStatus(cat){
-  const log=grammarLearningLog[cat]||[];
-  if(!log.length) return (grammarStats[cat]||0)>0?'needs_learning':'hidden';
-  const lastTs=log[log.length-1].ts;
-  const relapsed=SENT_HISTORY.some(h=>h.ts>lastTs&&(h.corrections||[]).some(c=>c.category===cat));
-  return relapsed?'needs_relearning':'mastered';
-}
-function relapseCount(cat){ return Math.max(0,(grammarLearningLog[cat]||[]).length-1); }
-function pendingErrorCount(cat){
-  const log=grammarLearningLog[cat]||[];
-  if(!log.length) return 0;
-  const lastTs=log[log.length-1].ts;
-  return SENT_HISTORY.filter(h=>h.ts>lastTs&&(h.corrections||[]).some(c=>c.category===cat)).length;
-}
-// 改向伺服器取：教材要餵給 AI 的是 corrections 的完整內容（error/fix/why），
-// 本機索引只留 error/category，拿本機的資料生教材品質會掉。
-// 用 jsonb 包含運算子在資料庫端篩分類，不用把整段期間全撈回來再過濾。
-async function materialFor(cat){
-  const log=grammarLearningLog[cat]||[];
-  const since=log.length?log[log.length-1].ts:0;
-  const rows=await fetchSentByCategory(cat,since,8);
-  return rows.map(h=>({zh_sentence:h.zh_sentence,userAns:h.userAns,
-                       corrections:(h.corrections||[]).filter(c=>c.category===cat)}));
-}
-
-function renderGrammarHome(){
-  const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
-  const unclassified=grammarStats[UNCLASSIFIED_CAT]||0;
-  const legacyCount=Object.keys(grammarStats).filter(c=>c!==UNCLASSIFIED_CAT&&!familyOf(c)).reduce((s,c)=>s+grammarStats[c],0);
-  const active=cats.filter(c=>['needs_learning','needs_relearning'].includes(grammarCategoryStatus(c)))
-    .sort((a,b)=>{
-      const pa=grammarCategoryStatus(a)==='needs_relearning'?0:1, pb=grammarCategoryStatus(b)==='needs_relearning'?0:1;
-      return pa!==pb ? pa-pb : (grammarStats[b]||0)-(grammarStats[a]||0);
-    });
-  const mastered=cats.filter(c=>grammarCategoryStatus(c)==='mastered');
-  if(!active.length&&!mastered.length){
-    // 錯誤全部落在「其他」時不能說「還沒有紀錄」——那是謊話，而且會蓋掉分類失準的線索
-    document.getElementById('grammarBody').innerHTML=unclassified?`<div class="empty">
-      <div class="empty-ico">${ic('alert',44)}</div>
-      <div class="empty-h">有 ${unclassified} 個錯誤無法分類</div>
-      <div class="empty-p">這些錯誤批改時沒能歸到具體文法點（分類為「其他」），<br>所以沒辦法針對它們生成教學。</div>
-    </div>`:`<div class="empty">
-      <div class="empty-ico">${ic('chart',44)}</div>
-      <div class="empty-h">還沒有文法錯誤紀錄</div>
-      <div class="empty-p">去造句練習頁面練習幾題<br>AI 會根據你實際寫錯的地方生成客製化教學</div>
-    </div>`;
-    return;
-  }
-  document.getElementById('grammarBody').innerHTML=`
-  ${active.length?`<div class="prac-card">
-    <div class="card-lbl">${ic('alert',14)} 待學習 / 待複習</div>
-    ${active.map(cat=>{
-      const relearn=grammarCategoryStatus(cat)==='needs_relearning';
-      return `<div class="hist-item" onclick="openGrammarCategory('${cat}')">
-        <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">${relearn?`又犯錯 ${pendingErrorCount(cat)} 次 · 點擊重新學習 →`:`已出現 ${grammarStats[cat]} 次錯誤 · 點擊開始學習 →`}</div>
-      </div>`;
-    }).join('')}
-  </div>`:''}
-  ${mastered.length?`<div class="prac-card">
-    <div class="card-lbl">${ic('check',14)} 已掌握</div>
-    ${mastered.map(cat=>{
-      const rc=relapseCount(cat);
-      return `<div class="hist-item" onclick="openGrammarCategory('${cat}')">
-        <div class="hist-zh">${cat}</div>
-        <div class="hist-ans">已學會（學過 ${grammarLearningLog[cat].length} 輪${rc?`，${rc} 次學了又錯`:''}）· 點擊複習 →</div>
-      </div>`;
-    }).join('')}
-  </div>`:''}
-  ${(unclassified||legacyCount)?`<div style="font-size:11px;color:var(--faint);padding:0 4px;line-height:1.6">
-    ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」），無法針對它生成教學。`:''}
-    ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄。`:''}
-  </div>`:''}`;
-}
-
-/* 測驗選項洗牌。schema 範例寫的是 "answerIndex":0，模型有把正確答案放第一個的強烈傾向，
-   而 renderGrammarQuizQuestion 直接照順序渲染，學生很快就會發現「都選 A」。
-   prompt 那邊也加了一句要求輪流放，但那只是勸導，這裡才是保證。
-   洗牌一定要在這裡做（parse 完、存進 grammarLearningLog 之前）而不是在 render 時做：
-   lesson 會被存起來，複習模式重播的是存下來的那份，而且答錯時「再試一次這一題」
-   會重跑 render——在 render 洗會讓同一題每次看到的順序都不一樣。 */
-function shuffleQuizOptions(lesson){
-  for(const q of (lesson&&Array.isArray(lesson.quiz)?lesson.quiz:[])){
-    if(!Array.isArray(q.options)||typeof q.answerIndex!=='number') continue;
-    if(q.answerIndex<0||q.answerIndex>=q.options.length) continue;
-    const correct=q.options[q.answerIndex];
-    for(let i=q.options.length-1;i>0;i--){
-      const j=Math.floor(Math.random()*(i+1));
-      [q.options[i],q.options[j]]=[q.options[j],q.options[i]];
-    }
-    // 用值找回正確答案的新位置。選項文字重複時 indexOf 會取第一個，
-    // 但那種情況下兩個選項本來就等價，指到哪一個都對。
-    q.answerIndex=q.options.indexOf(correct);
-  }
-  return lesson;
-}
-
-async function openGrammarCategory(cat){
-  // 沒有 UI 路徑會走到這裡了，但擋著比較安全：對「其他」生成教材只會產出一份沒有主題的講義
-  if(cat===UNCLASSIFIED_CAT){ toast('「其他」不是具體文法點，無法生成教學'); return; }
-  if(grammarCategoryStatus(cat)==='mastered'){
-    curLessonCat=cat; curLesson=grammarLearningLog[cat][grammarLearningLog[cat].length-1].lesson; curQuizIsReview=true;
-    renderGrammarLessonScreen();
-    return;
-  }
-  document.getElementById('grammarBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 根據你的錯誤生成教學中...</div></div>`;
-  try{
-    const material=await materialFor(cat);
-    const prompt=`你是英語文法教學老師。學生在「${cat}」這個文法分類反覆出錯，以下是他自己實際寫過的錯誤（繁體中文原句、學生英文答案、AI 批改抓到的錯誤）：
-${JSON.stringify(material)}
-
-請根據這些真實錯誤，生成一份針對這個學生的客製化教學，並出 3 題測驗題檢驗他是否真的理解（不要直接照搬上面學生寫過的句子出題，要換新句子測同一個文法規則，避免學生只是背答案）。
-
-「yourMistakes」最多列 5 個最有代表性、彼此錯誤樣態不重複的例子就好，不需要把上面素材裡的句子全部寫進去——寧可少而精，也不要為了求全導致內容被截斷。「explanation」控制在 3-4 句話，不用鉅細靡遺涵蓋每個子規則。
-「explain」裡不可以用 A、B、C、D 或「第一個選項」這種位置說法指稱選項（選項顯示前會被重新排序，位置說法會指錯），要直接引用選項的文字內容，例如「have 這個選項…」。
-正確答案不要固定放在第一個選項，四個位置都要輪流用到。
-
-只輸出純 JSON（不要加 markdown）：
-{"summary":"這個分類的核心規則（繁體中文1-2句）","yourMistakes":[{"yourSentence":"學生原句（逐字引用上面素材）","whatWasWrong":"錯在哪","correctVersion":"正確版本","why":"為什麼（繁體中文）"}],"explanation":"完整規則說明（繁體中文，可以比summary詳細，但不要超過4句）","quiz":[{"question":"題目（可含英文句子）","options":["選項A","選項B","選項C","選項D"],"answerIndex":0,"explain":"為什麼是這個答案"}]}`;
-    const txt=await callClaude(prompt,3000);
-    curLesson=shuffleQuizOptions(parseJSON(txt)); curLessonCat=cat; curQuizIsReview=false;
-    renderGrammarLessonScreen();
-  }catch(e){
-    console.log('openGrammarCategory:',e);
-    document.getElementById('grammarBody').innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${aiErrorMsg(e,'生成教學失敗，請重試')}</div><button class="prac-submit" onclick="openGrammarCategory('${cat}')" style="margin-top:12px">重試</button><button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
-  }
-}
-
-function grammarLessonHTML(){
-  const g=curLesson;
-  return `<div class="prac-card">
-    <div class="essay-type">${curLessonCat}</div>
-    <div class="card-lbl" style="margin:16px 0 8px">核心規則</div>
-    <div class="model-t" style="font-style:normal">${g.summary}</div>
-    ${g.yourMistakes?.length?`<div class="card-lbl" style="margin:16px 0 8px">你自己寫錯的地方</div>
-    ${g.yourMistakes.map(m=>`<div class="corr-item">
-      <div class="corr-err">✗ ${m.yourSentence}</div>
-      <div class="corr-fix">✓ ${m.correctVersion}</div>
-      <div class="prac-hint" style="margin-top:6px">${ic('bulb',13)} ${m.why}</div>
-    </div>`).join('')}`:''}
-    <div class="card-lbl" style="margin:16px 0 8px">詳細說明</div>
-    <div class="model-t" style="font-style:normal">${g.explanation}</div>
-  </div>`;
-}
-
-function renderGrammarLessonScreen(){
-  document.getElementById('grammarBody').innerHTML = grammarLessonHTML() +
-    `<button class="prac-submit" onclick="startGrammarQuizFlow()">${curQuizIsReview?'重新測驗一次 →':'開始測驗 →'}</button>
-     <button class="next-btn" style="margin-top:10px" onclick="renderGrammarHome()">回列表</button>`;
-}
-
-function startGrammarQuizFlow(){ curQuizIdx=0; renderGrammarQuizQuestion(); }
-
-function renderGrammarQuizQuestion(){
-  const q=curLesson.quiz[curQuizIdx];
-  document.getElementById('grammarBody').innerHTML=`
-  <div class="level-progress" style="margin-bottom:14px"><span>測驗</span><span>${curQuizIdx+1}/${curLesson.quiz.length}</span></div>
-  <div class="prac-card">
-    <div class="essay-type">${curLessonCat}</div>
-    <div class="prac-zh" style="font-size:16px">${q.question}</div>
-  </div>
-  ${q.options.map((op,i)=>`<button class="prac-submit" style="background:var(--card2);color:var(--text);text-align:left;margin-bottom:8px" onclick="submitGrammarQuizAnswer(${i})">${String.fromCharCode(65+i)}. ${op}</button>`).join('')}`;
-}
-
-function submitGrammarQuizAnswer(i){
-  const q=curLesson.quiz[curQuizIdx];
-  const correct=i===q.answerIndex;
-  document.getElementById('grammarBody').innerHTML=`
-  <div class="level-progress" style="margin-bottom:14px"><span>測驗</span><span>${curQuizIdx+1}/${curLesson.quiz.length}</span></div>
-  <div class="prac-card">
-    <div class="essay-type">${curLessonCat}</div>
-    <div class="prac-zh" style="font-size:16px">${q.question}</div>
-  </div>
-  <div class="prac-card">
-    <span class="score-badge ${correct?'score-excellent':'score-needs'}">${correct?(ic('check',13)+' 答對了'):'✗ 答錯了'}</span>
-    <div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">正確答案</div>
-      <div class="model-t">${String.fromCharCode(65+q.answerIndex)}. ${q.options[q.answerIndex]}</div>
-    </div>
-    <div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">說明</div><div class="use-t">${q.explain}</div></div></div>
-  </div>
-  ${correct
-    ?`<button class="next-btn" onclick="advanceGrammarQuiz()">${curQuizIdx+1<curLesson.quiz.length?'下一題 →':'完成測驗 →'}</button>`
-    :`<button class="prac-submit" onclick="renderGrammarQuizQuestion()">再試一次這一題 →</button>`}`;
-}
-
-function advanceGrammarQuiz(){
-  curQuizIdx++;
-  if(curQuizIdx>=curLesson.quiz.length){ finishGrammarQuiz(); return; }
-  renderGrammarQuizQuestion();
-}
-
-function finishGrammarQuiz(){
-  if(!curQuizIsReview){
-    grammarLearningLog[curLessonCat]=[...(grammarLearningLog[curLessonCat]||[]),{ts:Date.now(),lesson:curLesson}];
-    lsSet('c_grammar_learning_log',JSON.stringify(grammarLearningLog));
-    syncToCloud();
-  }
-  document.getElementById('grammarBody').innerHTML=`
-  <div class="empty">
-    <div class="empty-ico">${ic('award',44)}</div>
-    <div class="empty-h">「${curLessonCat}」學完了！</div>
-    <div class="empty-p">${curQuizIsReview?'複習完成':'之後如果造句又在這個分類出錯，會再提醒你回來複習'}</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="renderGrammarHome()">回列表 →</button>
-  </div>`;
-}
 
 /* ── UTILS ── */
 function parseJSON(txt){
