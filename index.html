@@ -199,6 +199,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .fam-name{font-size:12px;color:var(--text-soft);width:92px;flex-shrink:0}
 .fam-bar{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden}
 .fam-bar-fill{height:100%;background:var(--accent);border-radius:4px}
+/* 口說 */
+.prac-submit.rec-on{background:var(--bad);color:#fff;animation:recpulse 1.4s ease-in-out infinite}
+@keyframes recpulse{0%,100%{opacity:1}50%{opacity:.72}}
+/* 不共用 .stat-grid：那個是兩欄的，三個發音分數會排成 2+1 的歪版面。
+   發音分數都是兩位數，三欄在 375px 上綽綽有餘。 */
+.pron-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.pron-words{display:flex;flex-wrap:wrap;gap:6px}
+.pron-w{display:inline-flex;align-items:baseline;gap:2px;padding:5px 9px;border-radius:8px;
+  background:var(--card2);border:1px solid var(--border);font-size:14px;cursor:pointer}
+.pron-w sub{font-size:9px;opacity:.75;vertical-align:sub}
+.pron-w.score-excellent{border-color:rgba(111,191,139,.45)}
+.pron-w.score-good{border-color:rgba(217,176,107,.45)}
+.pron-w.score-needs{border-color:rgba(217,115,107,.55);background:rgba(217,115,107,.12)}
+.pron-w.pron-err{font-weight:700}
 .fam-n{font-size:11px;color:var(--faint2);width:30px;text-align:right;flex-shrink:0}
 .fam-more{font-size:11px;color:var(--faint);margin-top:8px}
 .cefr-badge{background:var(--accent-wash);color:var(--accent-light);border:1px solid var(--accent)}
@@ -322,6 +336,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
       </div>
     </div>
 
+    <!-- SPEAK panel -->
+    <div id="speakPanel" class="panel" style="display:none;flex-direction:column">
+      <div class="prac-hd">
+        <h2><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/></svg> 口說練習</h2>
+        <p>錄音作答 · Azure 發音評分</p>
+      </div>
+      <div class="prac-body" id="speakBody"></div>
+    </div>
+
     <!-- SETTINGS panel -->
     <div id="setPanel" class="panel" style="display:none;flex-direction:column">
       <div class="set-hd"><h2><svg class="ic" style="width:20px;height:20px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg> 設定</h2></div>
@@ -426,6 +449,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
     </button>
     <button class="tab" id="t-essay" onclick="switchTab('essay')">
       <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></span><span class="tab-lb">寫作</span>
+    </button>
+    <button class="tab" id="t-speak" onclick="switchTab('speak')">
+      <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/></svg></span><span class="tab-lb">口說</span>
     </button>
     <button class="tab" id="t-set" onclick="switchTab('set')">
       <span class="tab-ic"><svg class="ic" style="width:21px;height:21px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg></span><span class="tab-lb">設定</span>
@@ -943,6 +969,7 @@ const ICON={
   cloud:'<path d="M17.5 19H8a5 5 0 1 1 1.3-9.8A6 6 0 0 1 21 12.5a4 4 0 0 1-3.5 6.5Z"/>',
   trash:'<path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/><path d="M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>',
   volume:'<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M16 8.5a5 5 0 0 1 0 7"/>',
+  mic:'<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/>',
   flag:'<path d="M4 22V4"/><path d="M4 4h13l-2.5 4L17 12H4"/>',
   refresh:'<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>',
   award:'<circle cx="12" cy="9" r="6"/><path d="M9 14.5 7 22l5-3 5 3-2-7.5"/>',
@@ -977,12 +1004,15 @@ function copyW(w){ navigator.clipboard.writeText(w).then(()=>toast(`✓ 已複�
 /* ── TABS ── */
 function switchTab(tab){
   curTab=tab;
-  ['prac','essay','set'].forEach(t=>{
+  ['prac','essay','speak','set'].forEach(t=>{
     document.getElementById('t-'+t).classList.toggle('on',t===tab);
   });
   document.getElementById('pracPanel').style.display    = tab==='prac'    ? 'flex' : 'none';
   document.getElementById('essayPanel').style.display   = tab==='essay'   ? 'flex' : 'none';
+  document.getElementById('speakPanel').style.display    = tab==='speak'  ? 'flex' : 'none';
   document.getElementById('setPanel').style.display      = tab==='set'    ? 'flex' : 'none';
+  // 口說首頁要現算今日句數跟等級 bar，每次切進來重畫（其他 Panel 是進去才渲染，這裡沒有入口按鈕）
+  if(tab==='speak'&&recState==='idle') renderSpeakHome();
 }
 
 /* ── SETTINGS ── */
@@ -1848,21 +1878,11 @@ function sanitizeGradeResult(r,ans,word){
   return fixed;
 }
 
-async function submitSent(){
-  const ans=document.getElementById('sentInp').value.trim();
-  if(!ans){toast('請先寫出翻譯');return;}
-  const btn=document.getElementById('sentBtn');
-  btn.disabled=true;btn.textContent='Claude 批改中...';
-  /* 整個批改流程只認這一份題目快照，中途一律不再讀 curSentQ。
-     理由跟 startSent() 的 qLevel 是同一類：批改橫跨好幾趟網路，而「下一題」在加入
-     預抓之後變成瞬間完成——使用者在批改結果出來後馬上按下一題，curSentQ 立刻被換掉，
-     後面的 saveSentHistory()／精通判定／今日練習量就會全部記到新題目的單字上。
-     以前每次出題要等好幾秒，這個窗口小到踩不到；預抓把它變成一按就中。 */
-  const q0=curSentQ;
-  try{
-    // gradeSystemPrompt 逐字不含目標單字/學生答案/中文原句這些每次呼叫都會變的值，
-    // 才能被 Anthropic prompt caching 命中（system 內容要跟上次呼叫逐字相同）；這些動態值全部放進 gradeUserPrompt。
-    const gradeSystemPrompt=`你是英語口語練習老師，正在批改學生的中翻英造句練習。
+/* 批改規則手冊。原本寫在 submitSent() 裡面，抽到模組層是為了讓口說批改共用同一份字串——
+   Anthropic prompt caching 要求 system 內容逐字相同才會命中，兩邊各留一份必然會分裂成兩個快取桶。
+   內容一個字都沒改（只有變數名從 gradeSystemPrompt 變成 GRADE_SYSTEM），現有快取不受影響。
+   口說專用的規則一律放在 user 訊息裡追加，不要動這個字串。 */
+const GRADE_SYSTEM=`你是英語口語練習老師，正在批改學生的中翻英造句練習。
 
 【自然英文原則（最高原則，適用於整份評分）】
 評分的核心標準是「母語者會不會自然這樣講」，不是「有沒有跟某個範本或中文原句的結構一模一樣」。列出任何一項 corrections 之前，先確認這真的是英文母語者不會這樣講的錯誤，不能只因為跟你預設的版本不同就判定為錯。
@@ -1969,8 +1989,23 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 只輸出純 JSON（不要加 markdown）。欄位順序就是你該生成的順序：先把證據寫完（corrections / chinglish_issues / 範例句），最後才根據那些證據給分數跟講評，不要跳著寫、也不要先想好分數再回頭湊證據：
 {"corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 ${GRAMMAR_CATEGORIES.length} 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）","grammar_accuracy":"文法正確度百分比（0-100 的整數，依上面 corrections 逐項扣分算出來）","chinglish_percent":"中式英文佔比百分比（0-100 的整數，依上面 chinglish_issues 判斷）","cefr":"A1/A2/B1/B2/C1/C2 其中一個","overall":"整體講評（繁體中文1句）"}
 grammar_accuracy 跟 chinglish_percent 這兩個欄位的值要輸出純數字、不要加引號（例如 85，不是 "85"）。`;
-    // gradeUserPrompt 只放每次呼叫都會變的內容（中文原句/目標單字/學生答案），刻意跟上面的 gradeSystemPrompt 分開，
-    // 讓 gradeSystemPrompt 逐字不變、能被 Anthropic prompt caching 命中（見 callClaude 的 system 參數）——
+
+async function submitSent(){
+  const ans=document.getElementById('sentInp').value.trim();
+  if(!ans){toast('請先寫出翻譯');return;}
+  const btn=document.getElementById('sentBtn');
+  btn.disabled=true;btn.textContent='Claude 批改中...';
+  /* 整個批改流程只認這一份題目快照，中途一律不再讀 curSentQ。
+     理由跟 startSent() 的 qLevel 是同一類：批改橫跨好幾趟網路，而「下一題」在加入
+     預抓之後變成瞬間完成——使用者在批改結果出來後馬上按下一題，curSentQ 立刻被換掉，
+     後面的 saveSentHistory()／精通判定／今日練習量就會全部記到新題目的單字上。
+     以前每次出題要等好幾秒，這個窗口小到踩不到；預抓把它變成一按就中。 */
+  const q0=curSentQ;
+  try{
+    // GRADE_SYSTEM 逐字不含目標單字/學生答案/中文原句這些每次呼叫都會變的值，
+    // 才能被 Anthropic prompt caching 命中（system 內容要跟上次呼叫逐字相同）；這些動態值全部放進 gradeUserPrompt。
+    // gradeUserPrompt 只放每次呼叫都會變的內容（中文原句/目標單字/學生答案），刻意跟 GRADE_SYSTEM 分開，
+    // 讓 GRADE_SYSTEM 逐字不變、能被 Anthropic prompt caching 命中（見 callClaude 的 system 參數）——
     // 這份 system 本身內容多（CEFR/中式英文/28 個文法分類等規則），命中快取後波及的是這次改動最主要想解決的兩件事：
     // 批改變慢（cache 命中後不用重新處理整份規則）、批改變貴（cache read 只收約 1/10 的 input token 費用）。
     // hint 也要帶進來：出題跟批改是兩次獨立呼叫，批改端原本看不到出題時給過什麼提示，
@@ -2020,7 +2055,7 @@ ${prevBlock}
            完整修正在整份輸出的 8% 位置就能顯示出來。
            只有第一次嘗試需要逐步顯示；重打那次畫面上已經有東西了，安靜換掉就好。 */
         const onDelta=attempt===0?renderGradingProgress:null;
-        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',gradeSystemPrompt,onDelta);
+        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',GRADE_SYSTEM,onDelta);
         r=parseJSON(txt);
         if(gradeResultIssues(r,ans,q0.word).length===0) break;
       }catch(e){
@@ -2173,8 +2208,11 @@ function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score
 function gAccClass(p){ return p>=90?'score-excellent':p>=70?'score-good':'score-needs'; }
 
 let curResultCtx=null;
-function sentResultHTML(word,zh,userAns,def,translation,level,r){
-  const mastered=cefrRank(r.cefr)>=cefrRank(level)&&r.chinglish_percent<=30;
+/* opts.spoken：口說模式不顯示「已精通」徽章。口說刻意不寫 levelProgress
+   （內容來自可能有誤差的語音轉錄稿，不該拿來下永久結論——見 saveSpeakHistory），
+   徽章卻照樣亮起來的話，畫面在宣告一件系統其實沒有記錄的事。 */
+function sentResultHTML(word,zh,userAns,def,translation,level,r,opts={}){
+  const mastered=!opts.spoken&&cefrRank(r.cefr)>=cefrRank(level)&&r.chinglish_percent<=30;
   curResultCtx={word,zh,userAns,def,translation,level,r};
   return `
   <div class="prac-card">
@@ -2396,6 +2434,7 @@ function saveSentHistory(userAns,r,q){
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!r.questionFlawed,
+    mode:'typed',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
     ts:Date.now()
@@ -2444,6 +2483,9 @@ function toIndex(h){
   return {
     ts:h.ts, word:h.word, level:h.level, userAns:h.userAns, zh_sentence:h.zh_sentence,
     cefr:h.cefr, chinglish_percent:h.chinglish_percent, grammar_accuracy:h.grammar_accuracy,
+    // mode/pron 留在索引裡：儀表板的打字／口說切換是對本機索引做的，撈不到伺服器就沒得切。
+    // 舊紀錄沒有 mode，一律當成 typed（見 histMode()）。
+    mode:h.mode, pron:h.pron,
     corrections:(h.corrections||[]).map(c=>({error:c.error,category:c.category})),
     chinglish_issues:(h.chinglish_issues||[]).map(c=>({phrase:c.phrase,type:c.type}))
   };
@@ -2627,8 +2669,13 @@ function distinctWordVolume(records){
 
 // count 是相異單字數；acc／ching 仍然對「每一次送出批改」取平均——那是正確度不是練習量，
 // 用去重後的字去平均會把改寫後變好的分數丟掉。
-function aggregateTrend(buckets,keyFn,level){
-  const records = level==='all' ? SENT_HISTORY : SENT_HISTORY.filter(h=>h.level===level);
+// 2026-08-28 起紀錄分打字/口說。舊紀錄沒有 mode 欄位，一律當成 typed——
+// 口說是這天才有的功能，之前的每一筆本來就都是打字。
+function histMode(h){ return h.mode==='spoken'?'spoken':'typed'; }
+
+function aggregateTrend(buckets,keyFn,level,mode){
+  let records = level==='all' ? SENT_HISTORY : SENT_HISTORY.filter(h=>h.level===level);
+  if(mode&&mode!=='all') records=records.filter(h=>histMode(h)===mode);
   const map={};
   records.forEach(h=>{ const k=keyFn(h.ts); (map[k]=map[k]||[]).push(h); });
   const avg=(arr,key)=>{ const v=arr.filter(h=>typeof h[key]==='number'); return v.length?Math.round(v.reduce((s,h)=>s+h[key],0)/v.length):null; };
@@ -2646,7 +2693,7 @@ function sentencesSinceLastSummary(){ return SENT_HISTORY.filter(h=>h.ts>(dashbo
 // 本機索引沒有這兩個欄位，向伺服器取。日/週趨勢仍用本機索引算（那些欄位索引都有）。
 async function buildSummaryMaterial(){
   const buckets=[]; for(let i=13;i>=0;i--) buckets.push({key:taipeiDaysAgo(i),label:''});
-  const daily=aggregateTrend(buckets, ts=>taipeiDateStr(ts), 'all').map((d,i)=>({date:buckets[i].key,count:d.count,acc:d.acc,ching:d.ching}));
+  const daily=aggregateTrend(buckets, ts=>taipeiDateStr(ts), 'all', 'all').map((d,i)=>({date:buckets[i].key,count:d.count,acc:d.acc,ching:d.ching}));
   // learnableCats：不把「其他」餵進去，模型就不可能建議「去複習其他」這種做不到的事
   // currentTaxonomyCats：舊分類同樣擋掉，不然總結會叫人去學一個清單上已經不存在的東西
   const cats=currentTaxonomyCats(learnableCats(Object.keys(grammarStats)));
@@ -2789,6 +2836,11 @@ function renderDashLevelChips(){
 }
 function dashSetGranularity(g){ dashGran=g; document.querySelectorAll('#dashGranSeg .seg-item').forEach(b=>b.classList.toggle('on',b.dataset.g===g)); renderDashTrend(); }
 function dashSetLevel(l){ dashLevel=l; renderDashLevelChips(); renderDashTrend(); }
+function dashSetMode(m){
+  dashMode=m;
+  document.querySelectorAll('#dashModeSeg .seg-item').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  renderDashTrend();
+}
 
 /* 原本 viewBox 寫死 380 寬配 width:100%，等於「1 個 viewBox 單位 = 容器寬/380 個 CSS px」——
    容器一變寬，圖裡的字級、線寬、圓點半徑、圖表高度就全部一起等比放大，可是卡片其他東西
@@ -2806,7 +2858,7 @@ function dashChartWidth(el){
 function renderDashTrend(){
   const chart=document.getElementById('dashTrendChart'); if(!chart) return;
   const W=dashChartWidth(chart);
-  const agg=aggregateTrend(dashGetBuckets(), dashGetKeyFn(), dashLevel);
+  const agg=aggregateTrend(dashGetBuckets(), dashGetKeyFn(), dashLevel, dashMode);
   renderDashTrendHeadline(agg);
   renderDashTrendLines(agg,W);
   renderDashTrendVolume(agg,W);
@@ -3011,6 +3063,11 @@ async function dashboardHTML(){
             <button class="seg-item" data-g="week" style="padding:6px 13px;font-size:12px" onclick="dashSetGranularity('week')">週</button>
             <button class="seg-item" data-g="month" style="padding:6px 13px;font-size:12px" onclick="dashSetGranularity('month')">月</button>
           </div>
+          <div class="seg" id="dashModeSeg" style="padding:3px;display:inline-flex;margin-left:8px">
+            <button class="seg-item on" data-m="all" style="padding:6px 13px;font-size:12px" onclick="dashSetMode('all')">全部</button>
+            <button class="seg-item" data-m="typed" style="padding:6px 13px;font-size:12px" onclick="dashSetMode('typed')">打字</button>
+            <button class="seg-item" data-m="spoken" style="padding:6px 13px;font-size:12px" onclick="dashSetMode('spoken')">口說</button>
+          </div>
         </div>
         <div id="dashLevelChips" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px"></div>
         <div id="dashTrendHeadline" style="font-size:13px;color:var(--dim);margin-bottom:10px"></div>
@@ -3030,7 +3087,7 @@ async function dashboardHTML(){
 async function showDashboard(){
   document.getElementById('pracBody').innerHTML=`<button class="back-btn" onclick="renderSentHome()">← 返回</button><div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">計算中...</div></div>`;
   if(SENT_HISTORY.length) await ensureDashboardSummary();
-  dashGran='day'; dashLevel='all';
+  dashGran='day'; dashLevel='all'; dashMode='all';
   const html=await dashboardHTML();
   document.getElementById('pracBody').innerHTML=`<button class="back-btn" onclick="renderSentHome()">← 返回</button>`+html;
   if(SENT_HISTORY.length){ renderDashLevelChips(); renderDashTrend(); updateSummaryRefreshGate(); }
@@ -3268,9 +3325,540 @@ function showEssayHistDetail(i){
 let grammarStats=JSON.parse(lsGet('c_grammar_stats','{}'));
 let chinglishStats=JSON.parse(lsGet('c_chinglish_stats','{}'));
 let dashboardSummary=JSON.parse(lsGet('c_dashboard_summary','null')); // {ts,date,text}
-let dashGran='day', dashLevel='all';
+let dashGran='day', dashLevel='all', dashMode='all';
 const DASH_SUMMARY_REFRESH_THRESHOLD=5;
 
+
+
+/* ── 口說：錄音 → Azure 收得下的 WAV ───────────────────────────────────
+   Azure 短音訊 REST 只收兩種格式：`audio/wav; codecs=audio/pcm; samplerate=16000`
+   或 `audio/ogg; codecs=opus`。iOS Safari 的 MediaRecorder 只產得出 mp4/AAC，
+   兩種都不是——所以「在瀏覽器裡自己轉檔」不是最佳化，是這個功能能不能動的前提。
+
+   流程：MediaRecorder(mp4/AAC) → decodeAudioData → 降混單聲道 + 重取樣 16k → 手寫 WAV header。
+   全部用瀏覽器內建 API，維持全站零外部依賴。 */
+
+const SPEAK_MAX_SEC=25;          // Azure 發音評分上限 30 秒，留 5 秒緩衝給前後靜音
+const SPEAK_SAMPLE_RATE=16000;
+const OfflineCtx=window.OfflineAudioContext||window.webkitOfflineAudioContext;
+
+// Float32 單聲道 → WAV(16-bit PCM LE)。header 欄位對照 RIFF 規格，macOS afinfo 驗過
+// 會讀成「1 ch, 16000 Hz, Int16, 256 kbps」，正好是 Azure 要的規格。
+function encodeWav16k(samples,sampleRate){
+  const dataLen=samples.length*2;
+  const buf=new ArrayBuffer(44+dataLen), v=new DataView(buf);
+  const put=(off,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(off+i,s.charCodeAt(i)); };
+  put(0,'RIFF');  v.setUint32(4,36+dataLen,true);  put(8,'WAVE');
+  put(12,'fmt '); v.setUint32(16,16,true);
+  v.setUint16(20,1,true);                 // PCM
+  v.setUint16(22,1,true);                 // 單聲道
+  v.setUint32(24,sampleRate,true);
+  v.setUint32(28,sampleRate*2,true);      // byteRate
+  v.setUint16(32,2,true);                 // blockAlign
+  v.setUint16(34,16,true);                // bitsPerSample
+  put(36,'data'); v.setUint32(40,dataLen,true);
+  let o=44;
+  for(let i=0;i<samples.length;i++){
+    // 一定要夾在 [-1,1]：不夾的話破音會 wrap 成反相的爆音，Azure 會判成 NoMatch
+    const s=Math.max(-1,Math.min(1,samples[i]));
+    v.setInt16(o,s<0?s*0x8000:s*0x7FFF,true); o+=2;
+  }
+  return buf;
+}
+
+// 多聲道/任意取樣率的 AudioBuffer → 16k 單聲道 Float32。
+// 把來源接到「1 聲道的 destination」，Web Audio 規格會自動降混，不用自己平均左右聲道。
+async function toMono16k(decoded){
+  if(decoded.sampleRate===SPEAK_SAMPLE_RATE&&decoded.numberOfChannels===1) return decoded.getChannelData(0);
+  const len=Math.max(1,Math.ceil(decoded.duration*SPEAK_SAMPLE_RATE));
+  const off=new OfflineCtx(1,len,SPEAK_SAMPLE_RATE);
+  const src=off.createBufferSource();
+  src.buffer=decoded; src.connect(off.destination); src.start();
+  // startRendering() 在新版回 Promise，舊版 Safari 只給 oncomplete，兩種都接住
+  const rendered=await new Promise((res,rej)=>{
+    const p=off.startRendering();
+    if(p&&p.then) p.then(res,rej); else { off.oncomplete=e=>res(e.renderedBuffer); }
+  });
+  return rendered.getChannelData(0);
+}
+
+async function blobToWav(blob){
+  const arr=await blob.arrayBuffer();
+  if(!arr.byteLength) throw new Error('錄到的音訊是空的，可能沒有取得麥克風輸入');
+  // 用 OfflineAudioContext 解碼而不是 AudioContext：不需要使用者手勢、也不用管 resume()。
+  // 長度給 1 秒而不是 1 個 frame：這個 context 只拿來解碼、長度根本用不到，
+  // 但部分 Safari 版本對極短的 OfflineAudioContext 會直接丟例外，不值得為了省 16000 個
+  // 用不到的 frame 去賭那個邊界。
+  const dec=new OfflineCtx(1,SPEAK_SAMPLE_RATE,SPEAK_SAMPLE_RATE);
+  const decoded=await new Promise((res,rej)=>{
+    const p=dec.decodeAudioData(arr,res,rej);
+    if(p&&p.then) p.then(res,rej);
+  }).catch(e=>{ throw new Error('音訊解碼失敗（'+(e&&e.message||e)+'）'); });
+  const mono=await toMono16k(decoded);
+  return {wav:encodeWav16k(mono,SPEAK_SAMPLE_RATE), seconds:mono.length/SPEAK_SAMPLE_RATE};
+}
+
+// 256 KB 的音訊不能用 String.fromCharCode(...bytes)——展開會超過引數上限直接爆掉，
+// 所以分塊組。8KB 一塊是實測不會踩到上限又不會慢的大小。
+function bytesToBase64(arrayBuffer){
+  const bytes=new Uint8Array(arrayBuffer);
+  let bin='';
+  for(let i=0;i<bytes.length;i+=8192) bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));
+  return btoa(bin);
+}
+
+/* ── 口說練習 ────────────────────────────────────────────────────────
+   兩種模式，共用錄音與 Azure 發音評分，但目標不同：
+
+   ① 翻譯（translate）：看中文 → 直接用英文說出來。題目完全沿用 buildQuestion()，
+      連預抓都共用——出題跟「學生怎麼作答」無關。
+      流程：錄音 → WAV → Azure 純轉錄 → Azure 發音評分 → Claude 批內容。
+      要兩趟 Azure 是因為短音訊 REST 的 ReferenceText 是必填、沒有 SDK 那種 unscripted 模式，
+      所以得先拿到轉錄稿才有東西當參考文字。
+
+      ⚠️ 這個做法有一個已知盲點：參考文字是「你自己唸出來被聽成什麼」。
+      把 thought 唸成 sought 時，轉錄稿就是 sought，評分會說你唸得很標準。
+      唸錯到變成另一個字的那種錯誤，這條路徑抓不到；輕微的口音偏差仍然會反映在音素分數上。
+      要完全可信的發音分數請用②。
+
+   ② 朗讀（readaloud）：給你一句已知的正確英文 → 唸出來。ReferenceText 是真的已知，
+      沒有上面的循環，音素分數完全可信，而且能開 EnableMiscue 標出漏唸/多唸的字。
+      只要一趟 Azure，不需要 Claude。
+
+   統計口徑（依 2026-08-28 的決定「分開算」）：
+   - 練習量（dailyLevelCount）：口說照算，都是練習
+   - 精通（levelProgress）、grammarStats、chinglishStats：口說一律不寫。
+     那些是對「這個字/這個文法你會了」下的永久結論，而口說的內容來自可能有誤差的
+     轉錄稿，拿它去寫永久結論會污染你既有的打字統計。
+   - 歷史紀錄照存（含 acc/ching 與發音分數），趨勢圖可以用 mode 切換分開看 */
+
+let speakSubTab='translate';        // 'translate' | 'readaloud'
+let curSpeakQ=null;                 // 翻譯模式的題目（形狀跟 curSentQ 一樣）
+let curReadTarget=null;             // 朗讀模式：{text,label}
+let recState='idle';                // idle | recording | processing
+let mediaRec=null, recChunks=[], recStream=null, recTick=null, recStartTs=0;
+
+/* ── Azure 語音（透過同一支 Edge Function 代理，Key 不在前端）── */
+async function azureSpeech({wavB64, referenceText=null, enableMiscue=false}){
+  const t=await authToken();
+  if(!t) throw new AIError('auth','請重新登入');
+  const r=await fetch(PROXY_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
+    body:JSON.stringify({provider:'azure-speech',audioBase64:wavB64,referenceText,enableMiscue,language:'en-US'})
+  });
+  if(!r.ok){
+    const e=await r.json().catch(()=>({}));
+    const msg=e.error?.message||e.error||`語音服務錯誤 ${r.status}`;
+    // 503 是代理自己回的「secret 沒設」，那是設定問題不是暫時性故障，要原文顯示
+    throw new AIError(r.status===429?'quota':r.status===401?'auth':(r.status>=502)?'upstream':'http', msg);
+  }
+  const d=await r.json();
+  if(d.RecognitionStatus!=='Success') throw new AIError('speech', speechStatusMsg(d.RecognitionStatus));
+  return d;
+}
+
+// 這些狀態各自代表完全不同的問題，講清楚才知道要怎麼改；
+// 統一寫成「辨識失敗，請重試」的話，麥克風沒開跟講太小聲會被混成同一件事。
+function speechStatusMsg(st){
+  return ({
+    NoMatch:'聽得到聲音但辨識不出英文——確認是用英文說的，或放慢一點再試',
+    InitialSilenceTimeout:'錄音開頭全是靜音，可能麥克風沒收到聲音',
+    BabbleTimeout:'背景噪音太大，辨識不到人聲',
+    Error:'語音服務內部錯誤，請重試',
+  })[st] || `語音辨識未成功（${st}）`;
+}
+
+// Azure 的分數埋在 NBest[0]，要 format=detailed 才會有（代理已經固定帶上）
+function extractPron(d){
+  const b=(d.NBest&&d.NBest[0])||{};
+  return {
+    text:b.Display||d.DisplayText||'',
+    accuracy:b.AccuracyScore, fluency:b.FluencyScore, prosody:b.ProsodyScore,
+    completeness:b.CompletenessScore, pron:b.PronScore,
+    words:(b.Words||[]).map(w=>({
+      word:w.Word, acc:w.AccuracyScore, err:w.ErrorType||'None',
+      phonemes:(w.Phonemes||[]).map(p=>({p:p.Phoneme,acc:p.AccuracyScore}))
+    }))
+  };
+}
+
+/* ── 錄音 ── */
+async function recStart(){
+  if(recState!=='idle') return;
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
+    toast('這個瀏覽器不支援錄音'); return;
+  }
+  try{
+    recStream=await navigator.mediaDevices.getUserMedia({audio:true});
+  }catch(e){
+    // NotAllowedError 跟「沒有麥克風」是兩件完全不同的事，不要混成一句通用文案
+    toast(e.name==='NotAllowedError'?'麥克風權限被拒，請到系統設定開啟'
+         :e.name==='NotFoundError'?'找不到麥克風':'無法開啟麥克風（'+e.name+'）');
+    return;
+  }
+  const types=['audio/mp4','audio/webm;codecs=opus','audio/webm'];
+  const mime=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch{ return false; } });
+  recChunks=[];
+  mediaRec=mime?new MediaRecorder(recStream,{mimeType:mime}):new MediaRecorder(recStream);
+  mediaRec.ondataavailable=e=>{ if(e.data.size) recChunks.push(e.data); };
+  mediaRec.onstop=()=>{
+    recStream.getTracks().forEach(t=>t.stop());
+    const blob=new Blob(recChunks,{type:mediaRec.mimeType||mime||'audio/mp4'});
+    onRecordingDone(blob);
+  };
+  mediaRec.start();
+  recState='recording'; recStartTs=Date.now();
+  recTick=setInterval(()=>{
+    const sec=(Date.now()-recStartTs)/1000;
+    const el=document.getElementById('recTimer');
+    if(el) el.textContent=sec.toFixed(1)+'s';
+    // 硬性上限：Azure 發音評分超過 30 秒直接回錯，與其讓它失敗不如自己先停
+    if(sec>=SPEAK_MAX_SEC) recStop();
+  },100);
+  renderRecUI();
+}
+
+function recStop(){
+  if(recState!=='recording') return;
+  clearInterval(recTick); recTick=null;
+  recState='processing';
+  try{ mediaRec.stop(); }catch(e){ recState='idle'; toast('停止錄音失敗（'+e.message+'）'); }
+  renderRecUI();
+}
+
+function recToggle(){ recState==='recording'?recStop():recStart(); }
+
+/* ── 錄完之後：轉檔 → 辨識 → 評分 →（翻譯模式才有）批改 ── */
+function speakStep(msg){
+  const el=document.getElementById('speakStep');
+  if(el) el.textContent=msg;
+}
+
+async function onRecordingDone(blob){
+  try{
+    speakStep('轉檔中…');
+    const {wav,seconds}=await blobToWav(blob);
+    if(seconds<0.4) throw new Error(`只錄到 ${seconds.toFixed(1)} 秒，太短了`);
+    const wavB64=bytesToBase64(wav);
+    if(speakSubTab==='readaloud') await finishReadAloud(wavB64,seconds);
+    else await finishTranslate(wavB64,seconds);
+  }catch(e){
+    console.error('口說處理失敗:',e);
+    recState='idle';
+    const body=document.getElementById('speakBody');
+    if(body) body.insertAdjacentHTML('afterbegin',
+      `<div class="err-box" style="display:block">${ic('xcircle',14)} ${escHTML(aiErrorMsg(e,'處理失敗，請重錄'))}</div>`);
+    renderRecUI();
+  }
+}
+
+async function finishTranslate(wavB64,seconds){
+  const q0=curSpeakQ;
+  speakStep('辨識中…');
+  const stt=await azureSpeech({wavB64});
+  const transcript=extractPron(stt).text.trim();
+  if(!transcript) throw new Error('辨識不到任何內容');
+
+  speakStep('評發音…');
+  // 參考文字＝剛剛的轉錄稿。這是 REST 版沒有 unscripted 模式的變通做法，
+  // 盲點見本區塊開頭的說明。miscue 關掉：兩邊必然一致，開了只會產生假的 None。
+  const pron=extractPron(await azureSpeech({wavB64,referenceText:transcript}));
+
+  speakStep('批改內容…');
+  // 沿用打字那份 GRADE_SYSTEM（逐字相同才命中 prompt caching），
+  // 口說專屬的規則放在 user 訊息——它每次都會變，本來就不該進 system。
+  const userPrompt=`中文原句：「${q0.zh_sentence}」
+目標單字：${q0.word}
+${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學生答案：「${transcript}」
+
+【重要：這是口說練習，學生答案是語音辨識的轉錄稿，不是打字的】
+1. 標點符號與大小寫是辨識系統自己加的，一律不要列為錯誤。
+2. gonna / wanna / kinda / 'cause 這類口語縮讀在口說裡完全正常，不是錯誤。
+3. 口說允許比書面鬆散的句構（開頭的 well/so/um、短暫的自我修正、省略主詞），
+   只要母語者口語裡會這樣講就不算錯。
+4. 但真正的文法錯誤（時態、單複數、冠詞、介系詞、詞序）照抓不誤。
+5. 如果某個地方看起來像是「辨識聽錯」而不是「學生說錯」，寫進 precision_note 說明，不要當成文法錯誤扣分。
+
+請依照 system prompt 裡的規則批改這則口說翻譯，只輸出規定格式的純 JSON。`;
+
+  let r=null,lastErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{ r=parseJSON(await callClaude(userPrompt,1600,'claude-haiku-4-5-20251001',GRADE_SYSTEM)); break; }
+    catch(e){ lastErr=e; if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e; }
+  }
+  if(!r) throw lastErr||new Error('批改失敗');
+
+  recState='idle';
+  renderSpeakResult({mode:'translate',q:q0,transcript,pron,content:r,seconds});
+  saveSpeakHistory({q:q0,transcript,content:r,pron,seconds});
+}
+
+async function finishReadAloud(wavB64,seconds){
+  const target=curReadTarget;
+  speakStep('評發音…');
+  // 參考文字是本來就已知的正確句子 → 分數完全可信，而且 miscue 能標出漏唸/多唸
+  const pron=extractPron(await azureSpeech({wavB64,referenceText:target.text,enableMiscue:true}));
+  recState='idle';
+  renderSpeakResult({mode:'readaloud',target,pron,seconds});
+}
+
+/* ── 口說 UI ── */
+function pronClass(v){ return v==null?'':v>=80?'score-excellent':v>=60?'score-good':'score-needs'; }
+function pronNum(v){ return v==null?'—':Math.round(v); }
+
+function switchSpeakMode(m){
+  if(recState!=='idle'){ toast('請先結束目前的錄音'); return; }
+  speakSubTab=m; renderSpeakHome();
+}
+
+async function renderSpeakHome(){
+  const todayN=SENT_HISTORY.filter(h=>h.mode==='spoken'&&taipeiDateStr(h.ts)===todayStr()).length;
+  const seg=`<div class="seg" id="speakSeg">
+    <button class="seg-item ${speakSubTab==='translate'?'on':''}" onclick="switchSpeakMode('translate')">中翻英口說</button>
+    <button class="seg-item ${speakSubTab==='readaloud'?'on':''}" onclick="switchSpeakMode('readaloud')">朗讀跟讀</button>
+  </div>`;
+  const body=document.getElementById('speakBody');
+  if(speakSubTab==='translate'){
+    const bar=await levelBarHTML();
+    body.innerHTML=seg+bar+`
+    <div class="empty">
+      <div class="empty-ico">${ic('mic',44)}</div>
+      <div class="empty-h">看中文，直接用英文說</div>
+      <div class="empty-p">沒有時間回頭修改，練的是即時把中文轉成正確英文<br>今天已完成 ${todayN} 句</div>
+      <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSpeak()">開始練習 →</button>
+    </div>`;
+  }else{
+    body.innerHTML=seg+await readAloudPickerHTML();
+  }
+}
+
+/* 朗讀模式的句子來源：你自己練過、而且被批改成正確版本的句子。
+   ReferenceText 是真的已知，所以這個模式的音素分數沒有翻譯模式那個循環問題。
+   本機索引沒有 corrected_sentence（toIndex 丟掉了），所以是點下去才向伺服器取。 */
+async function readAloudPickerHTML(){
+  const cands=SENT_HISTORY.filter(h=>h.userAns).slice(0,15);
+  if(!cands.length) return `<div class="empty">
+    <div class="empty-ico">${ic('mic',44)}</div>
+    <div class="empty-h">還沒有可以唸的句子</div>
+    <div class="empty-p">先去造句或中翻英口說練幾題<br>批改後的正確句子就會出現在這裡</div></div>`;
+  return `<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 挑一句來唸</div>
+    <div style="font-size:11px;color:var(--faint);line-height:1.6;margin-bottom:12px">
+      這個模式的標準答案是已知的，所以發音分數完全可信，還會標出漏唸／多唸的字。</div>
+    ${cands.map(h=>`<div class="hist-item" onclick="pickReadTarget(${h.ts})">
+      <div class="hist-zh">${escHTML(h.zh_sentence||h.word||'')}</div>
+      <div class="hist-ans">${escHTML((h.userAns||'').slice(0,60))} →</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+async function pickReadTarget(ts){
+  const body=document.getElementById('speakBody');
+  body.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">取句子中...</div></div>`;
+  let h=null;
+  try{ h=await fetchSentDetail(ts); }catch(e){ console.error('fetchSentDetail:',e); }
+  if(!h){ body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+    <div class="err-box" style="display:block">${ic('xcircle',14)} 取不到這句的完整內容，換一句試試</div>`; return; }
+  // 優先順序：批改後的正確版本 > B2 範例 > C1 範例 > 學生自己寫的（沒有錯誤時 corrected_sentence 是空的）
+  const opts=[
+    h.corrected_sentence&&{text:h.corrected_sentence,label:'批改後的正確版本'},
+    h.b2_example&&{text:h.b2_example,label:'B2 範例句'},
+    h.c1_example&&{text:h.c1_example,label:'C1 範例句'},
+    h.userAns&&{text:h.userAns,label:'你當時寫的'},
+  ].filter(Boolean);
+  body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  <div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 選一句來唸</div>
+    ${opts.map((o,i)=>`<div class="hist-item" onclick="startReadAloud(${i})">
+      <div class="hist-zh">${escHTML(o.text)}</div>
+      <div class="hist-ans">${o.label} →</div>
+    </div>`).join('')}
+  </div>`;
+  window.__readOpts=opts;
+}
+
+function startReadAloud(i){
+  curReadTarget=(window.__readOpts||[])[i];
+  if(!curReadTarget) return;
+  document.getElementById('speakBody').innerHTML=`
+  <button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  <div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 唸出這句話</div>
+    <div class="prac-zh" style="font-size:19px">${escHTML(curReadTarget.text)}</div>
+    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
+  </div>
+  <div id="recZone"></div>`;
+  renderRecUI();
+}
+
+// 用瀏覽器內建的語音合成唸一次示範，不多接一個 TTS 服務
+function speakTTS(){
+  const t=curReadTarget?.text; if(!t||!window.speechSynthesis) return;
+  const u=new SpeechSynthesisUtterance(t);
+  u.lang='en-US'; u.rate=0.9;
+  speechSynthesis.cancel(); speechSynthesis.speak(u);
+}
+
+async function startSpeak(){
+  const body=document.getElementById('speakBody');
+  body.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
+  try{
+    // 出題完全沿用造句那一套，連預抓的存貨都共用——題目跟「怎麼作答」無關
+    const qLevel=curLevel;
+    let q=prefetchQ[qLevel];
+    if(q){ delete prefetchQ[qLevel]; savePrefetch(); }
+    else q=await buildQuestion(qLevel);
+    curSpeakQ=q; lastSentWord=q.word;
+    renderSpeakQ();
+    setTimeout(()=>{ if(curSpeakQ&&curSpeakQ.level===qLevel) schedulePrefetch(qLevel); },600);
+  }catch(e){
+    body.innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${escHTML(aiErrorMsg(e,'出題失敗，請重試'))}</div>
+    <button class="prac-submit" onclick="startSpeak()" style="margin-top:12px">重試</button>`;
+  }
+}
+
+function renderSpeakQ(){
+  if(!curSpeakQ) return;
+  document.getElementById('speakBody').innerHTML=`
+  <button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  <div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 用英文把這句說出來</div>
+    <div class="prac-word-row">
+      <div class="prac-word-badge">${ic('tag',13)} ${curSpeakQ.word}${curSpeakQ.pos?` <span class="prac-word-pos">${posLabel(curSpeakQ.pos)}</span>`:''}</div>
+      <button class="btn play" onclick="playW('${curSpeakQ.word}','${curSpeakQ.audioURL}')">${ic('volume',16)}</button>
+    </div>
+    ${(showTranslation&&curSpeakQ.translation)?`<div class="sent-def">${ic('translate',13)} ${curSpeakQ.translation}</div>`:''}
+    <div class="prac-zh">${curSpeakQ.zh_sentence}</div>
+    ${curSpeakQ.hint?`<div class="prac-hint">${ic('bulb',13)} 提示：${curSpeakQ.hint}</div>`:''}
+  </div>
+  <div id="recZone"></div>`;
+  renderRecUI();
+}
+
+function renderRecUI(){
+  const z=document.getElementById('recZone'); if(!z) return;
+  if(recState==='processing'){
+    z.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div>
+      <div class="loader-t" id="speakStep">處理中…</div></div>`;
+    return;
+  }
+  const rec=recState==='recording';
+  z.innerHTML=`
+  <button class="prac-submit ${rec?'rec-on':''}" onclick="recToggle()">
+    ${rec?`⏹ 結束錄音　<span id="recTimer">0.0s</span>`:`🎤 開始錄音`}
+  </button>
+  <div style="font-size:11px;color:var(--faint);text-align:center;margin-top:8px">
+    ${rec?`說完再按一次結束（最長 ${SPEAK_MAX_SEC} 秒）`:'按下之後直接說，不用等提示音'}
+  </div>`;
+}
+
+/* ── 結果 ── */
+function pronCardHTML(pron,opts={}){
+  const w=pron.words||[];
+  const bad=w.filter(x=>x.err&&x.err!=='None');
+  return `<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 發音評分</div>
+    <div class="pron-grid">
+      <div class="stat-tile"><div class="stat-label">準確度</div><div class="stat-value ${pronClass(pron.accuracy)}">${pronNum(pron.accuracy)}</div></div>
+      <div class="stat-tile"><div class="stat-label">流暢度</div><div class="stat-value ${pronClass(pron.fluency)}">${pronNum(pron.fluency)}</div></div>
+      <div class="stat-tile"><div class="stat-label">語調</div><div class="stat-value ${pronClass(pron.prosody)}">${pronNum(pron.prosody)}</div></div>
+    </div>
+    ${pron.pron!=null?`<div style="font-size:12px;color:var(--dim);margin-bottom:12px">綜合發音分數 <b class="${pronClass(pron.pron)}">${pronNum(pron.pron)}</b>${
+      opts.miscue&&pron.completeness!=null?` · 完整度 <b class="${pronClass(pron.completeness)}">${pronNum(pron.completeness)}</b>`:''}</div>`:''}
+    ${w.length?`<div class="pron-words">${w.map((x,i)=>
+      `<span class="pron-w ${pronClass(x.acc)} ${x.err&&x.err!=='None'?'pron-err':''}" onclick="togglePhonemes(${i})">${escHTML(x.word)}<sub>${pronNum(x.acc)}</sub></span>`
+    ).join('')}</div>
+    <div id="phonemeBox" style="display:none"></div>`:''}
+    ${bad.length?`<div style="font-size:12px;color:var(--dim);margin-top:12px;line-height:1.7">
+      ${bad.map(x=>`「${escHTML(x.word)}」${({Mispronunciation:'唸得不夠準',Omission:'漏唸了',Insertion:'多唸了',UnexpectedBreak:'這裡不該停頓',MissingBreak:'這裡應該要停頓',Monotone:'語調太平'})[x.err]||x.err}`).join('　')}
+    </div>`:''}
+    ${opts.note?`<div style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.65">${opts.note}</div>`:''}
+  </div>`;
+}
+
+let __pronWords=[];
+function togglePhonemes(i){
+  const box=document.getElementById('phonemeBox'); if(!box) return;
+  const w=__pronWords[i]; if(!w||!w.phonemes.length){ box.style.display='none'; return; }
+  box.style.display=''; 
+  box.innerHTML=`<div style="margin-top:10px;padding:10px;background:var(--inset);border-radius:10px">
+    <div style="font-size:11px;color:var(--dim);margin-bottom:6px">「${escHTML(w.word)}」逐音素</div>
+    <div class="pron-words">${w.phonemes.map(p=>
+      `<span class="pron-w ${pronClass(p.acc)}">${escHTML(p.p)}<sub>${pronNum(p.acc)}</sub></span>`).join('')}</div>
+  </div>`;
+}
+
+function renderSpeakResult(res){
+  __pronWords=res.pron.words||[];
+  const body=document.getElementById('speakBody');
+  if(res.mode==='readaloud'){
+    body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+    <div class="prac-card">
+      <div class="card-lbl">${ic('mic',14)} 目標句</div>
+      <div class="prac-zh" style="font-size:17px">${escHTML(res.target.text)}</div>
+      <div class="sent-def">辨識到：${escHTML(res.pron.text)}</div>
+    </div>
+    ${pronCardHTML(res.pron,{miscue:true})}
+    <button class="prac-submit" onclick="startReadAloudAgain()">再唸一次</button>
+    <button class="next-btn" style="margin-top:8px" onclick="renderSpeakHome()">換一句</button>`;
+    return;
+  }
+  body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  <div class="prac-card">
+    <div class="card-lbl">${ic('translate',14)} 你說的</div>
+    <div class="prac-zh" style="font-size:15px;color:var(--dim)">${escHTML(res.q.zh_sentence)}</div>
+    <div class="sent-ans" style="margin-top:10px;font-size:17px">${escHTML(res.pron.text)}</div>
+    <div style="font-size:11px;color:var(--faint);margin-top:8px">${res.seconds.toFixed(1)} 秒</div>
+  </div>
+  ${pronCardHTML(res.pron,{note:'⚠️ 翻譯模式的參考文字是「你被聽成什麼」，所以唸錯到變成另一個字的情況這裡看不出來。想要完全可信的發音分數，用下面的按鈕改唸正確版本。'})}
+  ${sentResultHTML(res.q.word,res.q.zh_sentence,res.pron.text,res.q.definition,res.q.translation,res.q.level,res.content,{spoken:true})}
+  ${res.content.corrected_sentence?`<button class="prac-submit" style="margin-top:10px" onclick="readAloudFrom(${JSON.stringify(res.content.corrected_sentence).replace(/"/g,'&quot;')})">${ic('mic',14)} 唸唸看正確版本</button>`:''}
+  <button class="next-btn" style="margin-top:8px" onclick="startSpeak()">下一題 →</button>`;
+}
+
+function startReadAloudAgain(){
+  const t=curReadTarget; if(!t) return;
+  window.__readOpts=[t]; startReadAloud(0);
+}
+// 從批改結果直接跳進朗讀模式：這是發音評分最可信的入口，
+// 而且「剛寫錯 → 馬上唸一次正確版本」是這兩個模式最自然的接點
+function readAloudFrom(text){
+  speakSubTab='readaloud';
+  window.__readOpts=[{text,label:'批改後的正確版本'}];
+  switchTab('speak'); startReadAloud(0);
+}
+
+/* 存口說紀錄。刻意不寫 levelProgress／grammarStats／chinglishStats：
+   那三個是對「這個字/這個文法你會了」下的永久結論，而口說的內容來自可能有誤差的
+   語音轉錄稿，用它下永久結論會把既有的打字統計污染掉。練習量照算。 */
+function saveSpeakHistory({q,transcript,content,pron,seconds}){
+  const full={
+    mode:'spoken',
+    word:q.word, level:q.level, zh_sentence:q.zh_sentence,
+    definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
+    qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!content.questionFlawed,
+    userAns:transcript, cefr:content.cefr,
+    chinglish_percent:content.chinglish_percent, grammar_accuracy:content.grammar_accuracy,
+    corrected_sentence:content.corrected_sentence, corrections:content.corrections||[],
+    chinglish_issues:content.chinglish_issues||[], precision_note:content.precision_note||'',
+    b2_example:content.b2_example||'', c1_example:content.c1_example, tip:content.tip||'',
+    pron:{accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,pron:pron.pron},
+    speakSeconds:Math.round(seconds*10)/10,
+    ts:Date.now()
+  };
+  queuePendingSent(full);
+  SENT_HISTORY.unshift(toIndex(full));
+  lsSet('c_sent_hist',JSON.stringify(SENT_HISTORY));
+  // 練習量合併計算（跟打字同一個口徑：同一個字一天只算一次）
+  ensureDailyLevelCount();
+  if(!dailyLevelCount.words.includes(q.word)) dailyLevelCount.words.push(q.word);
+  if(!dailyLevelCount.byLevel[q.level]) dailyLevelCount.byLevel[q.level]=[];
+  if(!dailyLevelCount.byLevel[q.level].includes(q.word)) dailyLevelCount.byLevel[q.level].push(q.word);
+  lsSet('c_daily_level',JSON.stringify(dailyLevelCount));
+  syncToCloud();
+  pushSentHistory();
+}
 
 /* ── UTILS ── */
 function parseJSON(txt){
