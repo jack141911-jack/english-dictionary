@@ -396,11 +396,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
             <span class="set-ico"><svg class="ic" style="width:18px;height:18px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg></span>
             <div class="set-body2">
               <div class="set-lbl">範例句等級</div>
-              <div class="set-sub">批改結果要顯示 B2、C1，還是兩個都顯示</div>
+              <div class="set-sub">按「看母語者會怎麼寫這句」時，要生成 B2、C1，還是兩個都要</div>
               <div id="exampleChips" style="margin-top:10px;display:flex;gap:8px">
-                <span class="filt" onclick="setExamplePref('both')">都顯示</span>
-                <span class="filt" onclick="setExamplePref('b2')">只顯示 B2</span>
-                <span class="filt" onclick="setExamplePref('c1')">只顯示 C1</span>
+                <span class="filt" onclick="setExamplePref('both')">兩個都要</span>
+                <span class="filt" onclick="setExamplePref('b2')">只要 B2</span>
+                <span class="filt" onclick="setExamplePref('c1')">只要 C1</span>
               </div>
             </div>
           </div>
@@ -741,7 +741,7 @@ pruneStaleMastered();
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
 let dailyGoal = parseInt(lsGet('c_daily_goal','450'),10)||450;
 let showTranslation = lsGet('c_show_translation','1')==='1';
-let examplePref = lsGet('c_example_pref','both'); // 'both'|'b2'|'c1'
+let examplePref = lsGet('c_example_pref','both'); // 'both'|'b2'|'c1'：按鈕要生成哪個等級的範例句（2026-08-31 前是「批改結果顯示哪個」）
 let curAudio=null, curTab='prac';
 
 /* ── BOOT ── */
@@ -1604,60 +1604,14 @@ function hasTargetWord(text,word){
   }
   return false;
 }
-// b2_example/c1_example/corrected_sentence 依 prompt 規則都必須用到目標單字，這裡檢查 AI 有沒有真的照做
+/* corrected_sentence 依 prompt 規則必須用到目標單字，這裡檢查 AI 有沒有真的照做。
+   b2_example/c1_example 原本也在這裡檢查，2026-08-31 範例句改成按鈕生成之後移到 showExamples()——
+   那條路徑上學生是自己按的、知道自己在等，所以可以重生成到合格為止，不像批改不能讓人多等。 */
 function missingTargetWordFields(r,word){
   const miss=[];
-  if(r.b2_example&&!hasTargetWord(r.b2_example,word)) miss.push('b2_example');
-  if(r.c1_example&&!hasTargetWord(r.c1_example,word)) miss.push('c1_example');
   if(r.corrected_sentence&&!hasTargetWord(r.corrected_sentence,word)) miss.push('corrected_sentence');
   return miss;
 }
-/* 重打兩次之後 b2_example / c1_example 仍然沒用到目標單字時的補救。
-   為什麼不是把重打次數從 2 拉到 3：整份重打要重新產生全部欄位（約 300-450 output token、
-   4-7 秒），而且會把已經批改正確的 corrections 一起重擲；實測失敗的幾乎都只是範例句。
-   改成只補寫那一兩句：一次約 100 token，而且指令範圍小，遵從率比整份重打高。
-
-   量測（2026-08-19，本機 1,023 筆）：c1_example 13.4%、b2_example 4.4% 沒用到目標單字。
-   c1 特別高是結構性的——C1 等級的改寫本來就傾向換更高階的同義字（die→passed away、
-   heart→wholeheartedly、few→a handful of、danger→dangerous）。
-
-   corrected_sentence（4.3%）刻意不補寫：它跟 corrections[] 有一致性關聯，
-   單獨重寫會讓「訂正後的句子」對不上前面列出的每一條修正，反而製造新的矛盾。 */
-// 回傳真的補寫成功的欄位名稱陣列（沒有要補、或補寫失敗都回空陣列），
-// 讓呼叫端知道要不要把畫面上那一格換掉。
-async function rewriteMissingExamples(r,word){
-  const miss=missingTargetWordFields(r,word).filter(f=>f==='b2_example'||f==='c1_example');
-  if(!miss.length) return [];
-  const label={b2_example:'B2 等級的示範句',c1_example:'C1 等級的示範句'};
-  const prompt=`目標單字：${word}
-
-下面這些示範句必須包含目標單字「${word}」本身，但目前沒有——它們把這個字換成了同義字或改了詞性。
-請各重寫一句，保持原本的語意、情境跟難度等級，只把目標單字放回去。
-可以做時態、單複數、第三人稱等屈折變化，但不可以換成同義字，也不可以換成同字根的其他詞性。
-
-${miss.map(f=>`${f}（${label[f]}）目前是：「${r[f]}」`).join('\n')}
-
-只輸出純 JSON，不要加 markdown、不要加說明：
-{${miss.map(f=>`"${f}":"重寫後的句子"`).join(',')}}`;
-  const applied=[];
-  try{
-    const fixed=parseJSON(await callClaude(prompt,300,'claude-haiku-4-5-20251001'));
-    for(const f of miss){
-      // 只在補寫真的合格時才採用；補寫失敗就維持原樣，不會比現在更差
-      if(fixed?.[f]&&hasTargetWord(fixed[f],word)){ r[f]=fixed[f]; applied.push(f); }
-    }
-  }catch(e){ console.log('rewriteMissingExamples:',e); }  // 失敗不影響批改本身
-  return applied;
-}
-
-// 把補寫好的示範句換到已經畫出來的結果畫面上。找不到那一格（使用者已經切走、
-// 或該等級的顯示偏好本來就沒顯示這一句）就安靜跳過。
-function patchExampleInDOM(field,text){
-  const el=document.getElementById(field==='b2_example'?'b2ExampleText':'c1ExampleText');
-  if(!el||!text) return;
-  el.innerHTML=linkifyWords(text);
-}
-
 function normLoose(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').trim().replace(/\s+/g,' '); }
 // corrections[].error 依 prompt 規則必須是學生答案裡逐字出現的片段，這裡檢查 AI 有沒有捏造
 function fabricatedCorrections(r,ans){
@@ -1683,6 +1637,48 @@ function duplicateChinglishAndCorrections(r){
   if(!issuePhrases.length) return [];
   return (r.corrections||[]).filter(c=>c.error&&issuePhrases.includes(normLoose(c.error))).map(c=>c.error);
 }
+function fixOptions(fix){ return String(fix||'').split(/或|\/|,|，/).map(x=>x.trim()).filter(Boolean); }
+/* 同一個編輯被拆成兩條講（#personal 回報 2026-08-30：「問題只有 the 為什麼標記兩個錯誤」）。
+   判準不能只用「error 互相包含」——那個版本在 1,023 筆歷史上命中 77 筆，抽樣立刻抓到誤刪：
+   「can chose→can choose」是拼字、「dishes can chose in the menu→dishes you can choose from the menu」
+   是介系詞加補主詞，兩件不同的事。
+   收緊成：把窄的那條的編輯套進寬的那條的 error，結果如果等於寬的那條的 fix（或它「或」分隔的
+   任一選項），代表寬的那條沒有帶任何額外的修正資訊，只是同一個編輯講得比較長。
+   收緊後命中 20 筆，我逐筆比對過，沒有一筆是獨立的第二個錯誤。
+   保留窄的那條（比較精確）。⚠️ 寬的那條偶爾帶有額外的替代寫法（20 筆裡 3 筆），會一起消失——
+   刻意不合併，因為把「washes clothes in the washing machine」接在「the washing machine」後面
+   會變成語意不通的 fix，比丟掉更糟。 */
+function redundantWiderCorrections(r){
+  const cs=r.corrections||[], drop=new Set();
+  for(let i=0;i<cs.length;i++) for(let j=0;j<cs.length;j++){
+    if(i===j||drop.has(j)) continue;
+    const a=cs[i],b=cs[j];
+    if(!a.error||!a.fix||!b.error||!b.fix) continue;
+    const ea=normLoose(a.error), eb=normLoose(b.error);
+    if(!ea||!eb||ea===eb||!eb.includes(ea)) continue;
+    const projected=eb.replace(ea,normLoose(a.fix));
+    if(fixOptions(b.fix).some(o=>normLoose(o)===projected)) drop.add(j);
+  }
+  return [...drop].map(j=>cs[j].error);
+}
+/* 模型自己的修正版沒有套用它自己列的那條修正（#lake 回報 2026-08-22：
+   「我 last summer 只有寫過一次」——它說 last summer 重複要刪，corrected_sentence 卻留著）。
+   只看「刪除型」修正（fix 是 error 的子字串，也就是這條只要求拿掉東西）：這時 error 若原封不動
+   出現在 corrected_sentence 裡，就是模型一邊說要刪、一邊自己留著，兩個輸出互相打臉。
+   為什麼限定刪除型：通用版（任何 error 留在修正版裡）1,035 筆命中 99 筆、九成是誤判——
+   新增型的修正（happy life → a happy life）本來就會讓 error 留在 fix 裡面。
+   限定之後命中 3 筆，逐筆看過都是真的矛盾（lake、island 的 in the Pacific、itself→it）。 */
+function fixNotAppliedInCorrected(r){
+  const cs=r.corrected_sentence;
+  if(!cs) return [];
+  const ncs=' '+normLoose(cs)+' ';
+  return (r.corrections||[]).filter(c=>{
+    if(!c.error||!c.fix) return false;
+    const e=normLoose(c.error), f=normLoose(c.fix);
+    if(!e||!f||e===f||!e.includes(f)) return false;     // 只看刪除型
+    return ncs.includes(' '+e+' ');
+  }).map(c=>c.error);
+}
 // 二號規格：category 必須是 GRAMMAR_CATEGORIES 28 項清單裡完整的一項，不能是「冠詞」「時態」這種縮寫——
 // 實測過（2026-08-08，Jack 部署後跑真實資料）光靠 prompt 指示不夠，AI 常會偷懶縮寫成清單外的短詞，
 // 這裡用程式強制檢查、抓到就重打一次，不能只依賴 prompt 遵從度。
@@ -1702,21 +1698,15 @@ function weakTip(r){
   const weakPattern=/同樣道地|同樣自然|一樣道地|一樣自然|沒有明顯差異|沒有太大差異/;
   return r.tip&&weakPattern.test(r.tip)?['tip']:[];
 }
-function wordSet(s){ return new Set(normLoose(s).split(' ').filter(Boolean)); }
-function jaccardSim(a,b){
-  const sa=wordSet(a),sb=wordSet(b);
-  if(!sa.size||!sb.size) return 0;
-  let inter=0; for(const w of sa) if(sb.has(w)) inter++;
-  return inter/new Set([...sa,...sb]).size;
-}
-// 如果學生句子的句型結構跟 AI 自己給的 b2_example 幾乎一樣，CEFR 卻判在 B2 以下，代表前後矛盾（例如漏看受詞關係子句）
-function cefrUnderstated(r,ans){
-  if(!r.b2_example||cefrRank(r.cefr)>=cefrRank('B2')) return [];
-  return jaccardSim(ans,r.b2_example)>=0.7?['cefr_vs_b2_example']:[];
-}
+/* cefrUnderstated() 移除（2026-08-31）。它比對「學生句子 vs AI 自己給的 b2_example」，
+   b2_example 改成按鈕生成之後批改端不再產生它，這個檢查會永遠回傳空陣列——
+   留著就是一條看起來有在把關、實際上是空轉的程式。
+   代價要記著：九個重打檢查因此少一個，「寫得跟範例一樣好卻被判 B1」那類回報
+   （bargain ×2 / describe / designer）現在只剩 prompt 裡的 CEFR 判準在擋，沒有程式後盾。
+   上線後要看 CEFR 分布有沒有往 B1 塌回去。 */
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...cefrUnderstated(r,ans), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...fixNotAppliedInCorrected(r), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
 }
 
 // ─── 就地修掉、不重打的檢查 ────────────────────────────────────────────────
@@ -1859,14 +1849,27 @@ function sanitizeGradeResult(r,ans,word){
     fixed.push(`刪掉 ${noop.length} 項空修正`);
   }
 
-  /* 重打耗盡後的安全網（缺目標單字）。用「修正版有沒有目標單字」分辨是誰的錯：
-     - 修正版有 → 這個字塞得進這個情境，題目沒問題，是批改寫範例句時偷懶 → 藏掉那句範例
-     - 修正版也沒有 → 這個字根本塞不進去，是題目層級的失敗 → 標記 questionFlawed，
-       由 submitSent 跳過計分。使用者抱怨的從來不是「範例句不好看」，是「我被爛題目扣分」。 */
+  // 同一個編輯講成兩條 → 留精確的那條。純顯示問題，不值得為它多打一次批改（4-7 秒 + NT$0.11），
+  // 所以只在這裡就地清掉，不掛在 gradeResultIssues 上。
+  const wider=redundantWiderCorrections(r);
+  if(wider.length){
+    r.corrections=(r.corrections||[]).filter(c=>!wider.includes(c.error));
+    fixed.push(`合併 ${wider.length} 項重複修正`);
+  }
+
+  // 重打耗盡後仍然自相矛盾：以 corrected_sentence 為準刪掉那條修正——
+  // 修正版是學生會照抄的東西，兩邊衝突時該留的是它。
+  const notApplied=fixNotAppliedInCorrected(r);
+  if(notApplied.length){
+    r.corrections=(r.corrections||[]).filter(c=>!notApplied.includes(c.error));
+    fixed.push(`刪掉 ${notApplied.length} 項修正版自己沒套用的修正`);
+  }
+
+  /* 重打耗盡後的安全網：修正版沒有目標單字，代表這個字根本塞不進這個情境，是題目層級的失敗
+     → 標記 questionFlawed，由 submitSent 跳過計分。使用者抱怨的從來不是「範例句不好看」，
+     是「我被爛題目扣分」。（範例句的同類檢查已隨範例句一起移到 showExamples()。） */
   if(word){
     const miss=missingTargetWordFields(r,word);
-    if(miss.includes('b2_example')){ r.b2_example=''; fixed.push('b2_example 缺目標字→隱藏'); }
-    if(miss.includes('c1_example')){ r.c1_example=''; fixed.push('c1_example 缺目標字→隱藏'); }
     if(miss.includes('corrected_sentence')){
       r.questionFlawed=true;
       r.corrected_sentence='';
@@ -1913,7 +1916,7 @@ C2：近乎母語者水準，能運用細膩的語氣、豐富的慣用語、文
 
 反過來也要注意：上面這些「不要灌水」的校準，只適用於「整句真的找不到任何對應等級結構標記、單純聽起來自然」的情況。只要句子裡真的出現了某個等級定義列出的具體結構（例如 B2 定義裡的被動語態、較複雜關係子句、條件句、間接引述），就必須判到該等級，不能因為想避免灌水而過度保守地往下砍——例如「This is the book my sister wrote last year.」裡 the book (that) my sister wrote 是省略關係代名詞的受格關係子句，明確符合 B2 定義，必須判 B2，不能因為整句看起來簡短就打成 B1。
 
-判斷 CEFR 時，回頭比對一次你在上面已經寫好的 b2_example：如果學生的句子在文法複雜度或用字道地程度上跟那句 b2_example 相當、沒有被簡化，CEFR 就不該判得比 B2 低。真的比較低的話，代表 b2_example 跟 CEFR 有一邊判錯了，要重新檢查一次再填。
+判斷 CEFR 之前先想一次：如果讓母語者把這句中文寫成 B2 程度的英文，會用到哪些結構跟用字？學生的句子如果在文法複雜度或用字道地程度上已經到那個水準、沒有被簡化，CEFR 就不該判得比 B2 低。判得比較低的時候，回頭確認一次是真的比較簡單，而不是你預設「看起來短就是 B1」。
 
 【中式英文（Chinglish）判斷標準】
 只有「真正源自中文思維/中文語法習慣、直接套用到英文」才算中式英文，不是「只要有錯誤就算」。判斷每一項錯誤時，先問自己：「換一個母語完全不是中文、而且該語言在這個文法點上明顯跟中文不同的學生，他會不會也常犯一模一樣的錯誤？」
@@ -1926,7 +1929,7 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 以下狀況一律「不算」中式英文，不能因此扣分：
 - 用縮寫或全寫都可以，兩者一樣自然（例如 I am / I'm、do not / don't、it is / it's），不能因為沒縮寫就判定不自然或扣分。
 - 學生正確使用了被要求的目標單字本身，即使某些情境下另有更常見的同義字。
-- 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟範例句不同就扣分。
+- 純粹的個人風格選擇（例如比較正式或比較口語），只要文法跟用法都對，不能因為「風格」跟你心裡預設的版本不同就扣分。
 
 【中式英文類型標籤（chinglish_issues，跟上面整體的 chinglish_percent 分開處理）】
 除了上面的整體 chinglish_percent 百分比，還要把句子裡每一處「文法正確、但因中文干擾而不道地」的表達個別列出來，逐一分類到以下五種類型之一（判準跟例子如下，務必照這份清單分類，不要自己另外發明類型）：
@@ -1954,9 +1957,6 @@ chinglish_percent 要對應句子裡「屬於上述中式英文」的部分佔�
 - 嚴重（違反核心文法規則或影響理解，母語者聽了會覺得不通順甚至誤解語意，例如動詞形式錯到改變句意、句子結構破碎不成句）：每項扣 20-35 分。
 把所有 corrections 項目依上面標準扣完加總，結果不能低於 0。precision_note 裡的內容不算文法錯誤，不影響這個分數。
 
-【範例句規則（很重要）】
-「b2_example」跟「c1_example」都必須是翻譯同一個中文原句的另一種寫法，維持完全一樣的情境跟意思，不可以換成不相關的場景或加入原句沒有的資訊，這樣學生才能直接拿來跟自己寫的答案比較。兩句都要用到目標單字本身（或其自然變化形，指時態、單複數這種同一個詞性內的變化），不可以換成同義字，也不可以換成 user 訊息指定以外的詞性（例如指定名詞 danger 就不能寫成 dangerous）。
-這兩句的長度要貼近學生答案原本的長度（大約一句話，不要比原句長很多），語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度而堆疊子句、加裝飾語或用艱深冷僻的字彙，那種句子不自然也學不到東西。C1 版本可以比 B2 用字更精準、語感更道地，但不代表要更長更複雜，很多時候道地的說法反而更簡短。
 
 如果學生答案完全沒有錯誤（corrections 是空陣列），「corrected_sentence」直接輸出空字串""，不要重複輸出跟學生原句一樣的內容，浪費 token。只有在 corrections 非空、確實有修正時，「corrected_sentence」才輸出基於「學生自己寫的這句話」去修正的完整句子，保留學生原本的句型與用字風格跟目標單字本身，只修正真正的錯誤，不可以整句重新創作，也不可以把目標單字換成其他同義字或換成 user 訊息指定以外的詞性。「corrected_sentence」寫完後檢查一次：這必須是文法完整、可以獨立成句的句子，不能是沒有收尾的子句片段（例如不能只寫「Whether X depends on Y.」這種缺主要子句的殘句）。
 「corrections」裡每一項都要標註 category，從這 ${GRAMMAR_CATEGORIES.length} 個具體文法點裡選最接近的一個（選最貼近實際錯誤內容的那一條，不要因為列表變長就偷懶通通選「其他」，也不要自己縮寫/改寫成看起來像分類的短詞，例如把「冠詞 a/an/the 的基本用法」簡寫成「冠詞」——那不是清單裡任何一項，會讓分類失效）：
@@ -1982,12 +1982,11 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 如果這處不自然的原因是中文語法/思維直接套用（字面直譯、搭配詞不道地、中文語序、冗餘堆疊、生硬句式/主題優先，也就是上面 chinglish_issues 的五種類型），要改寫進 chinglish_issues，不要留在 precision_note——precision_note 只收「跟中文干擾無關」的籠統用字或漏資訊。
 只有在精準度上值得學生注意的情況才寫，不要為了鑽牛角尖硬找。如果沒有值得提醒的地方，這個欄位留空字串。同一個觀察點只能出現在 corrections 或 precision_note 其中一個地方，不可以兩邊都寫一次。寫完 precision_note 後務必檢查一次：裡面提到的字/搭配比較，如果已經在某一項 corrections 的 why 裡講過（哪怕只是部分重疊、換句話說一次），就要整段刪掉或改寫——precision_note 只能補充 corrections 完全沒提過的、不同的觀察點，不能對同一個字重複解釋一次為什麼另一個說法更好。
 「tip」如果要建議替代說法，句子結構必須是「比起 X，母語者更常用/更自然的是 Y」，X 是學生已經用的說法、Y 是你建議的替代說法，兩者必須是不同的詞或片語，寫完之後檢查一次 X 跟 Y 有沒有不小心打成同一個東西；Y 這個替代說法也必須用到目標單字本身（或其自然變化形），不能建議一個丟掉目標單字的說法，那樣達不到練習這個字的目的。如果學生答案已經很好、沒有值得補充的替代說法或口語技巧，「tip」直接留空字串，不要為了有內容而硬湊。
-寫完 b2_example 跟 c1_example 之後，務必檢查這兩句裡有沒有真的出現目標單字本身或其自然變化形（例如動詞的時態變化、名詞單複數）——只要其中一句沒有出現，就要重寫那一句，不能用同義字取代。
 
 【整體講評（overall）】
 這是最後一個欄位，前面全部寫完才寫它。用 1 句話（繁體中文）給學生一個整體印象，語氣像老師口頭講評，根據你上面已經寫好的 corrections 數量/嚴重度、chinglish_percent、grammar_accuracy 做總結，不要憑印象另外給一個跟前面對不上的評語：完全沒錯就講類似「這句完全正確，寫得很道地」；只有一兩個小瑕疵就講類似「整體掌握得不錯，只有一兩個小地方要注意」；錯誤較多或有嚴重問題就講類似「這句有幾個地方需要修正」。這句話只講整體印象，不要重複列出個別錯誤的細節內容（細節留給 corrections），也不要跟 precision_note/tip 的內容重複。
-只輸出純 JSON（不要加 markdown）。欄位順序就是你該生成的順序：先把證據寫完（corrections / chinglish_issues / 範例句），最後才根據那些證據給分數跟講評，不要跳著寫、也不要先想好分數再回頭湊證據：
-{"corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 ${GRAMMAR_CATEGORIES.length} 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","b2_example":"B2等級的自然範例句","c1_example":"C1等級的道地範例句","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）","grammar_accuracy":"文法正確度百分比（0-100 的整數，依上面 corrections 逐項扣分算出來）","chinglish_percent":"中式英文佔比百分比（0-100 的整數，依上面 chinglish_issues 判斷）","cefr":"A1/A2/B1/B2/C1/C2 其中一個","overall":"整體講評（繁體中文1句）"}
+只輸出純 JSON（不要加 markdown）。欄位順序就是你該生成的順序：先把證據寫完（corrections / chinglish_issues），最後才根據那些證據給分數跟講評，不要跳著寫、也不要先想好分數再回頭湊證據：
+{"corrections":[{"error":"錯誤片段","fix":"正確版本","why":"原因（繁體中文）","category":"上面列出的 ${GRAMMAR_CATEGORIES.length} 個文法點其中一個完整文字（例如「過去完成式」），不要填數字編號"}],"chinglish_issues":[{"phrase":"學生答案裡逐字實際出現的片段","type":"字面直譯/搭配詞不道地/中文語序/冗餘與堆疊/生硬句式 其中一個","natural":"母語者會怎麼寫的道地版","why":"為什麼這是翻譯腔（繁體中文1句）"}],"precision_note":"用字精準度提醒（繁體中文1句，沒有的話留空字串""）","corrected_sentence":"基於學生原句修正後的完整句子（沒有錯誤時留空字串""）","tip":"口語使用技巧（繁體中文1句，沒有值得補充的就留空字串""）","grammar_accuracy":"文法正確度百分比（0-100 的整數，依上面 corrections 逐項扣分算出來）","chinglish_percent":"中式英文佔比百分比（0-100 的整數，依上面 chinglish_issues 判斷）","cefr":"A1/A2/B1/B2/C1/C2 其中一個","overall":"整體講評（繁體中文1句）"}
 grammar_accuracy 跟 chinglish_percent 這兩個欄位的值要輸出純數字、不要加引號（例如 85，不是 "85"）。`;
 
 async function submitSent(){
@@ -2055,7 +2054,7 @@ ${prevBlock}
            完整修正在整份輸出的 8% 位置就能顯示出來。
            只有第一次嘗試需要逐步顯示；重打那次畫面上已經有東西了，安靜換掉就好。 */
         const onDelta=attempt===0?renderGradingProgress:null;
-        const txt=await callClaude(gradeUserPrompt,1600,'claude-haiku-4-5-20251001',GRADE_SYSTEM,onDelta);
+        const txt=await callClaude(gradeUserPrompt,1600,gradeModel(q0.level),GRADE_SYSTEM,onDelta);
         r=parseJSON(txt);
         if(gradeResultIssues(r,ans,q0.word).length===0) break;
       }catch(e){
@@ -2122,15 +2121,6 @@ ${prevBlock}
     let renderFailed=false;
     try{ await renderSentResult(ans,r,q0); }
     catch(e){ renderFailed=true; console.error('renderSentResult:',e); }
-    /* 範例句補寫移出使用者的等待。它原本 await 在 render 之前，也就是每一次需要補寫的
-       批改（實測 b2 4.4% + c1 13.4%）都要在轉圈畫面上多等一整趟 Claude 呼叫，
-       但批改結果其實早就全部到齊了，缺的只是那一兩句示範句。
-       現在先把完整結果畫出來，補寫回來再就地換掉那一格。
-       存檔仍然排在補寫之後：這樣存進歷史的永遠是補寫後的版本，不會出現
-       「本機顯示的是補好的、雲端存的是沒補的」這種兩邊對不起來的狀況——
-       而且時間點跟改動前一樣（改動前也是補寫完才存），沒有變晚。 */
-    const fixed=await rewriteMissingExamples(r,q0.word);
-    if(fixed&&fixed.length&&curSentQ===q0) for(const f of fixed) patchExampleInDOM(f,r[f]);
     saveSentHistory(ans,r,q0);
     if(renderFailed) toast('已儲存這題的批改結果，但畫面顯示失敗');
   }catch(e){
@@ -2168,7 +2158,13 @@ function renderGradingProgress(sofar){
   }
   const parts=[];
   // 只畫已經寫完 fix 的那幾條：正在生成中的最後一條會缺欄位，畫出來只會閃一下又變樣
-  const corr=(r.corrections||[]).filter(c=>c&&c.error&&c.fix);
+  /* 重複的那條在這裡就先濾掉，不要等 sanitize——sanitize 跑在串流結束之後，
+     那時使用者早就看到兩條了，再抽掉一條看起來像 bug。error/fix 都齊全才會進到這裡，
+     所以判斷用的欄位一定是完整字串，不會因為只串到一半而誤判。
+     （修正版自相矛盾那條沒辦法在這裡擋：corrected_sentence 在 schema 裡排在 corrections
+       後面，要等它串完才判斷得出來，那時 corrections 已經畫上去了。） */
+  const dupErr=redundantWiderCorrections(r);
+  const corr=(r.corrections||[]).filter(c=>c&&c.error&&c.fix&&!dupErr.includes(c.error));
   if(corr.length){
     parts.push(`<div class="card-lbl" style="margin:12px 0 8px">${ic('search',14)} 錯誤修正</div>`);
     for(const c of corr) parts.push(`<div class="corr-item">
@@ -2206,6 +2202,110 @@ function renderGradingProgress(sofar){
 
 function chingClass(p){ return p<=15?'score-excellent':p<=35?'score-good':'score-needs'; }
 function gAccClass(p){ return p>=90?'score-excellent':p>=70?'score-good':'score-needs'; }
+
+/* ── 範例句：改成按了才生成（2026-08-31）──────────────────────────────────
+   原本 b2_example/c1_example 跟批改綁在同一次呼叫裡，實測佔輸出的 30%
+   （681 筆平均：b2 112 + c1 114 tokens），等於每一題都讓學生在轉圈畫面前多等這兩句。
+   但依 prompt 規則它們只是「同一句中文的另一種寫法」，跟學生寫了什麼無關，
+   沒有理由擋在批改的關鍵路徑上。拿掉之後實測輸出：
+     沒有 corrections 的題目 347 → 137 tokens；有 corrections 的 1,087 → 848。
+
+   examplePref（'both'|'b2'|'c1'）的語意跟著改，存的值不變：
+   從「批改結果要顯示哪個等級」變成「按鈕要生成哪個等級」。順帶修掉一個既有的浪費——
+   原本不管設定選什麼，模型每次都照樣生兩句，選 'b2' 的人每題白等一句永遠不顯示的 C1。
+
+   舊紀錄裡已經存有範例句的照常直接顯示，不會退化成按鈕。 */
+function exampleBoxHTML(lbl,txt){
+  return `<div class="model-box" style="margin-top:12px">
+    <div class="model-lbl">${lbl} <span style="font-weight:400;color:var(--faint2)">（點單字可查意思）</span></div>
+    <div class="model-t">${linkifyWords(txt)}</div>
+  </div>`;
+}
+function examplesHTML(r){
+  const parts=[];
+  if(examplePref!=='c1'&&r.b2_example) parts.push(exampleBoxHTML('B2 範例句',r.b2_example));
+  if(examplePref!=='b2'&&r.c1_example) parts.push(exampleBoxHTML('C1 範例句',r.c1_example));
+  if(parts.length) return parts.join('');
+  return `<button class="next-btn" id="exampleBtn" style="font-size:12px;padding:8px;margin-top:12px" onclick="showExamples()">${ic('bulb',14)} 看母語者會怎麼寫這句</button>`;
+}
+
+/* 批改用哪個模型依等級分流（2026-08-31）。
+   A1 佔練習量的 46.3%（790/1,703），但每題的抱怨率是各級最低的 0.51%
+   （A2 是 1.13%、B1 是 0.65%）——最簡單的句子最不需要大模型的判斷力，
+   把省下來的錢留給真的會出錯的 A2 以上。實測依據：sentence_reports 未解決的 12 筆
+   有 6 筆落在 A2、只有 4 筆在 A1，而 A1 的題數是 A2 的 1.5 倍。
+   ⚠️ 樣本小（各級只有個位數回報），這是「沒有反對的證據」，不是統計上的定論。
+   代價：兩個模型各自維持一份 GRADE_SYSTEM 的快取，中途換等級時各寫一次（1 小時 TTL），
+   一個月約多 NT$17，遠小於省下來的 NT$144。 */
+function gradeModel(level){ return level==='A1'?'claude-haiku-4-5-20251001':'claude-sonnet-5'; }
+
+const EXAMPLE_LVL={b2:'B2',c1:'C1'};
+/* 詞性從 cefr_words 查而不是從題目帶：出題時的 pos 從來沒有存進 payload，
+   查表這條路徑歷史紀錄也能用（實測 cefr_words 7,873 筆全部有 pos）。 */
+async function fetchWordPos(word){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/cefr_words?word=eq.${encodeURIComponent(word)}&select=pos&limit=1`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    if(!r.ok) return '';
+    const rows=await r.json();
+    return rows?.[0]?.pos||'';
+  }catch(e){ console.log('fetchWordPos:',e); return ''; }   // 查不到就不帶詞性，不是致命錯誤
+}
+/* 刻意不把學生的答案帶進去：這幾句是「這句中文的自然英文寫法」，不是對學生那句的改寫。
+   帶了答案，模型會去模仿學生的句型，結果變成第二份 corrected_sentence，失去對照的意義。 */
+async function generateExamples(word,zh,pos,want,retryNote){
+  const prompt=`中文原句：「${zh}」
+目標單字：${word}${pos?`（詞性：${posLabel(pos)}）`:''}
+
+請寫出母語者會怎麼把這句中文翻成英文${want.length>1?'，給 B2 跟 C1 兩個版本':`的 ${EXAMPLE_LVL[want[0]]} 版本`}。
+1. 必須是這句中文的自然英譯，維持完全一樣的情境跟意思，不可以換場景或加入原句沒有的資訊。
+2. 必須用到目標單字「${word}」本身或其自然變化形（時態、單複數這種同一個詞性內的變化），不可以換成同義字${pos?`，也不可以換成 ${posLabel(pos)} 以外的詞性`:''}。
+3. 大約一句話，語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度堆疊子句或用冷僻字。C1 可以用字更精準、語感更道地，但不代表更長更複雜。
+${retryNote?`\n上一次不合格：${retryNote}。請重寫。\n`:''}
+只輸出純 JSON，不要加 markdown、不要加說明：
+{${want.map(k=>`"${k}_example":"句子"`).join(',')}}`;
+  return parseJSON(await callClaude(prompt,300,'claude-haiku-4-5-20251001'));
+}
+async function showExamples(){
+  if(!curResultCtx) return;
+  const {word,zh}=curResultCtx;
+  const box=document.getElementById('exampleBox');
+  const btn=document.getElementById('exampleBtn');
+  if(btn){ btn.disabled=true; btn.textContent='生成中…'; }
+  try{
+    const pos=await fetchWordPos(word);
+    const want=examplePref==='b2'?['b2']:examplePref==='c1'?['c1']:['b2','c1'];
+    const got={};
+    let lastMiss=[];
+    /* 生成 → 檢查有沒有真的用到目標單字 → 不合格就重生一次。
+       批改端不能這樣做（會讓每個人多等一趟呼叫，這正是 heart 那筆回報最後只能靠隱藏處理的原因）；
+       這裡可以：學生是自己按的、知道自己在等，而且只重生還沒過關的那一句。 */
+    for(let attempt=0;attempt<2;attempt++){
+      const need=want.filter(k=>!got[k+'_example']);
+      if(!need.length) break;
+      const r=await generateExamples(word,zh,pos,need,
+        attempt?`${lastMiss.join('、')} 那句沒有用到目標單字「${word}」`:null);
+      lastMiss=[];
+      for(const k of need){
+        const t=r&&r[k+'_example'];
+        if(t&&hasTargetWord(t,word)) got[k+'_example']=t;
+        else if(t) lastMiss.push(EXAMPLE_LVL[k]);
+      }
+    }
+    Object.assign(curResultCtx.r,got);   // 同一次 session 內重新渲染時不用再生成一次
+    const parts=[];
+    if(got.b2_example) parts.push(exampleBoxHTML('B2 範例句',got.b2_example));
+    if(got.c1_example) parts.push(exampleBoxHTML('C1 範例句',got.c1_example));
+    const failed=want.filter(k=>!got[k+'_example']).map(k=>EXAMPLE_LVL[k]);
+    // 不合格就明說原因，不要靜靜地少一塊——那正是 heart 那筆回報的處境
+    if(failed.length) parts.push(`<div class="err-box" style="display:block;margin-top:12px">${ic('xcircle',14)} ${failed.join('、')} 範例句重寫兩次都沒有用到「${word}」，先不顯示以免誤導</div>`);
+    if(box) box.innerHTML=parts.join('');
+  }catch(e){
+    console.error('showExamples:',e);
+    if(box) box.innerHTML=`<div class="err-box" style="display:block">${ic('xcircle',14)} ${escHTML(aiErrorMsg(e,'範例句生成失敗，請重試'))}</div>
+      <button class="next-btn" style="font-size:12px;padding:8px;margin-top:8px" onclick="showExamples()">重試</button>`;
+  }
+}
 
 let curResultCtx=null;
 /* opts.spoken：口說模式不顯示「已精通」徽章。口說刻意不寫 levelProgress
@@ -2254,14 +2354,7 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r,opts={}){
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:''}
     ${r.precision_note?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('target',18)}</span><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
-    ${(examplePref!=='c1'&&r.b2_example)?`<div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">B2 範例句 <span style="font-weight:400;color:var(--faint2)">（點單字可查意思）</span></div>
-      <div class="model-t" id="b2ExampleText">${linkifyWords(r.b2_example)}</div>
-    </div>`:''}
-    ${examplePref!=='b2'?`<div class="model-box" style="margin-top:12px">
-      <div class="model-lbl">C1 範例句 <span style="font-weight:400;color:var(--faint2)">（點單字可查意思）</span></div>
-      <div class="model-t" id="c1ExampleText">${linkifyWords(r.c1_example)}</div>
-    </div>`:''}
+    <div id="exampleBox">${examplesHTML(r)}</div>
     ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
     <div id="followUpBox" style="margin-top:12px">
       <button class="next-btn" style="font-size:12px;padding:8px" onclick="showFollowUpForm()">${ic('help',14)} 針對這題問文法問題</button>
@@ -3435,6 +3528,16 @@ function bytesToBase64(arrayBuffer){
 let speakSubTab='translate';        // 'translate' | 'readaloud'
 let curSpeakQ=null;                 // 翻譯模式的題目（形狀跟 curSentQ 一樣）
 let curReadTarget=null;             // 朗讀模式：{text,label}
+let curReadSrcTs=null;              // 這句是從哪一筆練習紀錄挑出來的（記唸過次數用；從批改結果直接跳進來時是 null）
+/* 朗讀唸過的次數 {歷史ts: 次數}。刻意不寫進 SENT_HISTORY：練習量的口徑是「相異單字」，
+   而朗讀就是複誦同一句，混進去會把「今日已練習」跟儀表板灌水，數字不再是「練了幾個字」。
+   這份資料只服務朗讀清單的排序與標記，一筆約 20 bytes。 */
+let READ_DONE=(()=>{ try{ return JSON.parse(lsGet('c_read_done','{}'))||{}; }catch(e){ return {}; } })();
+function markRead(ts){
+  if(!ts) return;
+  READ_DONE[ts]=(READ_DONE[ts]||0)+1;
+  lsSet('c_read_done',JSON.stringify(READ_DONE));
+}
 let recState='idle';                // idle | recording | processing
 let mediaRec=null, recChunks=[], recStream=null, recTick=null, recStartTs=0;
 
@@ -3584,7 +3687,7 @@ ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學�
 
   let r=null,lastErr=null;
   for(let attempt=0;attempt<2;attempt++){
-    try{ r=parseJSON(await callClaude(userPrompt,1600,'claude-haiku-4-5-20251001',GRADE_SYSTEM)); break; }
+    try{ r=parseJSON(await callClaude(userPrompt,1600,gradeModel(q0.level),GRADE_SYSTEM)); break; }
     catch(e){ lastErr=e; if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e; }
   }
   if(!r) throw lastErr||new Error('批改失敗');
@@ -3600,6 +3703,7 @@ async function finishReadAloud(wavB64,seconds){
   // 參考文字是本來就已知的正確句子 → 分數完全可信，而且 miscue 能標出漏唸/多唸
   const pron=extractPron(await azureSpeech({wavB64,referenceText:target.text,enableMiscue:true}));
   recState='idle';
+  markRead(curReadSrcTs);     // 評分回來了才算唸過一次，錄音失敗不算
   renderSpeakResult({mode:'readaloud',target,pron,seconds});
 }
 
@@ -3637,7 +3741,21 @@ async function renderSpeakHome(){
    ReferenceText 是真的已知，所以這個模式的音素分數沒有翻譯模式那個循環問題。
    本機索引沒有 corrected_sentence（toIndex 丟掉了），所以是點下去才向伺服器取。 */
 async function readAloudPickerHTML(){
-  const cands=SENT_HISTORY.filter(h=>h.userAns).slice(0,15);
+  /* 去重（2026-08-31）。同一題改寫重送會在歷史裡各留一筆——實測 08-01 起 1,703 筆裡有
+     428 筆是改寫（25.1%，最多的一題重寫了 6 次），原本直接 slice(0,15) 就會讓同一句中文
+     在清單裡出現兩三次，把其他可以唸的句子擠出畫面。依「單字＋中文原句」去重，
+     保留最新的那一筆（SENT_HISTORY 是 unshift，索引 0 最新，也就是改寫後的版本）。 */
+  const seen=new Set(), cands=[];
+  for(const h of SENT_HISTORY){
+    if(!h.userAns) continue;
+    const key=(h.word||'')+'|'+(h.zh_sentence||'');
+    if(seen.has(key)) continue;
+    seen.add(key); cands.push(h);
+    if(cands.length>=15) break;
+  }
+  /* 唸過的排到後面、標出次數，但不隱藏——朗讀跟讀本來就適合重複練同一句，
+     問題只是它不該一直擋在最前面。sort 在現行 JS 是穩定的，同組內仍維持由新到舊。 */
+  cands.sort((a,b)=>((READ_DONE[a.ts]||0)?1:0)-((READ_DONE[b.ts]||0)?1:0));
   if(!cands.length) return `<div class="empty">
     <div class="empty-ico">${ic('mic',44)}</div>
     <div class="empty-h">還沒有可以唸的句子</div>
@@ -3647,13 +3765,14 @@ async function readAloudPickerHTML(){
     <div style="font-size:11px;color:var(--faint);line-height:1.6;margin-bottom:12px">
       這個模式的標準答案是已知的，所以發音分數完全可信，還會標出漏唸／多唸的字。</div>
     ${cands.map(h=>`<div class="hist-item" onclick="pickReadTarget(${h.ts})">
-      <div class="hist-zh">${escHTML(h.zh_sentence||h.word||'')}</div>
+      <div class="hist-zh">${escHTML(h.zh_sentence||h.word||'')}${READ_DONE[h.ts]?` <span style="font-size:11px;font-weight:400;color:var(--faint2)">· 已唸過 ${READ_DONE[h.ts]} 次</span>`:''}</div>
       <div class="hist-ans">${escHTML((h.userAns||'').slice(0,60))} →</div>
     </div>`).join('')}
   </div>`;
 }
 
 async function pickReadTarget(ts){
+  curReadSrcTs=ts;
   const body=document.getElementById('speakBody');
   body.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">取句子中...</div></div>`;
   let h=null;
@@ -3825,6 +3944,7 @@ function startReadAloudAgain(){
 // 而且「剛寫錯 → 馬上唸一次正確版本」是這兩個模式最自然的接點
 function readAloudFrom(text){
   speakSubTab='readaloud';
+  curReadSrcTs=null;          // 這一句還沒進歷史清單，沒有可以記次數的對象
   window.__readOpts=[{text,label:'批改後的正確版本'}];
   switchTab('speak'); startReadAloud(0);
 }
