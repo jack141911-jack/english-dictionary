@@ -940,12 +940,44 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   // 那時候要安靜退回非串流路徑，而不是解析失敗變成「批改失敗」。
   const isSSE=(r.headers.get('content-type')||'').includes('text/event-stream');
   if(onDelta&&isSSE) return await readClaudeStream(r,maxTokens,onDelta);
-  const d=await r.json();
+  /* 這裡原本是 `await r.json()`，而上面那段註解說「舊代理會用 application/json 標籤回 SSE 原文，
+     那時候要安靜退回非串流路徑」——但只看 content-type 根本擋不住那件事：判定不是 SSE 之後
+     直接 r.json()，而 body 是 `event: message_start\ndata: {...}` 的 SSE 原文，JSON.parse 必然拋錯。
+     不是安靜退回，是硬失敗，而且錯誤訊息看不出真正原因。
+     2026-09-10 實測就踩到：前端已部署串流版、代理還停在 8/21（沒有串流透傳），於是每一次批改的
+     第一次嘗試都必定失敗，每題都要多打一趟完整的 Sonnet 5（A2 實測 18-33 秒／趟）。
+     改成先讀成文字再判斷「內容長什麼樣」，而不是相信 header 的標籤。 */
+  const raw=await r.text();
+  const d=looksLikeSSE(raw)?collectSSE(raw):JSON.parse(raw);
   // stop_reason==='max_tokens' 代表輸出撞到 max_tokens 被硬切斷，內容一定不完整（JSON 會解析失敗）。
   // 這種回應 HTTP 是 200、Anthropic 那邊照樣計費，所以絕不能讓半截字串流到 parseJSON 變成看不出原因的錯誤，
   // 要在這裡就明確拋出，讓上層知道「值得重打一次」。
   if(d.stop_reason==='max_tokens') throw new AIError('truncated',`回應超過 ${maxTokens} tokens 被截斷`);
   return d.content[0].text;
+}
+
+// 整包收到的 SSE（不是逐段串流）長什麼樣。只認 Anthropic messages stream 的開頭，
+// 不用 content-type——會走到這裡就是因為 header 的標籤不可信。
+function looksLikeSSE(raw){ return /^\s*event:\s*\w+\s*[\r\n]+data:\s*\{/.test(raw); }
+
+/* 把整包 SSE 文字併回成跟非串流回應同形狀的物件 {content:[{text}],stop_reason}，
+   呼叫端就不必知道自己拿到的是哪一種。刻意只取 text_delta 跟 stop_reason，
+   跟 readClaudeStream 認的欄位一致；解析不出任何文字就丟錯，不要回一個空字串
+   讓上層以為模型回了空白（那會變成「批改成功但什麼都沒有」這種更難查的失敗）。 */
+function collectSSE(raw){
+  let text='',stopReason=null;
+  for(const line of raw.split(/\r?\n/)){
+    if(!line.startsWith('data:')) continue;
+    const payload=line.slice(5).trim();
+    if(!payload||payload==='[DONE]') continue;
+    let ev; try{ ev=JSON.parse(payload); }catch{ continue; }
+    if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta') text+=ev.delta.text;
+    if(ev.type==='error') throw new AIError('http',ev.error?.message||'串流中途發生錯誤');
+    const sr=ev.delta?.stop_reason||ev.message?.stop_reason;
+    if(sr) stopReason=sr;
+  }
+  if(!text) throw new AIError('http','回應解析不出內容（代理可能回了非預期格式）');
+  return {content:[{text}],stop_reason:stopReason};
 }
 
 // 讀 Anthropic 的 SSE（messages stream）。只取 content_block_delta 的文字，其餘事件忽略。
