@@ -615,8 +615,8 @@ function authResetLocalIfNewUser(){
     // c_sent_pushed_ts 一定要一起清：那是「已上傳到 sentence_history 的最大 ts」水位。
     // 沒清的話，新使用者接手這台裝置時會沿用前一個人的水位，自己的紀錄因為 ts 比水位小
     // 而被判定為「已上傳」，於是永遠不會進雲端，而且完全沒有錯誤訊息。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id','c_prefetch_q'].forEach(lsDel);
-    SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={};
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_served_today','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id','c_prefetch_q'].forEach(lsDel);
+    SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; servedToday={date:'',byLevel:{}};
   }
   lsSet('c_last_uid',uid);
 }
@@ -925,6 +925,22 @@ function aiErrorMsg(e,fallback){
    規則比對會在換模型那天靜靜地變成 400，白名單只會退回「沒關到思考」這個較輕的失敗。 */
 const THINKING_OFF_MODELS=new Set(['claude-sonnet-5']);
 
+/* 把每次呼叫的 token 用量印出來。加這個的理由：整份成本估算都建立在「prompt caching 有命中」
+   這個假設上，而在 2026-09-10 之前，**這個專案從來沒有一行程式讀過 usage**——也就是說
+   那個假設從來沒被驗證過。命中與否差 10 倍（system 15,000 token：命中 NT$0.096／沒命中 NT$0.96），
+   一天 84 題就是 NT$8 vs NT$81 的差別，會把整個優化的優先順序完全翻掉。
+   零成本、零行為改變，只是把本來就在回應裡的數字印出來。
+   看法：練習幾題之後開 console，cache_read 應該遠大於 0；如果一直是 0，就是有東西在讓快取失效。 */
+function logUsage(tag,u){
+  if(!u) return;
+  const r=u.cache_read_input_tokens||0, w=u.cache_creation_input_tokens||0, fresh=u.input_tokens||0;
+  // 串流的 message_delta 只帶輸出數、不帶任何輸入/快取欄位——那裡印「沒用到快取」是假警報，
+  // 而假警報比沒有訊號更糟（會害人以為快取壞了，去改一個沒壞的東西）。只在有輸入資訊時才下判斷。
+  const hasInput = r||w||fresh;
+  const verdict = !hasInput ? '' : (r ? '  ✓ 命中' : (w ? '  ← 這次是寫入快取' : '  ⚠ 完全沒用到快取'));
+  console.log(`[usage] ${tag} 快取讀 ${r} / 快取寫 ${w} / 未快取輸入 ${fresh} / 輸出 ${u.output_tokens||0}${verdict}`);
+}
+
 // system 有帶的話走 Anthropic prompt caching：system 內容要在每次呼叫間逐字不變才會命中快取，
 // 呼叫端負責確保 system 字串不含每次呼叫都變動的內容（目標單字/學生答案這類動態值要放 prompt 裡，不要塞進 system）。
 // onDelta 有帶的話就開串流：每收到一段文字就用「目前累積的完整字串」呼叫一次 onDelta。
@@ -974,6 +990,7 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   /* 不能寫死 content[0]：會思考的模型會把 thinking 區塊排在文字前面，content[0].text 是 undefined，
      一路流到 parseJSON 變成看不出原因的錯誤。改成挑出 type==='text' 的那一塊。
      找不到文字區塊時把實際收到的區塊型別講出來——這正是這次查了半天才發現是 thinking 的原因。 */
+  logUsage(model,d.usage);
   const textBlock=(d.content||[]).find(b=>b.type==='text');
   if(!textBlock) throw new AIError('http',`回應沒有文字內容（只收到 ${(d.content||[]).map(b=>b.type).join('/')||'空的 content'}）`);
   return textBlock.text;
@@ -1031,12 +1048,33 @@ async function readClaudeStream(r,maxTokens,onDelta){
         const raw=line.slice(5).trim();
         if(!raw||raw==='[DONE]') continue;
         let ev; try{ ev=JSON.parse(raw); }catch{ continue; }
+        // usage 在串流裡分兩次到：message_start 帶輸入（含快取命中數），message_delta 帶輸出
+        if(ev.type==='message_start'&&ev.message?.usage) logUsage('stream-in',ev.message.usage);
+        else if(ev.type==='message_delta'&&ev.usage) logUsage('stream-out',ev.usage);
         if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta'){ text+=ev.delta.text; emit(false); }
         else if(ev.type==='message_delta'&&ev.delta?.stop_reason) stopReason=ev.delta.stop_reason;
         // 串流中途上游出錯時，HTTP 早就已經是 200 了，錯誤只會以事件的形式出現在流裡面。
         // 不接住的話使用者只會拿到一個解析失敗的半截 JSON，看不出真正原因。
         else if(ev.type==='error') streamErr=ev.error?.message||'AI 服務串流中斷';
       }
+    }
+  }
+  /* 迴圈是用 '\n\n' 切事件、切不完的尾巴留在 buf 等下一輪。串流結束時 buf 裡可能還留著
+     最後一個事件——而最後幾個事件正是 message_delta（帶 stop_reason，截斷偵測全靠它）。
+     Anthropic 每個事件後面都會補空行，所以實務上通常是空的；但「通常」不該是正確性的依據，
+     少了這一步，一個沒有結尾空行的串流會讓 max_tokens 截斷完全偵測不到，
+     半截 JSON 直接流到 parseJSON 變成看不出原因的錯誤。 */
+  if(buf.trim()){
+    for(const line of buf.split('\n')){
+      if(!line.startsWith('data:')) continue;
+      const raw=line.slice(5).trim();
+      if(!raw||raw==='[DONE]') continue;
+      let ev; try{ ev=JSON.parse(raw); }catch{ continue; }
+      if(ev.type==='message_start'&&ev.message?.usage) logUsage('stream-in',ev.message.usage);
+      else if(ev.type==='message_delta'&&ev.usage) logUsage('stream-out',ev.usage);
+      if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta') text+=ev.delta.text;
+      else if(ev.type==='message_delta'&&ev.delta?.stop_reason) stopReason=ev.delta.stop_reason;
+      else if(ev.type==='error') streamErr=ev.error?.message||'AI 服務串流中斷';
     }
   }
   emit(true);
@@ -1176,8 +1214,8 @@ function refreshSettingChips(){
 }
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
-  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; grammarStats={}; chinglishStats={}; dashboardSummary=null;
-  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');  // c_grammar_learning_log 是已移除的文法學習頁留下的，繼續清掉避免換帳號後殘留
+  SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; servedToday={date:'',byLevel:{}}; grammarStats={}; chinglishStats={}; dashboardSummary=null;
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_served_today'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');  // c_grammar_learning_log 是已移除的文法學習頁留下的，繼續清掉避免換帳號後殘留
   toast('✓ 已清除');
   syncToCloud();
 }
@@ -1367,7 +1405,9 @@ async function pickLevelWord(level,avoidWord){
      實測 2026-07-22~08-26 有 6 個字因此跨天重複出題（active/agriculture/case/due/old/work）。
      取聯集之後，不管字表分級以後再怎麼調整都不會再漏。 */
   const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
-  const seenToday=new Set(dailyLevelCount.byLevel?.[level]||[]);
+  // 「今天答完的」∪「今天出過但沒答完／批改失敗的」——後者是 2026-09-10 補的，
+  // 少了它，批改一失敗那個字就會立刻回到池子裡被重抽（見 servedToday 的說明）。
+  const seenToday=new Set([...(dailyLevelCount.byLevel?.[level]||[]), ...servedTodaySet(level)]);
   // 先避開今天在這個等級已經練過的單字，避免同一天重複出到同一題
   for(let offset=0; offset<3000; offset+=200){
     const rows=await sbSelectWords(level,offset);
@@ -1594,9 +1634,19 @@ function loadPrefetch(){
   try{
     const d=JSON.parse(lsGet('c_prefetch_q','null'));
     if(!d||d.ver!==PREFETCH_VER) return;
+    let dropped=0;
     for(const [lv,item] of Object.entries(d.items||{})){
-      if(item&&item.q&&Date.now()-item.ts<PREFETCH_TTL) prefetchQ[lv]=item.q;
+      if(!item||!item.q||Date.now()-item.ts>=PREFETCH_TTL) continue;
+      /* 開 App 時就驗一次存貨，不要等使用者按下「開始練習」才發現它失效。
+         成本完全一樣（那筆 token 早就花掉了，丟掉是無論如何都要丟），差別在**時機**：
+         在這裡丟掉，boot() 接著的 schedulePrefetchIdle() 會在背景補一題，使用者按下去是零等待；
+         留到 startSent() 才丟，使用者按下去才開始出題，白等 2-4 秒。
+         這裡用的是本機資料（syncFromCloud 還沒跑完），所以只擋得掉「這台自己知道」的失效；
+         另一台裝置造成的失效由 startSent() 的那道檢查兜底，兩道不重疊也不衝突。 */
+      if(!prefetchStillValid(item.q,lv)){ dropped++; continue; }
+      prefetchQ[lv]=item.q;
     }
+    if(dropped) { savePrefetch(); console.log(`開 App 丟掉 ${dropped} 筆已失效的預抓存貨，背景補新的`); }
   }catch{}
 }
 function savePrefetch(){
@@ -1632,12 +1682,52 @@ function schedulePrefetchIdle(level){
    刻意不碰任何畫面、也不碰 curSentQ/lastSentWord 這些全域狀態——因為它同時被
    「使用者正在等」跟「背景預抓」兩條路徑呼叫，背景那條絕不能動到目前這一題的狀態。
    avoidWord 預設是 lastSentWord（剛出過的那題），預抓時就是使用者正在作答的那個字。 */
+/* 花任何 token 之前，先把「挑字的兩個過濾器」跟雲端對齊。
+   跨裝置練習時這是必要的：本機的 levelProgress／servedToday 只在開 App 時同步過一次，
+   另一台裝置在這之後精通的字、出過的字，這台完全不知道——於是照樣拿去出題、照樣批改，
+   **一題 NT$0.28 花在一個早就練完的字上**。這是 Jack 2026-09-10 指出的：堵點必須在出題「之前」，
+   放在出題之後（例如取用預抓存貨時才檢查）token 早就花掉了，丟掉也退不回來。
+
+   兩個 key 一起拉，一趟並行的 REST GET，沒有 AI 成本。節流 15 秒：出一題的間隔本來
+   就遠大於這個數，實際上等於每題最多一次。
+   拉不到就沿用本機資料、不要擋住出題——離線時「可能重複出一題」比「完全不能練」好。 */
+let lastFilterPull=0;
+async function refreshPickFilters(){
+  if(Date.now()-lastFilterPull<15000) return;
+  lastFilterPull=Date.now();
+  try{
+    const [lp,st]=await Promise.all([sbGet('levelprogress'),sbGet('servedtoday')]);
+    if(lp){
+      // 用同一支 mergeLevelProgress：逐字比 ts，撤銷過的精通不會被舊紀錄灌回來
+      const merged=mergeLevelProgress(levelProgress,JSON.parse(lp));
+      if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){
+        levelProgress=merged; lsSet('c_level_progress',JSON.stringify(levelProgress));
+      }
+    }
+    if(st){
+      if(servedToday.date!==todayStr()) servedToday={date:todayStr(),byLevel:{}};
+      const merged=mergeServedToday(servedToday,JSON.parse(st));
+      if(JSON.stringify(merged)!==JSON.stringify(servedToday)){
+        servedToday=merged; lsSet('c_served_today',JSON.stringify(servedToday));
+      }
+    }
+  }catch(e){ console.log('refreshPickFilters:',e); }
+}
+
 async function buildQuestion(qLevel,avoidWord){
   const t0=Date.now();
+  await refreshPickFilters();   // ← 堵在這裡：挑字之前，也就是花 token 之前
   const picked=await pickLevelWord(qLevel,avoidWord===undefined?lastSentWord:avoidWord);
   if(!picked) throw new Error('no word available for level');
   const word=picked.word;
   const pos=picked.pos;
+  /* 挑字當下就記下「這是不是刻意挑的複習題」。整級全精通時 pickLevelWord 的第三層
+     會**刻意**回傳已精通的字（那正是複習模式），而 prefetchStillValid 的規則是
+     「已精通就丟掉」——沒有這個標記的話，複習模式下每一題預抓都會被當成過期存貨丟掉，
+     每題都要重新花錢出一次。判斷要在這裡做（挑完字、還沒花 token 之前），
+     因為之後 levelProgress 可能被別台裝置的同步改掉，那時就分不出
+     「當初刻意挑的複習題」跟「後來才被別台練精通的字」了。 */
+  const isReview=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[])).has(word);
   const tPick=Date.now();
   // 之前出過的同一個單字的中文句子，用來擋重複。通常是空陣列（實測 1.18 次/字），
   // 所以放進 user 訊息幾乎不花 token，卻能在重出時直接告訴模型要避開哪幾句。
@@ -1681,6 +1771,7 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
   parsed.word=word;      // 不讓模型改動目標單字本身
   parsed.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
   parsed.pos=pos;
+  parsed.review=isReview;   // 複習題：prefetchStillValid 不可以因為「已精通」把它丟掉
   const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
   parsed.audioURL=audioURL?(audioURL.startsWith('//')?'https:'+audioURL:audioURL):'';
   console.log(`出題耗時：挑字 ${tPick-t0} ms + Claude ${Date.now()-tPick} ms = ${Date.now()-t0} ms`);
@@ -1701,12 +1792,20 @@ async function startSent(){
      被記成 A2/B1）。 */
   const qLevel=curLevel;
   // 有現成存貨就直接用，一次網路往返都不用等——正常練習流程下這是最常走的一條路。
+  /* 預抓的題目最久可以在 localStorage 躺 7 天（PREFETCH_TTL），中間那個字很可能已經
+     被練到精通、或今天已經出過了。原本這裡直接拿來用，是**唯一一條能繞過精通過濾器的路徑**——
+     pickLevelWord 兩層過濾都攔得住的字，會從這個後門被端出來。
+     2026-09-10 實測：expert 在 17:21:33 就被記成精通（雲端 levelProgress 的 ts 對得上），
+     20:12 卻又出現一次。存貨過期就丟掉重出，不要沿用。 */
   const ready=prefetchQ[qLevel];
   if(ready){
     delete prefetchQ[qLevel]; savePrefetch();
-    console.log('用預抓好的題目，零等待：',ready.word);
-    useQuestion(ready);
-    return;
+    if(prefetchStillValid(ready,qLevel)){
+      console.log('用預抓好的題目，零等待：',ready.word);
+      useQuestion(ready);
+      return;
+    }
+    console.log(`預抓的題目已失效（${ready.word} 已精通或今天出過），丟掉重出`);
   }
   document.getElementById('pracBody').innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 出題中...</div></div>`;
   try{
@@ -1725,12 +1824,62 @@ async function startSent(){
   }
 }
 
+// 預抓的存貨還能不能用：這個字不能是已經精通的（跨等級聯集，跟 pickLevelWord 同一個判準），
+// 也不能是今天已經出過的。判準抄同一份，兩邊才不會各說各話。
+function prefetchStillValid(q,level){
+  if(!q||!q.word) return false;
+  // 複習題本來就是刻意挑已精通的字（見 buildQuestion 的 isReview），不能用「已精通」把它判死
+  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+  if(!q.review && mastered.has(q.word)) return false;
+  // 今天出過就別再出，這條複習模式一樣適用
+  if(servedTodaySet(level).has(q.word)) return false;
+  if((dailyLevelCount.byLevel?.[level]||[]).includes(q.word)) return false;
+  return true;
+}
+
 // 把一份準備好的題目切換成「現在這一題」並畫出來。全域狀態的改動集中在這裡，
 // 才不會跟背景預抓那條路徑交錯（buildQuestion 完全不碰這些變數）。
+/* 今天「出過」哪些字，只給 pickLevelWord 去重用。
+   ⚠️ 刻意跟 dailyLevelCount 分開，不可以合併：dailyLevelCount 是「今日已練習」這個
+   練習量指標，口徑是**相異單字、答完才算**（同一個字改寫重送只算一次）。而去重要的是
+   「出過就別再出」，題目一送到畫面上就該成立，跟有沒有答完、批改成不成功都無關。
+   兩者合併的話只有兩種結局，都是錯的：拿 dailyLevelCount 當去重（＝現在的 bug，
+   批改失敗的字會一直被重抽），或把「出過就+1」寫進 dailyLevelCount（＝出了題沒答
+   也算練習量，數字灌水，跟首頁/儀表板的口徑直接牴觸）。
+
+   2026-09-10 的實據：A2 自 8/31 起每次批改都失敗（Sonnet 5 預設 thinking 那個 bug），
+   而 dailyLevelCount 的寫入排在批改成功之後，所以整整十天「今天出過」這個過濾器都是空的，
+   pickLevelWord 只剩「避開上一題」在擋，同幾個字反覆輪回來。
+   只存在記憶體、不寫 localStorage：重開 App 重來一輪是可以接受的，而每天午夜要跟著清空。 */
+let servedToday=JSON.parse(lsGet('c_served_today','{"date":"","byLevel":{}}'));
+function markServed(level,word){
+  const t=todayStr();
+  if(servedToday.date!==t) servedToday={date:t,byLevel:{}};
+  const arr=servedToday.byLevel[level]=servedToday.byLevel[level]||[];
+  if(arr.includes(word)) return;
+  arr.push(word);
+  lsSet('c_served_today',JSON.stringify(servedToday));
+  // 立刻推雲端：跨裝置練習時，另一台要馬上知道這個字今天出過了。
+  // fire-and-forget——推失敗最多就是另一台重複出一題，不值得擋住出題流程。
+  sbSet('servedtoday',JSON.stringify(servedToday)).catch(()=>{});
+}
+function servedTodaySet(level){
+  return new Set(servedToday.date===todayStr() ? (servedToday.byLevel[level]||[]) : []);
+}
+function mergeServedToday(local,remote){
+  if(!remote||!remote.date) return local;
+  if(remote.date!==local.date) return (remote.date>(local.date||'')) ? remote : local;
+  const byLevel={};
+  for(const lvl of new Set([...Object.keys(local.byLevel||{}),...Object.keys(remote.byLevel||{})]))
+    byLevel[lvl]=[...new Set([...(local.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];
+  return {date:local.date,byLevel};
+}
+
 function useQuestion(q){
   curSentQ=q;
   sentAttempts=[];      // 換新題目，清空同一題的作答歷程（見 sentAttempts 宣告處）
   lastSentWord=curSentQ.word;
+  markServed(q.level,q.word);   // 題目一上畫面就算出過，不等批改結果
   renderSentQ();
 }
 
