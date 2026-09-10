@@ -214,6 +214,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .pron-w.score-needs{border-color:rgba(217,115,107,.55);background:rgba(217,115,107,.12)}
 .pron-w.pron-err{font-weight:700}
 .fam-n{font-size:11px;color:var(--faint2);width:30px;text-align:right;flex-shrink:0}
+/* 各等級精通完成度：長條 + 百分比。刻意跟 .fam-bar 分開一組——那組是「錯誤集中度」的
+   相對長條（分母是最大值），這組的分母是該等級總字庫，兩者共用樣式會讓日後改動互相牽連。 */
+.lvl-bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-top:6px}
+.lvl-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s ease}
+.lvl-pct{font-size:12px;font-weight:800;color:var(--text-soft);width:42px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.lvl-pct.done{color:var(--accent)}
 .fam-more{font-size:11px;color:var(--faint);margin-top:8px}
 .cefr-badge{background:var(--accent-wash);color:var(--accent-light);border:1px solid var(--accent)}
 .sent-def{font-size:12px;color:var(--dim);font-style:italic;margin-bottom:10px}
@@ -665,11 +671,40 @@ async function sbGet(k){try{const t=await authToken();if(!t)return null;const r=
 // 下一次 syncToCloud 就會用空陣列整包蓋掉雲端。upsert 是單一請求，沒有這個窗口。
 // user_id 明確帶上（不靠 default auth.uid()），因為 on_conflict 的目標欄位要它。
 async function sbSet(k,v){try{const t=await authToken();if(!t)return;const uid=authSession?.user?.id;if(!uid)return;const r=await fetch(`${SB_URL}/rest/v1/user_data?on_conflict=user_id,key`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify({user_id:uid,key:k,value:v})});if(!r.ok)console.log('sbSet:',k,r.status,await r.text());}catch(e){console.log('sbSet:',e);}}
+/* levelProgress 的合併。原本是 mastered 取聯集，換成逐字比 ts 取最新狀態——
+   聯集在「只加不減」的年代是對的，但現在精通會被撤銷（見 setMastery），聯集會讓任何一台
+   還留著舊紀錄的裝置在開 App 時把撤銷掉的精通灌回雲端。
+   沒有 ts 的舊資料一律當 0：新舊資料同時存在時，帶時間的那一邊贏，所以不需要遷移舊資料。
+   ts 只留還在 mastered／demoted 裡的字，不然刪掉的字會在 ts 裡無限累積。 */
+function mergeLevelProgress(local,remote){
+  const out={};
+  for(const lvl of new Set([...Object.keys(local||{}),...Object.keys(remote||{})])){
+    const L=local?.[lvl]||{}, R=remote?.[lvl]||{};
+    const lts=L.ts||{}, rts=R.ts||{};
+    const state=new Map(); // word -> {m:是否精通, t:狀態時間}
+    const put=(w,m,t)=>{ const prev=state.get(w); if(!prev||t>=prev.t) state.set(w,{m,t}); };
+    for(const w of L.mastered||[]) put(w,true,lts[w]||0);
+    for(const w of L.demoted||[]) put(w,false,lts[w]||0);
+    for(const w of R.mastered||[]) put(w,true,rts[w]||0);
+    for(const w of R.demoted||[]) put(w,false,rts[w]||0);
+    const mastered=[],demoted=[],ts={};
+    for(const [w,v] of state){
+      (v.m?mastered:demoted).push(w);
+      if(v.t) ts[w]=v.t;
+    }
+    const e={mastered};
+    if(demoted.length) e.demoted=demoted;
+    if(Object.keys(ts).length) e.ts=ts;
+    out[lvl]=e;
+  }
+  return out;
+}
+
 async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,dsum]=await Promise.all([sbGet('essayhist'),sbGet('levelprogress'),sbGet('dailylevel'),sbGet('grammarstats'),sbGet('chinglishstats'),sbGet('reports'),sbGet('dailygoal'),sbGet('dashboardsummary')]);if(dsum){const remote=JSON.parse(dsum);if(remote&&(!dashboardSummary||remote.ts>dashboardSummary.ts)){dashboardSummary=remote;lsSet('c_dashboard_summary',JSON.stringify(dashboardSummary));}}if(dg&&localStorage.getItem('c_daily_goal')===null){const n=parseInt(dg,10);if(n>0){dailyGoal=n;lsSet('c_daily_goal',String(n));}}if(cs){const remote=JSON.parse(cs);const merged={...chinglishStats};for(const t in remote){merged[t]=Math.max(merged[t]||0,remote[t]);}if(JSON.stringify(merged)!==JSON.stringify(chinglishStats)){chinglishStats=merged;lsSet('c_chinglish_stats',JSON.stringify(chinglishStats));}}if(rpts){const remote=JSON.parse(rpts);const merged=[...REPORTS];for(const rr of remote){const existing=merged.find(r=>r.ts===rr.ts&&r.word===rr.word);if(!existing){merged.push(rr);}else if(rr.reviewed&&!existing.reviewed){existing.reviewed=true;}}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(REPORTS)){REPORTS=merged;lsSet('c_reports',JSON.stringify(REPORTS));}
     /* 合併有可能把雲端的壞資料帶回本機，所以這裡再清一次；清掉了就立刻把乾淨的版本推回雲端，
        否則雲端那筆會在下一次 syncFromCloud() 又被拉回來，永遠清不掉。 */
     if(pruneBogusReports()) sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});
-    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged={...levelProgress};for(const lvl in remote){merged[lvl]=merged[lvl]||{mastered:[]};const set=new Set([...(merged[lvl].mastered||[]),...(remote[lvl].mastered||[])]);merged[lvl]={mastered:[...set]};}if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged=mergeLevelProgress(levelProgress,remote);if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
 function syncToCloud(){/* senthist 不再整包上傳：改由 pushSentHistory() 一題 append 一列到 sentence_history。
    這一行是每答一題 1 MB 上傳量的來源（實測 senthist blob 1.04 MB）。拿掉之後
    syncToCloud() 剩下的 9 個 key 合計約 85 KB。舊的 user_data.senthist 保留不刪，
@@ -724,7 +759,9 @@ function pruneStaleMastered(){
     const kept=cur.filter(w=>!drop.has(w));
     if(kept.length===cur.length) continue;
     n+=cur.length-kept.length;
-    levelProgress[lvl]={mastered:kept};
+    // 只換掉 mastered，其餘欄位（ts／demoted，見 setMastery）原樣留著：
+    // 整個物件覆寫會把「這個字什麼時候被降級的」一起洗掉，多裝置合併就沒有依據可比。
+    levelProgress[lvl]={...(levelProgress[lvl]||{}),mastered:kept};
     if(lvl==='B1'&&cur.includes('travel')){
       levelProgress.A1=levelProgress.A1||{mastered:[]};
       if(!levelProgress.A1.mastered.includes('travel')) levelProgress.A1.mastered.push('travel');
@@ -738,6 +775,51 @@ function pruneStaleMastered(){
   return changed;
 }
 pruneStaleMastered();
+
+/* ── 精通狀態的唯一寫入點：一律以「最新一次作答」為準 ──────────────────────────
+   舊版是只加不減——一個字達標過就永遠算精通，之後重練再爛也不會退回去。等到整個等級
+   練完進複習模式，這件事就變成矛盾：複習排序看的是最新一次的文法正確度（愈低愈該練），
+   精通狀態看的卻是好幾週前那一次，同一個字可以「文法正確度 40% 而且被排到複習第一順位」
+   同時掛著「已精通」。判定要嘛看最新，要嘛看歷史最好，不能兩個各說各話。
+
+   降級為什麼要掃過所有等級的 key：pickLevelWord 的排除清單是 CEFR_LEVELS 的**聯集**
+   （字表分級調整過，舊紀錄會留在舊等級的 key 底下）。只從題目等級移除的話，紀錄還在別的
+   key 上，那個字照樣被排除在池子外——降級等於沒降。
+
+   demoted / ts 是給多裝置合併用的墓碑：syncFromCloud() 合併 levelProgress 用聯集，
+   沒有墓碑的話，A 裝置把某個字降級、B 裝置的 localStorage 還留著舊的精通紀錄，一開 App
+   聯集就把它灌回雲端，降級在多裝置下永遠生不了效（2026-08-26 清 21 筆殘留精通紀錄踩的
+   就是同一個坑，見 pruneStaleMastered 的說明）。ts 記每個字最後一次狀態變更的時間，
+   合併時逐字比 ts 取新的那一邊。舊資料沒有 ts，視為 0，任何一次新的變更都贏得過它。 */
+function masteryEntry(lvl){
+  const e=levelProgress[lvl]||{};
+  return {mastered:e.mastered||[],demoted:e.demoted||[],ts:e.ts||{}};
+}
+function setMastery(level,word,isMastered){
+  let changed=false;
+  const now=Date.now();
+  if(isMastered){
+    const e=masteryEntry(level);
+    if(!e.mastered.includes(word)){ e.mastered=[...e.mastered,word]; changed=true; }
+    if(e.demoted.includes(word)){ e.demoted=e.demoted.filter(w=>w!==word); changed=true; }
+    if(changed){ e.ts={...e.ts,[word]:now}; levelProgress[level]=e; }
+  }else{
+    // 降級：把這個字從「所有」掛著它的等級撤下來，並在同一個等級留下墓碑。
+    // 本來就沒精通過的字（正常出題抽到的都是），這裡一個 key 都不會動到。
+    for(const lvl of Object.keys(levelProgress)){
+      const e=masteryEntry(lvl);
+      if(!e.mastered.includes(word)) continue;
+      e.mastered=e.mastered.filter(w=>w!==word);
+      if(!e.demoted.includes(word)) e.demoted=[...e.demoted,word];
+      e.ts={...e.ts,[word]:now};
+      levelProgress[lvl]=e;
+      changed=true;
+    }
+  }
+  if(changed) lsSet('c_level_progress',JSON.stringify(levelProgress));
+  return changed;
+}
+
 let dailyLevelCount = JSON.parse(lsGet('c_daily_level','{}'));
 let dailyGoal = parseInt(lsGet('c_daily_goal','450'),10)||450;
 let showTranslation = lsGet('c_show_translation','1')==='1';
@@ -1165,6 +1247,53 @@ async function getLevelTotal(level){
   }catch{ return 0; }
 }
 
+/* 翻完某個等級的整份字表。sbSelectWords 一頁 200 筆且有 7 天的 localStorage 快取，
+   所以平常呼叫這個函式一次網路都不會發。上限 8000 是給字表成長留的餘裕（目前最大的
+   C2 是 2,919 個字＝15 頁）——寫死太貼近現值的話，字表一長就會靜靜地漏掉尾巴那幾頁。 */
+async function allLevelWords(level){
+  const out=[];
+  for(let offset=0;offset<8000;offset+=200){
+    const rows=await sbSelectWords(level,offset);
+    if(!rows.length) break;
+    out.push(...rows);
+  }
+  return out;
+}
+
+/* 這一級還剩幾個沒精通的字。
+   不拿 levelProgress[level].mastered.length 跟總字數相減：那個分子是「當初在這一級達標過」
+   的歷史紀錄，字表分級一調整就跟現在的等級字表對不起來（2026-08-26 清掉的 21 筆就是這樣來的），
+   分子分母算的不是同一批字。這裡改成拿現在的字表去比對跨等級的精通聯集——跟 pickLevelWord
+   挑字用的是同一個判準，所以「畫面說全精通了」跟「池子真的抽不到新字」不會各說各話。
+   回傳 null＝查不出來（第一頁就沒資料，通常是離線或 Supabase 掛了）。這種時候絕對不能回 0：
+   那會把一次網路故障顯示成「你已經全部精通」。 */
+async function levelRemainingCount(level){
+  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+  const all=await allLevelWords(level);
+  if(!all.length) return null;
+  return all.filter(r=>!mastered.has(r.word)).length;
+}
+
+/* 每個字「最新一次」的文法正確度，複習排序用。
+   SENT_HISTORY 是新到舊（saveSentHistory 用 unshift），所以第一次遇到的那筆就是最新的。
+   只認打字模式：口說那條路徑刻意不寫 levelProgress（見 saveSpokenHistory 的說明），
+   拿它的分數來決定要複習誰，等於讓沒有參與精通判定的紀錄反過來主導精通字的複習順序。
+   本機索引只留近三個月（LOCAL_KEEP_DAYS），更早達標而且之後沒再練過的字在這裡查不到分數，
+   由呼叫端當「沒有依據」處理，不是當成 0 分。 */
+function latestGrammarByWord(level){
+  const m=new Map();
+  for(const h of SENT_HISTORY){
+    if(h.level!==level||histMode(h)!=='typed') continue;
+    if(typeof h.grammar_accuracy!=='number') continue;
+    if(!m.has(h.word)) m.set(h.word,h.grammar_accuracy);
+  }
+  return m;
+}
+
+// 複習候選池的大小。刻意不是 1：每次都固定抽「最弱的那一個」，會連著好幾題都是同一個字
+// （複習完分數才會變，而分數要等這一題批改完），從最弱的 N 個裡隨機抽才有輪替。
+const REVIEW_POOL_SIZE=20;
+
 // 依指定等級，從 Supabase cefr_words 挑一個還沒精通、且不是上一題的字。
 // 一整批（200個）都精通完了就往後翻頁；整個等級都精通完，就允許重複練習（不再排除已精通字）。
 //
@@ -1198,9 +1327,28 @@ async function pickLevelWord(level,avoidWord){
     const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==avoidWord);
     if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
   }
-  const rows=await sbSelectWords(level,0);
-  const pool=rows.filter(r=>r.word!==avoidWord);
-  return pool.length?pool[Math.floor(Math.random()*pool.length)]:(rows[0]||null);
+  /* 整級都精通完了：進複習模式，優先挑「最新一次文法正確度最低」的已精通字。
+     舊版這裡是 sbSelectWords(level,0)——limit=200 的單頁查詢，等於全精通之後的複習池
+     只剩頻率最高的前 200 個字；A1 有 898 個字，其餘 698 個永遠不會再被抽到。
+     現在翻完整份字表再按弱點排序。
+     沒有本機分數的字（三個月前達標、之後沒再練過）排在有分數的弱字後面當備位，不是當 0 分
+     排到最前面——「查不到紀錄」跟「考得很差」是兩件事，混為一談會讓複習順序被本機保留期
+     這個純技術限制牽著走。 */
+  const all=await allLevelWords(level);
+  const ga=latestGrammarByWord(level);
+  const graded=[],ungraded=[];
+  for(const r of all){
+    if(r.word===avoidWord) continue;
+    const g=ga.get(r.word);
+    if(g==null) ungraded.push(r); else graded.push({r,g});
+  }
+  graded.sort((a,b)=>a.g-b.g);
+  // 今天複習過的先讓開，整個候選池都練過了才放行——跟上面兩層的讓步順序一致
+  const dodge=arr=>{ const f=arr.filter(x=>!seenToday.has((x.r||x).word)); return f.length?f:arr; };
+  let cands=dodge(graded).slice(0,REVIEW_POOL_SIZE).map(x=>x.r);
+  if(cands.length<REVIEW_POOL_SIZE) cands=cands.concat(dodge(ungraded).slice(0,REVIEW_POOL_SIZE-cands.length));
+  if(!cands.length) return all[0]||null;
+  return cands[Math.floor(Math.random()*cands.length)];
 }
 
 function selectLevel(level){
@@ -2075,11 +2223,9 @@ ${prevBlock}
     // questionFlawed：目標單字塞不進這個情境，整題的判定都不可信——精通、文法統計、
     // 中式英文統計全部跳過。你這一題還是看得到逐項修正，只是不會被它扣到分。
     const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(q0.level)&&r.chinglish_percent<=30;
-    if(mastered){
-      if(!levelProgress[q0.level]) levelProgress[q0.level]={mastered:[]};
-      if(!levelProgress[q0.level].mastered.includes(q0.word)) levelProgress[q0.level].mastered.push(q0.word);
-      lsSet('c_level_progress',JSON.stringify(levelProgress));
-    }
+    // questionFlawed 的題目整份判定都不可信，所以兩個方向都跳過：既不記精通，也不撤銷
+    // 既有的精通——拿一題爛題目去砍掉之前正正當當達標的紀錄，比不記還糟。
+    if(!r.questionFlawed) setMastery(q0.level,q0.word,mastered);
     if(r.corrections?.length&&!r.questionFlawed){
       for(const c of r.corrections){
         // 拼字錯誤照樣顯示給學生看（那個回饋有價值），但不記進文法統計——
@@ -2707,14 +2853,48 @@ async function fetchSentSince(sinceTs,limit=200){
 }
 
 
+/* 這次開 App 之後，哪些等級的「已全部精通」提示按過「繼續複習」了。
+   刻意只存在記憶體、不寫 localStorage：每次重開 App 都該再提醒一次「這一級已經練完了，
+   要不要往上走」，那是這個畫面存在的理由；但同一次練習裡每答完一題回首頁都跳一次，
+   就從提醒變成擋路。 */
+const levelReviewAck=new Set();
+function startLevelReview(){ levelReviewAck.add(curLevel); startSent(); }
+
 async function renderSentHome(){
+  const lvl=curLevel;
   const bar=await levelBarHTML();
-  document.getElementById('pracBody').innerHTML=bar+`
+  const body=document.getElementById('pracBody');
+  body.innerHTML=bar+`
   <div class="empty">
     <div class="empty-ico">${ic('pencil',44)}</div>
     <div class="empty-h">準備好練習了嗎？</div>
     <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 ${dailyGoal} 個單字</div>
     <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
+  </div>`;
+  /* 「已全部精通」的攔截畫面要先翻完整份字表才知道該不該出現。先把一般畫面畫出來、再視情況
+     覆蓋，是因為第一次查（快取還沒暖）會發好幾次網路請求，先 await 再畫會讓等級一點下去
+     整個畫面空白好幾秒——而絕大多數情況下答案是「還沒練完」，那幾秒白等。 */
+  if(levelReviewAck.has(lvl)) return;
+  /* 便宜的前置判斷，省掉絕大多數的翻頁。levelRemainingCount() 要把整份字表翻完
+     （C2 是 15 頁），但只要「在這一級達標過的字數」還沒到總字數，就一定還有沒精通的字，
+     不必翻。這個數字唯一會低估的情況是精通紀錄留在別的等級 key 底下（字表重新分級才會
+     發生），那時候會漏掉獎盃畫面——失敗方向是「該慶祝的時候沒慶祝」，而不是「沒練完卻
+     宣告練完」，這個方向可以接受；複習模式本身不靠這個判斷，照樣會生效。 */
+  const total=await getLevelTotal(lvl);
+  if(!total||(levelProgress[lvl]?.mastered||[]).length<total) return;
+  const remaining=await levelRemainingCount(lvl);
+  // null＝查不出來（離線／Supabase 掛了），維持一般畫面，不要宣告任何進度
+  if(remaining!==0) return;
+  // 查的這段時間使用者已經切到別的等級了，不要蓋掉新等級的畫面
+  if(curLevel!==lvl||curTab!=='prac') return;
+  const next=CEFR_LEVELS[CEFR_LEVELS.indexOf(lvl)+1];
+  body.innerHTML=bar+`
+  <div class="empty">
+    <div class="empty-ico">${ic('award',44)}</div>
+    <div class="empty-h">${lvl} 已全部精通</div>
+    <div class="empty-p">${total||''} 個單字全部達標了。<br>${next?`建議往上挑戰 ${next}；`:''}留在 ${lvl} 的話會改成複習模式，<br>優先出你文法正確度最低的那些字。</div>
+    ${next?`<button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="selectLevel('${next}')">挑戰 ${next} →</button>`:''}
+    <button class="btn" style="margin-top:${next?'10px':'24px'};max-width:280px;width:100%;height:44px;border-radius:12px" onclick="startLevelReview()">繼續複習 ${lvl}（挑最弱的字）</button>
   </div>`;
 }
 
@@ -3120,10 +3300,18 @@ async function dashboardHTML(){
           <div class="stat-tile"><div class="stat-label">總精通字數</div><div class="stat-value">${totalMastered}</div></div>
           <div class="stat-tile"><div class="stat-label">總字庫</div><div class="stat-value">${totalWords||'—'}</div></div>
         </div>
-        ${masteredRows.map(r=>`<div class="use-item">
+        ${masteredRows.map(r=>{
+          // 總字數抓不到（離線／Supabase 掛了）時分母是 0，百分比一律顯示「—」不顯示 0%：
+          // 0% 會被讀成「一個都沒精通」，那是把查詢失敗講成學習成果。
+          const pct=r.total?Math.round(r.mastered/r.total*100):null;
+          return `<div class="use-item" style="align-items:center">
           <span class="use-ico">${r.level}</span>
-          <div style="flex:1"><div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div></div>
-        </div>`).join('')}
+          <div style="flex:1">
+            <div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div>
+            <div class="lvl-bar"><div class="lvl-bar-fill" style="width:${pct==null?0:pct}%"></div></div>
+          </div>
+          <div class="lvl-pct${pct===100?' done':''}">${pct==null?'—':pct+'%'}</div>
+        </div>`;}).join('')}
       </div>
 
       ${levelRows.length?`<div class="prac-card">
