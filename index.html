@@ -2033,6 +2033,25 @@ function sanitizeGradeResult(r,ans,word){
    Anthropic prompt caching 要求 system 內容逐字相同才會命中，兩邊各留一份必然會分裂成兩個快取桶。
    內容一個字都沒改（只有變數名從 gradeSystemPrompt 變成 GRADE_SYSTEM），現有快取不受影響。
    口說專用的規則一律放在 user 訊息裡追加，不要動這個字串。 */
+/* 批改輸出的 token 上限。
+   1600 是 2026-08-20 從 750 調上來的，當時的估算把 b2_example/c1_example 也算進去，
+   之後（2026-08-31）範例句改成按鈕才生成、退出了這份 JSON，上限就沒有再重算過。
+   實際會撐爆 1600 的不是範例句，是 corrections 的條數：每一項是
+   error+fix+why(繁中一句)+category，約 120 個輸出 token，chinglish_issues 每項約 70，
+   固定尾巴（precision_note/corrected_sentence/tip/三個分數/overall）約 200。
+   1600 大概只夠 9 條修正 + 3 條中式英文——長一點、錯多一點的答案就會被硬切斷，
+   JSON 解析不出來，使用者看到的就是「批改失敗（回應超過 1600 tokens 被截斷）」。
+
+   3000 約可容納 20 條修正。max_tokens 是上限不是用量，Anthropic 只對實際生成的
+   token 計費（正常一題 400-600），所以調高它對日常成本是零影響；反而是現在這樣
+   截斷後重打一次，等於為同一題付兩份滿額 1600。
+
+   重打要用更大的上限，這是原本真正的 bug：truncated 會進重試迴圈，但重打帶的是
+   同一個 1600，同一份 system + 同一題 → 幾乎必然再截斷一次。等於「重試」對這個
+   錯誤類型從來沒有生效過，只是把失敗的成本變成兩倍。 */
+const GRADE_MAX_TOKENS=3000;
+const GRADE_MAX_TOKENS_RETRY=4200;
+
 const GRADE_SYSTEM=`你是英語口語練習老師，正在批改學生的中翻英造句練習。
 
 【自然英文原則（最高原則，適用於整份評分）】
@@ -2188,8 +2207,7 @@ async function submitSent(){
 ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}${q0.hint?`出題時給學生的提示：「${q0.hint}」\n`:''}學生答案：「${ans}」
 ${prevBlock}
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
-    // 1600 而不是原本的 750：這份 JSON 有 overall/corrections(含中文 why 跟完整分類名)/chinglish_issues/
-    // precision_note/b2_example/c1_example/tip，繁中約 1.5-2 token/字，錯誤抓多一點就會超過 750 被截斷。
+    // 輸出上限見 GRADE_MAX_TOKENS 的說明（重打會換成更大的上限，否則截斷重打必然再截斷一次）。
     // parseJSON 放進 try 裡面：截斷跟解析失敗才是最該重打的情況，原本寫在迴圈裡卻會直接 throw 出去，等於完全沒重試到。
     let r=null,lastErr=null;
     const tGrade=Date.now();
@@ -2202,7 +2220,7 @@ ${prevBlock}
            完整修正在整份輸出的 8% 位置就能顯示出來。
            只有第一次嘗試需要逐步顯示；重打那次畫面上已經有東西了，安靜換掉就好。 */
         const onDelta=attempt===0?renderGradingProgress:null;
-        const txt=await callClaude(gradeUserPrompt,1600,gradeModel(q0.level),GRADE_SYSTEM,onDelta);
+        const txt=await callClaude(gradeUserPrompt,attempt===0?GRADE_MAX_TOKENS:GRADE_MAX_TOKENS_RETRY,gradeModel(q0.level),GRADE_SYSTEM,onDelta);
         r=parseJSON(txt);
         if(gradeResultIssues(r,ans,q0.word).length===0) break;
       }catch(e){
@@ -3875,7 +3893,7 @@ ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學�
 
   let r=null,lastErr=null;
   for(let attempt=0;attempt<2;attempt++){
-    try{ r=parseJSON(await callClaude(userPrompt,1600,gradeModel(q0.level),GRADE_SYSTEM)); break; }
+    try{ r=parseJSON(await callClaude(userPrompt,attempt===0?GRADE_MAX_TOKENS:GRADE_MAX_TOKENS_RETRY,gradeModel(q0.level),GRADE_SYSTEM)); break; }
     catch(e){ lastErr=e; if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e; }
   }
   if(!r) throw lastErr||new Error('批改失敗');
