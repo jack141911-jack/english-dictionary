@@ -908,6 +908,23 @@ function aiErrorMsg(e,fallback){
   // 使用者跟開發者都看不到是 Anthropic 回 400、模型截斷、還是取單字失敗。把原始訊息接在後面。
   return e?.message?`${fallback}（${e.message}）`:fallback;
 }
+/* 明確關掉 thinking 的模型。這是 2026-09-10 A2 全掛的根因：
+   **Sonnet 5 在省略 `thinking` 參數時預設就跑 adaptive thinking，Haiku 4.5 不會**
+   （Haiku 要 `{type:'enabled',budget_tokens:N}` 才開）。8/31 批改改成依等級分流
+   （A1→Haiku、A2 以上→Sonnet 5）之後，A2 以上每一次批改都在思考：
+   - thinking token 照樣計入 max_tokens、照樣計費，而 Sonnet 5 的 display 預設是 'omitted'，
+     所以那些 token 產生了、花錢了，文字卻是空的，對這個 App 一點用都沒有
+   - 思考吃掉整個預算，真正的 JSON 還沒寫完就撞到 max_tokens → 每次都 truncated
+   - 非串流路徑更直接：content[0] 會是 thinking 區塊，`.text` 是 undefined
+   實測後果：A2/B1/B2 從 8/31 13:47 之後**一筆都沒有成功過**，而 A1 的 783 筆全部正常。
+   我一開始把它誤判成「1600 太小」，把上限調到 3000/4200 只是讓思考燒更久——實測一題
+   跑了 52.8 秒、回 17 KB，而真實批改輸出量到頂只有 1,868 字元（985 筆的實測最大值）。
+
+   為什麼用白名單而不是 `/sonnet|opus/` 這種比對：**各模型對 `{type:'disabled'}` 的接受度不同**
+   （Sonnet 5 接受；Opus 5 只在 effort high 以下接受；Fable 5／5.1 直接回 400）。
+   規則比對會在換模型那天靜靜地變成 400，白名單只會退回「沒關到思考」這個較輕的失敗。 */
+const THINKING_OFF_MODELS=new Set(['claude-sonnet-5']);
+
 // system 有帶的話走 Anthropic prompt caching：system 內容要在每次呼叫間逐字不變才會命中快取，
 // 呼叫端負責確保 system 字串不含每次呼叫都變動的內容（目標單字/學生答案這類動態值要放 prompt 裡，不要塞進 system）。
 // onDelta 有帶的話就開串流：每收到一段文字就用「目前累積的完整字串」呼叫一次 onDelta。
@@ -918,6 +935,7 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   const t=await authToken();
   if(!t) throw new AIError('auth','請重新登入');
   const body={provider:'anthropic',model,max_tokens:maxTokens,messages:[{role:'user',content:prompt}]};
+  if(THINKING_OFF_MODELS.has(model)) body.thinking={type:'disabled'};
   if(onDelta) body.stream=true;
   // ttl:'1h' 而不是預設 5 分鐘：這份 system 是批改規則手冊，寫入成本很低（原價 2 倍 vs 1.25 倍，換算下來差不到 NT$0.3），
   // 但練習中間常常會停超過 5 分鐘（讀回饋、想下一句），拉長到 1 小時可以大幅減少重新寫入的次數。
@@ -953,7 +971,12 @@ async function callClaude(prompt, maxTokens=400, model='claude-haiku-4-5-2025100
   // 這種回應 HTTP 是 200、Anthropic 那邊照樣計費，所以絕不能讓半截字串流到 parseJSON 變成看不出原因的錯誤，
   // 要在這裡就明確拋出，讓上層知道「值得重打一次」。
   if(d.stop_reason==='max_tokens') throw new AIError('truncated',`回應超過 ${maxTokens} tokens 被截斷`);
-  return d.content[0].text;
+  /* 不能寫死 content[0]：會思考的模型會把 thinking 區塊排在文字前面，content[0].text 是 undefined，
+     一路流到 parseJSON 變成看不出原因的錯誤。改成挑出 type==='text' 的那一塊。
+     找不到文字區塊時把實際收到的區塊型別講出來——這正是這次查了半天才發現是 thinking 的原因。 */
+  const textBlock=(d.content||[]).find(b=>b.type==='text');
+  if(!textBlock) throw new AIError('http',`回應沒有文字內容（只收到 ${(d.content||[]).map(b=>b.type).join('/')||'空的 content'}）`);
+  return textBlock.text;
 }
 
 // 整包收到的 SSE（不是逐段串流）長什麼樣。只認 Anthropic messages stream 的開頭，
@@ -2074,15 +2097,18 @@ function sanitizeGradeResult(r,ans,word){
    1600 大概只夠 9 條修正 + 3 條中式英文——長一點、錯多一點的答案就會被硬切斷，
    JSON 解析不出來，使用者看到的就是「批改失敗（回應超過 1600 tokens 被截斷）」。
 
-   3000 約可容納 20 條修正。max_tokens 是上限不是用量，Anthropic 只對實際生成的
-   token 計費（正常一題 400-600），所以調高它對日常成本是零影響；反而是現在這樣
-   截斷後重打一次，等於為同一題付兩份滿額 1600。
+   2026-09-10 後來拿 985 筆真實紀錄量過，先前這段估算是錯的：**實際每題輸出到頂只有
+   1,868 字元、最多 4 條修正**（平均 563-1,061 字元），不是我估的 15 條。1600 大多數時候
+   其實夠用，偶爾偏緊。真正把它撐爆的是 Sonnet 5 的預設 thinking（見 THINKING_OFF_MODELS）,
+   那才是 A2 以上全掛的原因；把上限調到 3000/4200 只是讓思考燒更久（實測 52.8 秒／17 KB）。
+   關掉 thinking 之後回到 2500：比實測最大值留約一倍餘裕，又不會讓失控的輸出燒到 4200。
+   max_tokens 是上限不是用量，Anthropic 只對實際生成的 token 計費（正常一題 400-600）。
 
    重打要用更大的上限，這是原本真正的 bug：truncated 會進重試迴圈，但重打帶的是
    同一個 1600，同一份 system + 同一題 → 幾乎必然再截斷一次。等於「重試」對這個
    錯誤類型從來沒有生效過，只是把失敗的成本變成兩倍。 */
-const GRADE_MAX_TOKENS=3000;
-const GRADE_MAX_TOKENS_RETRY=4200;
+const GRADE_MAX_TOKENS=2500;
+const GRADE_MAX_TOKENS_RETRY=3500;
 
 const GRADE_SYSTEM=`你是英語口語練習老師，正在批改學生的中翻英造句練習。
 
