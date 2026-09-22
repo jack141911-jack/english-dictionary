@@ -1408,20 +1408,36 @@ async function pickLevelWord(level,avoidWord){
   // 「今天答完的」∪「今天出過但沒答完／批改失敗的」——後者是 2026-09-10 補的，
   // 少了它，批改一失敗那個字就會立刻回到池子裡被重抽（見 servedToday 的說明）。
   const seenToday=new Set([...(dailyLevelCount.byLevel?.[level]||[]), ...servedTodaySet(level)]);
+  /* 字表是 frequency 由高到低排序、一頁 200 筆，所以「先翻到的頁」＝「比較常用的字」，
+     這個偏好要保留（常用字先練是對的）。但原本的寫法是**第一個有候選的頁面就回傳**：
+
+       for(...){ const pool=...; if(pool.length) return pool[random]; }
+
+     一旦某一頁只剩下 1 個沒精通的字，那一頁就變成一個漏斗——每一次出題都回傳那同一個字，
+     直到它被練到精通為止，後面幾頁幾百個沒練過的字程式根本翻不到。
+     2026-09-13 實測 A2：第 0 頁 200/200 精通、第 1 頁 199/200 精通（只剩 learning）、
+     第 2 頁還有 170 個沒練、第 3 頁 192 個沒練 —— 於是「每一題都是 learning」。
+
+     改成：一頁一頁累積候選，累到 MIN_POOL 就停手再隨機抽。
+     這樣既保留「常用字優先」（候選夠了就不會再往低頻的頁翻），也保證池子不會小到變漏斗。
+     門檻取 25：夠大到一個 session 內不會一直撞到同一個字，又小到不會為了湊數把低頻字拉進來。 */
+  const MIN_POOL=25;
+  const collect=async(filter)=>{
+    const pool=[];
+    for(let offset=0; offset<8000; offset+=200){
+      const rows=await sbSelectWords(level,offset);
+      if(!rows.length) break;
+      pool.push(...rows.filter(filter));
+      if(pool.length>=MIN_POOL) break;   // 候選夠了就停，維持常用字優先
+    }
+    return pool;
+  };
   // 先避開今天在這個等級已經練過的單字，避免同一天重複出到同一題
-  for(let offset=0; offset<3000; offset+=200){
-    const rows=await sbSelectWords(level,offset);
-    if(!rows.length) break;
-    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==avoidWord && !seenToday.has(r.word));
-    if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
-  }
+  const fresh=await collect(r=>!mastered.has(r.word) && r.word!==avoidWord && !seenToday.has(r.word));
+  if(fresh.length) return fresh[Math.floor(Math.random()*fresh.length)];
   // 今天這個等級的字都出過了才放寬限制，只避開剛剛那一題
-  for(let offset=0; offset<3000; offset+=200){
-    const rows=await sbSelectWords(level,offset);
-    if(!rows.length) break;
-    const pool=rows.filter(r=>!mastered.has(r.word) && r.word!==avoidWord);
-    if(pool.length) return pool[Math.floor(Math.random()*pool.length)];
-  }
+  const relaxed=await collect(r=>!mastered.has(r.word) && r.word!==avoidWord);
+  if(relaxed.length) return relaxed[Math.floor(Math.random()*relaxed.length)];
   /* 整級都精通完了：進複習模式，優先挑「最新一次文法正確度最低」的已精通字。
      舊版這裡是 sbSelectWords(level,0)——limit=200 的單頁查詢，等於全精通之後的複習池
      只剩頻率最高的前 200 個字；A1 有 898 個字，其餘 698 個永遠不會再被抽到。
@@ -1527,6 +1543,16 @@ natural_en 的句型複雜度要跟著等級走，中文情境也就跟著到位
 【不要重複出過的句子】
 如果 user 訊息裡列出了這個單字之前出過的中文句子，這次必須換一個明顯不同的情境——不是換幾個字，而是換一個場景、換一組人物或換一個語意重點。
 
+【時間要讓學生從中文看得出來】
+中文動詞沒有時態，學生只看得到中文，所以這句話發生在什麼時間，必須由中文裡的字告訴他，不能靠他猜。先依 natural_en 決定這題的時間（time_frame），五選一：
+- 此刻：現在正在發生、或講話當下的感受（例：「這杯咖啡我剛喝一口，覺得很苦」「他現在正在開會」）。
+- 習慣或常態：經常做的事、一般事實、長期狀態（例：「我每天早上喝咖啡」「女王住在市中心」）。
+- 過去：已經發生完的事（例：「那天天氣很好」「她上個月申請了那份工作」）。
+- 過去延續到現在：從過去一直持續到現在、或到目前為止的經驗（例：「這家公司這幾年一直在成長」「我已經看過這部電影」）。
+- 未來：還沒發生的事（例：「我們明天要去海邊」）。
+除了「習慣或常態」之外，zh_sentence 裡一定要有一個讓人看得出時間的字詞（例如剛剛、現在、正在、那天、昨天、上次、已經、這幾年、一直、明天），並把它逐字填進 time_cue——它必須是 zh_sentence 裡原封不動出現的片段。「習慣或常態」的句子如果有每天、通常、總是這類字就填進 time_cue，沒有就留空字串。
+「這杯」「那部」這種指示詞不算時間線索：「這杯咖啡很苦，我不太喜歡」可以是正在喝、也可以是剛喝完，學生沒辦法判斷，要改成「這杯咖啡我剛喝一口，覺得很苦」這種講清楚的版本。
+
 【中文句子的其他禁忌】
 - 不要在中文句子裡夾雜英文，也不要用括號附註英文單字或詞性，那等於直接把答案交給學生。
 - 不要出有歧義的中文句子。如果一句中文可以合理翻成兩三種語意不同的英文，批改老師就沒有基準判對錯，學生會被莫名其妙扣分。例如「他昨天沒有去公司」可以對應 didn't go 或 hasn't gone，語意不同；要把時間點或語境補清楚，只留一種自然的翻譯方向。
@@ -1551,18 +1577,21 @@ hint 是給還沒下筆的學生看的提示，不是解答也不是講解。
 不要先寫中文再回頭檢查有沒有用到單字，那樣發現情境選錯也來不及了。照這個順序做：
 
 第一步，寫 natural_en：一句目標單字以指定詞性自然出現的英文，母語者日常真的會這樣講。目標單字必須是你寫這句話時本來就會選的字，不是事後塞進去的——塞不進去代表情境選錯了，換一個情境重寫，不要為了讓單字出現而寫出不自然的英文。
+寫完 natural_en 先決定 time_frame（見【時間要讓學生從中文看得出來】），寫中文時就把時間線索放進去。
 第二步，寫 zh_sentence：把 natural_en 講的同一件事，用道地的中文口語重新講一遍。這不是逐字直譯，而是「同一個意思，中文母語者會怎麼說」——語序、語氣、該省略的地方都照中文的習慣來，不要留下英文的骨架。學生看到的只有這句中文，它必須讀起來就是一句人話。
 
 兩句都寫完後逐條檢查：
 1. 目標單字有沒有真的出現在 natural_en 裡，而且正好是指定的那個詞性？如果變成同字根的其他詞性變化形（形容詞變副詞、名詞變形容詞、名詞變動詞等），是情境選錯，整題重寫。
 2. natural_en 裡有沒有明顯超過這次等級的生字？有就換情境。
-3. zh_sentence 跟 natural_en 講的是不是同一件事？人稱、單複數、時間都要對得上。
+3. zh_sentence 跟 natural_en 講的是不是同一件事？人稱、單複數、時間都要對得上。time_cue 有沒有逐字出現在 zh_sentence 裡？只看中文的人，能不能確定這件事是在 time_frame 設定的那個時間發生？
 4. 把 zh_sentence 單獨唸一遍：它讀起來像中文母語者會講的話，還是像從英文翻過來的？像翻譯腔就把中文重寫一次，英文不用動。
 natural_en 只給系統檢查用、不會顯示給學生看，但一定要誠實填寫。
 
 【各欄位規則】
 - natural_en：先寫這一句。目標單字以指定詞性自然出現的英文，母語者日常會這樣講的長度與語氣。只給系統檢查用，不會顯示給學生。
 - zh_sentence：後寫這一句。把 natural_en 的意思用道地的中文口語重講一遍，10-20 字，句子裡不要出現任何英文或提示。
+- time_frame：「此刻」「習慣或常態」「過去」「過去延續到現在」「未來」五個之一，一字不差。
+- time_cue：zh_sentence 裡逐字出現、標示時間的字詞；只有 time_frame 是「習慣或常態」而且中文沒有時間字眼時才可以留空字串。
 - hint：只有在句型真的有難度、學生可能不知道要用哪個結構時才寫，寫英文語法提示（例如「這裡要用現在完成式」）。沒必要就留空字串。寫了就必須跟批改標準一致——不要提示一個等一下會被判成錯誤的用法。
 - definition：這個單字的英文解釋，15 字以內，寫給英語學習者看。
 - translation：這個單字最常用的繁體中文翻譯，1-3 個意思，用 / 分隔。
@@ -1571,19 +1600,19 @@ natural_en 只給系統檢查用、不會顯示給學生看，但一定要誠實
 以下是三個合格的輸出。注意欄位順序：natural_en 先寫、zh_sentence 後寫，而且每一句中文都讀得出是中文，不是英文的骨架換上中文的字。
 
 目標單字 danger（名詞）、等級 A2：
-{"word":"danger","natural_en":"He was in danger during that car accident, but luckily he was fine afterwards.","zh_sentence":"他在那場車禍中有生命危險，幸好後來沒事。","hint":"","definition":"the possibility of harm or death","translation":"危險／險境"}
+{"word":"danger","natural_en":"He was in danger during that car accident, but luckily he was fine afterwards.","time_frame":"過去","zh_sentence":"他在那場車禍中有生命危險，幸好後來沒事。","time_cue":"後來","hint":"","definition":"the possibility of harm or death","translation":"危險／險境"}
 這題合格的原因：英文先定住 in danger 這個名詞用法，中文再用「有生命危險」講同一件事——如果中文寫成「很危險」，母語者會用形容詞 dangerous，那就不合格了。
 
 目標單字 continuous（形容詞）、等級 B1：
-{"word":"continuous","natural_en":"The company has seen continuous growth over the past few years.","zh_sentence":"這家公司這幾年的成長一直都沒有中斷過。","hint":"這裡適合用現在完成式","definition":"happening without stopping or breaking","translation":"持續的／不間斷的"}
+{"word":"continuous","natural_en":"The company has seen continuous growth over the past few years.","time_frame":"過去延續到現在","zh_sentence":"這家公司這幾年的成長一直都沒有中斷過。","time_cue":"這幾年","hint":"這裡適合用現在完成式","definition":"happening without stopping or breaking","translation":"持續的／不間斷的"}
 這題合格的原因：英文裡形容詞修飾的是名詞 growth，不是修飾動詞；中文沒有寫成「一直不斷地成長」（那會讓母語者改用副詞 continuously），而是把重點放在「成長」這個名詞上。
 
 目標單字 apply（動詞）、等級 B1：
-{"word":"apply","natural_en":"She applied for a job at that company last month and is still waiting to hear back.","zh_sentence":"她上個月申請了那家公司的工作，還在等結果。","hint":"","definition":"to ask formally for a job or place","translation":"申請／應用"}
+{"word":"apply","natural_en":"She applied for a job at that company last month and is still waiting to hear back.","time_frame":"過去","zh_sentence":"她上個月申請了那家公司的工作，還在等結果。","time_cue":"上個月","hint":"","definition":"to ask formally for a job or place","translation":"申請／應用"}
 這題合格的原因：英文裡有明確的動作，動詞自然出現，不會退化成名詞 application；中文用「申請了」也保住了動作感。
 
 只輸出純 JSON，不要加 markdown、不要加任何說明文字。欄位順序就是你該生成的順序，不要跳著寫：
-{"word":"目標單字原樣","natural_en":"目標單字自然出現的英文句子","zh_sentence":"用道地中文口語重講同一件事","hint":"英文語法提示或空字串","definition":"英文解釋","translation":"繁體中文翻譯"}`;
+{"word":"目標單字原樣","natural_en":"目標單字自然出現的英文句子","time_frame":"此刻/習慣或常態/過去/過去延續到現在/未來 其中之一","zh_sentence":"用道地中文口語重講同一件事","time_cue":"zh_sentence 裡標示時間的字詞，或空字串","hint":"英文語法提示或空字串","definition":"英文解釋","translation":"繁體中文翻譯"}`;
 
 // 中文句子正規化後的重疊度比對，用來抓「同一個單字又出了幾乎一樣的句子」
 // （2026-08-06 April 回報：「這句我記得我寫過了」）。純客戶端比對，不花任何 token——
@@ -1609,7 +1638,31 @@ function questionIssues(q,word,recentZh){
   if(!q.natural_en) issues.push('缺 natural_en');
   else if(!hasTargetWord(q.natural_en,word)) issues.push('自然英譯裡沒有出現目標單字本身（可能被換成別的字或別的詞性變化形）');
   if(recentZh.some(s=>zhSimilar(s,q.zh_sentence))) issues.push('這個中文句子跟之前出過的幾乎一樣');
+  // 時間線索刻意不列在這裡（不觸發重出），見 timeFrameIssue 的說明。
   return issues;
+}
+/* 中文沒有時態，「這杯咖啡很苦，我不太喜歡」學生看不出是正在喝還是剛喝完，
+   批改卻會自己挑一個讀法，把另一個判成時態錯誤（2026-09-21 查 sentence_history：
+   151 筆時態 corrections 裡約 6 筆是這樣來的，例如「我很喜歡那部電影的結尾」的 like 被改成 liked）。
+   所以出題時就要定下時間、並在中文裡放一個看得到的線索，批改拿同一個設定當基準。
+   線索要逐字出現在中文裡才算數——只靠 prompt 叮嚀「不要出有歧義的句子」從 8 月就寫著，照樣出。
+   但它不觸發重出：現在出題一次就過的比例是 98.6%（1,646／1,670），把時間也當成重出條件，
+   等於為了「學生可能猜錯時態」多付一次出題費跟 2-4 秒。沒過的題目照出，批改改用寬鬆規則
+   （timeFrameLine 的退回分支），學生不會因此被扣分；沒過的比例記在 time_issue，太高再回來收緊 prompt。 */
+const TIME_FRAMES=['此刻','習慣或常態','過去','過去延續到現在','未來'];
+function timeFrameIssue(q){
+  if(!TIME_FRAMES.includes(q.time_frame)) return `time_frame 必須是 ${TIME_FRAMES.join('／')} 其中之一`;
+  const cue=(q.time_cue||'').trim();
+  if(!cue) return q.time_frame==='習慣或常態'?'':`中文句子看不出時間：time_frame 是「${q.time_frame}」，中文裡卻沒有標示時間的字詞`;
+  if(!q.zh_sentence.includes(cue)) return `time_cue「${cue}」沒有逐字出現在中文句子裡`;
+  return '';
+}
+// 給批改看的時間設定。硬出（兩次都沒過檢查）或舊存貨沒有這兩個欄位時，不能把一個沒驗證過的設定
+// 當成基準交給批改，退回「只看中文裡明確的時間字眼」那條規則。
+function timeFrameLine(q){
+  if(q.zh_sentence&&!timeFrameIssue(q))
+    return `這題設定的時間：${q.time_frame}${q.time_cue?`（中文原句裡的時間線索：「${q.time_cue}」）`:''}\n`;
+  return '這題出題時沒有設定時間：時態只能依中文原句裡明確出現的時間字眼判斷。\n';
 }
 
 /* ── 預先出下一題 ──────────────────────────────────────────────
@@ -1767,6 +1820,8 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
   parsed.qUnverified=qUnverified;
   parsed.qIssues=qUnverified?issues.join('；'):'';
   parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
+  parsed.time_issue=timeFrameIssue(parsed);
+  if(parsed.time_issue) console.log('出題時間線索不合格（照出，批改改用寬鬆時態規則）:',word,parsed.time_issue);
   const dict=await dictP;
   parsed.word=word;      // 不讓模型改動目標單字本身
   parsed.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
@@ -2341,6 +2396,12 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
+【時態：照出題設定的時間判斷，不可以自己替學生決定】
+中文動詞沒有時態，所以 user 訊息會告訴你這題出題時設定的時間（此刻／習慣或常態／過去／過去延續到現在／未來）跟中文原句裡的時間線索。判斷時態只能照下面三條：
+1. 有設定時間：學生的時態跟設定衝突，才算時態錯誤。why 要點出中文原句裡的那個時間線索（例如「中文說『上個月』，是已經發生完的事，要用過去式」），不能只說「這句描述的是過去／當下的狀況」。
+2. 沒有設定時間：只能依中文原句裡明確出現的時間字眼判斷（例如昨天、那天、上次、已經、正在、明天、每天）。找不到這種字眼時，學生選的時態只要是一種合理的讀法就不是錯誤，why 裡也不可以寫中文原句沒有明講的時間理由。例如「我很喜歡那部電影的結尾」寫 I like 或 I liked 都成立；「我們兩個人對這件事的看法完全不同」寫 have 或 had 都成立。
+3. 學生自己在同一句話裡，講同一段時間的事卻中途換了時態（例如「We walked into the park and walk along the path.」）：要指出的是前後時態不一致，why 點出前面已經用了哪個時態、後面卻換掉。fix 的方向：有設定時間就統一成設定的時間；沒有設定就順著學生先用的那個時態統一，不要把學生本來成立的時態改掉。但兩個子句講的本來就是不同時間的事，就不是不一致，不能列成錯誤——例如「He was born into a poor family, but he studies hard.」出身是過去、用功是現在，兩個時態都對。
+
 【不可以跟出題提示自相矛盾】
 如果 user 訊息裡有「出題時給學生的提示」，代表學生是照著那個提示寫的。批改時不可以反過來把提示教的用法判成錯誤——學生按照提示做卻被扣分，是系統自己前後不一致，不是學生的問題。
 遇到這種情況分兩種處理：
@@ -2410,7 +2471,7 @@ async function submitSent(){
        system prompt 的自我檢查第 (7) 條會用到這個值，沒帶就是一條不可執行的規則。
        約 5 個 token，而且是動態值、放 user 訊息不影響 system 的快取。 */
     const gradeUserPrompt=`中文原句：「${q0.zh_sentence}」
-目標單字：${q0.word}
+${timeFrameLine(q0)}目標單字：${q0.word}
 ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}${q0.hint?`出題時給學生的提示：「${q0.hint}」\n`:''}學生答案：「${ans}」
 ${prevBlock}
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
@@ -2897,6 +2958,7 @@ function saveSentHistory(userAns,r,q){
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
+    time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!r.questionFlawed,
     mode:'typed',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
@@ -4085,7 +4147,7 @@ async function finishTranslate(wavB64,seconds){
   // 沿用打字那份 GRADE_SYSTEM（逐字相同才命中 prompt caching），
   // 口說專屬的規則放在 user 訊息——它每次都會變，本來就不該進 system。
   const userPrompt=`中文原句：「${q0.zh_sentence}」
-目標單字：${q0.word}
+${timeFrameLine(q0)}目標單字：${q0.word}
 ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學生答案：「${transcript}」
 
 【重要：這是口說練習，學生答案是語音辨識的轉錄稿，不是打字的】
@@ -4370,6 +4432,7 @@ function saveSpeakHistory({q,transcript,content,pron,seconds}){
     mode:'spoken',
     word:q.word, level:q.level, zh_sentence:q.zh_sentence,
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
+    time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!content.questionFlawed,
     userAns:transcript, cefr:content.cefr,
     chinglish_percent:content.chinglish_percent, grammar_accuracy:content.grammar_accuracy,
