@@ -806,7 +806,10 @@ function setMastery(level,word,isMastered){
   }else{
     // 降級：把這個字從「所有」掛著它的等級撤下來，並在同一個等級留下墓碑。
     // 本來就沒精通過的字（正常出題抽到的都是），這裡一個 key 都不會動到。
+    // 只掃同一個家族（一般 A1-C2／商業）：商業題寫爛了 budget，不該連一般 B1 的精通也撤掉，反之亦然。
+    const fam=new Set(levelFamily(level));
     for(const lvl of Object.keys(levelProgress)){
+      if(!fam.has(lvl)) continue;
       const e=masteryEntry(lvl);
       if(!e.mastered.includes(word)) continue;
       e.mastered=e.mastered.filter(w=>w!==word);
@@ -1233,6 +1236,28 @@ let levelTotalCache={};
 const CEFR_LEVELS=['A1','A2','B1','B2','C1','C2'];
 function cefrRank(lvl){ const i=CEFR_LEVELS.indexOf(lvl); return i<0?0:i; }
 
+/* 商業用語（2026-09-22 新增）：等級列上多一個「商業」，字從 business_words 抽。
+   它在程式裡跟 A1-C2 一樣是一個「等級 key」（curLevel／levelProgress／dailyLevelCount.byLevel／
+   紀錄的 level 欄位都填 'BIZ'），這樣出題、預抓、今日進度、歷史、儀表板全部原樣共用。
+   但它**不是難度**：cefrRank('BIZ') 會落到 0（＝A1），直接拿去判精通等於門檻只有 A1。
+   所以精通門檻一律走 masteryTarget()——商業字用字表裡那個字自己的 CEFR（q.target）。
+   精通清單也跟一般等級分開算（masteredSetFor）：一般等級練過 budget，不代表在商業情境會用。 */
+const BIZ='BIZ';
+const PRACTICE_LEVELS=[...CEFR_LEVELS,BIZ];
+function levelLabel(l){ return l===BIZ?'商業':l; }
+function isBizLevel(l){ return l===BIZ; }
+function levelFamily(l){ return isBizLevel(l)?[BIZ]:CEFR_LEVELS; }
+function masteredSetFor(level){ return new Set(levelFamily(level).flatMap(l=>levelProgress[l]?.mastered||[])); }
+// 精通門檻：一般題＝題目等級；商業題＝這個字自己的 CEFR（舊資料或查不到時保守用 B2）
+function masteryTarget(level,target){ return isBizLevel(level)?(target||'B2'):level; }
+function wordsTable(level){ return isBizLevel(level)?'business_words':'cefr_words'; }
+// 商業題附加在出題 user 訊息裡（不放 system：system 要逐字不變才吃得到 prompt cache）
+const BIZ_Q_NOTE=`這是商業英語練習：情境一律放在職場（會議、email、簡報、談判、客戶往來、財務報表、專案進度、人事、合約、行銷、營運等），這條優先於 system prompt 裡「輪流用家庭、購物、旅行…」那條情境輪替規則。情境本身要在這些職場主題之間輪替，不要每題都是開會。
+要用上班族真的會講、真的會寫的說法，不要教科書式的句子；語氣可以是口頭對話，也可以是 email 或報告裡的一句話。
+中文要像台灣上班族平常講的話，專有名詞不要出現公司名稱、人名或品牌。
+目標如果是多字片語（例如 follow up、on track、in charge of），natural_en 裡整組片語都要出現；動詞可以依時態變化，可分離片語動詞中間可以夾受詞（例如 follow it up）。definition 解釋的是整組片語在職場上的意思。
+`;
+
 // 二號規格：corrections[].category 的 28 個細分類，跟批改 prompt 裡的清單是同一份資料（prompt 從這裡動態產生），
 // 避免手動維護兩份清單、日後改動漏改其中一邊。
 const GRAMMAR_CATEGORIES=['現在簡單式 vs 現在進行式','過去簡單式 vs 現在完成式','未來式：will vs be going to','過去完成式','冠詞 a/an/the 的基本用法','零冠詞（不可數名詞、複數泛指）','介系詞 in/on/at（時間）','介系詞 in/on/at（地點）','常見動詞固定搭配介系詞','可數與不可數名詞','不規則複數形','主詞動詞一致（第三人稱單數）','集合名詞的單複數一致','形容詞順序','疑問句/間接問句語序','副詞位置','關係代名詞 who/which/that','限定 vs 非限定關係子句','被動語態基本結構','被動語態常見誤用（中文直翻）','動名詞當主詞/受詞','不定詞 vs 動名詞','連接詞 although/because/so','對等連接詞 and/but/or 的句子平衡','情態助動詞 can/could/may/might/must','第一/第二/第三類條件句','假設語氣 wish + 過去式/過去完成式','其他'];
@@ -1319,9 +1344,11 @@ async function sbSelectWords(level,offset){
     if(hit&&Date.now()-hit.ts<WORDS_CACHE_TTL&&Array.isArray(hit.rows)) return hit.rows;
   }catch{}
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/cefr_words?level=eq.${level}&select=word,pos&order=frequency.desc&limit=200&offset=${offset}`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    const r=await fetch(isBizLevel(level)
+      ? `${SB_URL}/rest/v1/business_words?select=word,pos,level&order=frequency.desc&limit=200&offset=${offset}`
+      : `${SB_URL}/rest/v1/cefr_words?level=eq.${level}&select=word,pos&order=frequency.desc&limit=200&offset=${offset}`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
     if(!r.ok) return [];
-    const rows=await r.json(); // [{word,pos}, ...]
+    const rows=await r.json(); // [{word,pos}, ...]；商業字多一個 level（該字自己的 CEFR，精通門檻用）
     // 空陣列不要快取：那代表「這一頁沒有資料」或這次查詢出了問題，
     // 存起來會讓 pickLevelWord 的翻頁迴圈在接下來 7 天都提早結束。
     if(rows.length) lsSet(ck,JSON.stringify({ts:Date.now(),rows}));
@@ -1332,7 +1359,7 @@ async function sbSelectWords(level,offset){
 async function getLevelTotal(level){
   if(levelTotalCache[level]!=null) return levelTotalCache[level];
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/cefr_words?level=eq.${level}&select=id&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'count=exact'}});
+    const r=await fetch(`${SB_URL}/rest/v1/${wordsTable(level)}?${isBizLevel(level)?'':`level=eq.${level}&`}select=id&limit=1`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'count=exact'}});
     const range=r.headers.get('content-range');
     const total=range?parseInt(range.split('/')[1],10)||0:0;
     levelTotalCache[level]=total;
@@ -1361,7 +1388,7 @@ async function allLevelWords(level){
    回傳 null＝查不出來（第一頁就沒資料，通常是離線或 Supabase 掛了）。這種時候絕對不能回 0：
    那會把一次網路故障顯示成「你已經全部精通」。 */
 async function levelRemainingCount(level){
-  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+  const mastered=masteredSetFor(level);
   const all=await allLevelWords(level);
   if(!all.length) return null;
   return all.filter(r=>!mastered.has(r.word)).length;
@@ -1403,8 +1430,9 @@ async function pickLevelWord(level,avoidWord){
      （2026-08-02 換 Oxford 字表那次就動過一批），舊的精通紀錄留在舊 key，
      新等級的池子完全看不到它，那個字就會被重複抽出來練。
      實測 2026-07-22~08-26 有 6 個字因此跨天重複出題（active/agriculture/case/due/old/work）。
-     取聯集之後，不管字表分級以後再怎麼調整都不會再漏。 */
-  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+     取聯集之後，不管字表分級以後再怎麼調整都不會再漏。
+     商業是另一個家族，只看自己那一份（見 masteredSetFor）。 */
+  const mastered=masteredSetFor(level);
   // 「今天答完的」∪「今天出過但沒答完／批改失敗的」——後者是 2026-09-10 補的，
   // 少了它，批改一失敗那個字就會立刻回到池子裡被重抽（見 servedToday 的說明）。
   const seenToday=new Set([...(dailyLevelCount.byLevel?.[level]||[]), ...servedTodaySet(level)]);
@@ -1474,13 +1502,13 @@ async function levelBarHTML(){
   ensureDailyLevelCount();
   const total=await getLevelTotal(curLevel);
   const masteredCount=(levelProgress[curLevel]?.mastered||[]).length;
-  const chips=CEFR_LEVELS.map(l=>`<span class="seg-item ${l===curLevel?'on':''}" onclick="selectLevel('${l}')">${l}</span>`).join('');
-  const breakdown=CEFR_LEVELS.map(l=>`${l} <b>${dailyLevelCount.byLevel?.[l]?.length||0}</b>`).join(' · ');
+  const chips=PRACTICE_LEVELS.map(l=>`<span class="seg-item ${l===curLevel?'on':''}" onclick="selectLevel('${l}')">${levelLabel(l)}</span>`).join('');
+  const breakdown=PRACTICE_LEVELS.map(l=>`${levelLabel(l)} <b>${dailyLevelCount.byLevel?.[l]?.length||0}</b>`).join(' · ');
   return `
   <div class="seg">${chips}</div>
   <div class="stat-row">
     <div class="stat"><div class="lbl">今日進度</div><div class="val">${dailyLevelCount.words?.length||0} <small>/ ${dailyGoal}</small></div></div>
-    <div class="stat"><div class="lbl">${curLevel} 精通</div><div class="val">${masteredCount} <small>/ ${total||'—'}</small></div></div>
+    <div class="stat"><div class="lbl">${levelLabel(curLevel)} 精通</div><div class="val">${masteredCount} <small>/ ${total||'—'}</small></div></div>
   </div>
   <div class="breakdown">${breakdown}</div>`;
 }
@@ -1774,21 +1802,23 @@ async function buildQuestion(qLevel,avoidWord){
   if(!picked) throw new Error('no word available for level');
   const word=picked.word;
   const pos=picked.pos;
+  // 商業字：出題難度與精通門檻都用這個字自己的 CEFR；一般等級就是題目等級本身
+  const target=masteryTarget(qLevel,picked.level);
   /* 挑字當下就記下「這是不是刻意挑的複習題」。整級全精通時 pickLevelWord 的第三層
      會**刻意**回傳已精通的字（那正是複習模式），而 prefetchStillValid 的規則是
      「已精通就丟掉」——沒有這個標記的話，複習模式下每一題預抓都會被當成過期存貨丟掉，
      每題都要重新花錢出一次。判斷要在這裡做（挑完字、還沒花 token 之前），
      因為之後 levelProgress 可能被別台裝置的同步改掉，那時就分不出
      「當初刻意挑的複習題」跟「後來才被別台練精通的字」了。 */
-  const isReview=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[])).has(word);
+  const isReview=masteredSetFor(qLevel).has(word);
   const tPick=Date.now();
   // 之前出過的同一個單字的中文句子，用來擋重複。通常是空陣列（實測 1.18 次/字），
   // 所以放進 user 訊息幾乎不花 token，卻能在重出時直接告訴模型要避開哪幾句。
   const recentZh=recentZhFor(word);
   const qUserPrompt=(retryNote)=>`目標單字：${word}
 這個單字的詞性：${posLabel(pos)}
-這次的練習等級：${qLevel}
-${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
+這次的練習等級：${target}
+${isBizLevel(qLevel)?BIZ_Q_NOTE:''}${recentZh.length?`這個單字之前已經出過以下中文句子，這次要換一個明顯不同的情境：\n${recentZh.map(s=>'- '+s).join('\n')}\n`:''}${retryNote?`上一次出的題不合格，原因：${retryNote}。請換一個情境重出。\n`:''}
 請依照 system prompt 的規則出一題，只輸出規定格式的純 JSON。`;
   const dictP=fetchDict(word);
   /* 原本是 `parsed=cand` 寫在檢查之前——兩次都不合格時，最後一個候選照樣被拿去出題。
@@ -1825,6 +1855,7 @@ ${recentZh.length?`這個單字之前已經出過以下中文句子，這次要�
   const dict=await dictP;
   parsed.word=word;      // 不讓模型改動目標單字本身
   parsed.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
+  parsed.target=target;  // 精通門檻（商業題＝該字的 CEFR），跟著紀錄存下來，歷史詳情才判得出同一個結果
   parsed.pos=pos;
   parsed.review=isReview;   // 複習題：prefetchStillValid 不可以因為「已精通」把它丟掉
   const audioURL=dict?.phonetics?.find(p=>p.audio)?.audio||'';
@@ -1884,7 +1915,7 @@ async function startSent(){
 function prefetchStillValid(q,level){
   if(!q||!q.word) return false;
   // 複習題本來就是刻意挑已精通的字（見 buildQuestion 的 isReview），不能用「已精通」把它判死
-  const mastered=new Set(CEFR_LEVELS.flatMap(l=>levelProgress[l]?.mastered||[]));
+  const mastered=masteredSetFor(level);
   if(!q.review && mastered.has(q.word)) return false;
   // 今天出過就別再出，這條複習模式一樣適用
   if(servedTodaySet(level).has(q.word)) return false;
@@ -1995,6 +2026,14 @@ function hasTargetWord(text,word){
   if(!text) return true;
   const w=(word||'').toLowerCase().trim();
   if(!w) return true;
+  /* 商業字表有片語（follow up、in charge of、keep someone posted）跟連字號複合字（follow-up、long-term）。
+     下面的逐 token 比對只認單一個字，片語會永遠判成「沒用到」、每題都被重出。
+     改成：拆開後每個實字都要出現（各自可有屈折變化），不要求相鄰——可分離片語動詞
+     （follow it up）、被動（was followed up）都該算。someone/something 是佔位字，學生會換成 you/it。 */
+  if(/[\s-]/.test(w)){
+    const parts=w.split(/[\s-]+/).filter(p=>p&&!['someone','something','sb','sth'].includes(p));
+    return parts.every(p=>hasTargetWord(text,p));
+  }
   const stem=w.replace(/[ey]$/,'');
   const irr=IRREGULAR[w]||[];
   // 縮寫：I'm / he's / they're 也是 am/is/are 的合法形式
@@ -2508,7 +2547,7 @@ ${prevBlock}
     sentAttempts.push({userAns:ans,corrections:(r.corrections||[]).filter(c=>c.error&&c.fix)});
     // questionFlawed：目標單字塞不進這個情境，整題的判定都不可信——精通、文法統計、
     // 中式英文統計全部跳過。你這一題還是看得到逐項修正，只是不會被它扣到分。
-    const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(q0.level)&&r.chinglish_percent<=30;
+    const mastered=!r.questionFlawed&&cefrRank(r.cefr)>=cefrRank(masteryTarget(q0.level,q0.target))&&r.chinglish_percent<=30;
     // questionFlawed 的題目整份判定都不可信，所以兩個方向都跳過：既不記精通，也不撤銷
     // 既有的精通——拿一題爛題目去砍掉之前正正當當達標的紀錄，比不記還糟。
     if(!r.questionFlawed) setMastery(q0.level,q0.word,mastered);
@@ -2676,11 +2715,15 @@ const EXAMPLE_LVL={b2:'B2',c1:'C1'};
    查表這條路徑歷史紀錄也能用（實測 cefr_words 7,873 筆全部有 pos）。 */
 async function fetchWordPos(word){
   try{
-    const r=await fetch(`${SB_URL}/rest/v1/cefr_words?word=eq.${encodeURIComponent(word)}&select=pos&limit=1`,
-      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
-    if(!r.ok) return '';
-    const rows=await r.json();
-    return rows?.[0]?.pos||'';
+    // 先查一般字表，查不到再查商業字表（片語如 follow up 只存在商業字表）
+    for(const tbl of ['cefr_words','business_words']){
+      const r=await fetch(`${SB_URL}/rest/v1/${tbl}?word=eq.${encodeURIComponent(word)}&select=pos&limit=1`,
+        {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+      if(!r.ok) continue;
+      const rows=await r.json();
+      if(rows?.[0]?.pos) return rows[0].pos;
+    }
+    return '';
   }catch(e){ console.log('fetchWordPos:',e); return ''; }   // 查不到就不帶詞性，不是致命錯誤
 }
 /* 刻意不把學生的答案帶進去：這幾句是「這句中文的自然英文寫法」，不是對學生那句的改寫。
@@ -2744,7 +2787,7 @@ let curResultCtx=null;
    （內容來自可能有誤差的語音轉錄稿，不該拿來下永久結論——見 saveSpeakHistory），
    徽章卻照樣亮起來的話，畫面在宣告一件系統其實沒有記錄的事。 */
 function sentResultHTML(word,zh,userAns,def,translation,level,r,opts={}){
-  const mastered=!opts.spoken&&cefrRank(r.cefr)>=cefrRank(level)&&r.chinglish_percent<=30;
+  const mastered=!opts.spoken&&cefrRank(r.cefr)>=cefrRank(masteryTarget(level,opts.target))&&r.chinglish_percent<=30;
   curResultCtx={word,zh,userAns,def,translation,level,r};
   return `
   <div class="prac-card">
@@ -2897,7 +2940,7 @@ async function renderSentResult(userAns,r,q){
   q=q||curSentQ;
   const bar=await levelBarHTML();
   document.getElementById('pracBody').innerHTML=bar
-    +sentResultHTML(q.word,q.zh_sentence,userAns,q.definition,q.translation,q.level,r)
+    +sentResultHTML(q.word,q.zh_sentence,userAns,q.definition,q.translation,q.level,r,{target:q.target})
     +(r.corrections?.length?`<button class="next-btn" style="background:transparent" onclick="renderSentQ()">${ic('pencil',14)} 重寫這一題</button>`:'')
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
@@ -2954,7 +2997,7 @@ function saveSentHistory(userAns,r,q){
   q=q||curSentQ;
   // 完整紀錄進待上傳佇列（伺服器要留全部），本機主陣列只放索引（見 toIndex 的說明）
   const full={
-    word:q.word, level:q.level, zh_sentence:q.zh_sentence,
+    word:q.word, level:q.level, target:q.target||null, zh_sentence:q.zh_sentence,
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
@@ -3174,14 +3217,14 @@ async function renderSentHome(){
   if(remaining!==0) return;
   // 查的這段時間使用者已經切到別的等級了，不要蓋掉新等級的畫面
   if(curLevel!==lvl||curTab!=='prac') return;
-  const next=CEFR_LEVELS[CEFR_LEVELS.indexOf(lvl)+1];
+  const next=isBizLevel(lvl)?null:CEFR_LEVELS[CEFR_LEVELS.indexOf(lvl)+1];
   body.innerHTML=bar+`
   <div class="empty">
     <div class="empty-ico">${ic('award',44)}</div>
-    <div class="empty-h">${lvl} 已全部精通</div>
-    <div class="empty-p">${total||''} 個單字全部達標了。<br>${next?`建議往上挑戰 ${next}；`:''}留在 ${lvl} 的話會改成複習模式，<br>優先出你文法正確度最低的那些字。</div>
+    <div class="empty-h">${levelLabel(lvl)} 已全部精通</div>
+    <div class="empty-p">${total||''} 個單字全部達標了。<br>${next?`建議往上挑戰 ${next}；`:''}留在 ${levelLabel(lvl)} 的話會改成複習模式，<br>優先出你文法正確度最低的那些字。</div>
     ${next?`<button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="selectLevel('${next}')">挑戰 ${next} →</button>`:''}
-    <button class="btn" style="margin-top:${next?'10px':'24px'};max-width:280px;width:100%;height:44px;border-radius:12px" onclick="startLevelReview()">繼續複習 ${lvl}（挑最弱的字）</button>
+    <button class="btn" style="margin-top:${next?'10px':'24px'};max-width:280px;width:100%;height:44px;border-radius:12px" onclick="startLevelReview()">繼續複習 ${levelLabel(lvl)}（挑最弱的字）</button>
   </div>`;
 }
 
@@ -3391,7 +3434,7 @@ function toggleDashDetail(){
 /* ── Dashboard：正確度／中式英文趨勢圖 + 題數長條圖 ── */
 function renderDashLevelChips(){
   const el=document.getElementById('dashLevelChips'); if(!el) return;
-  const opts=[{k:'all',l:'總體'},...CEFR_LEVELS.map(l=>({k:l,l}))];
+  const opts=[{k:'all',l:'總體'},...PRACTICE_LEVELS.map(l=>({k:l,l:levelLabel(l)}))];
   el.innerHTML=opts.map(o=>`<button class="filt ${dashLevel===o.k?'on':''}" onclick="dashSetLevel('${o.k}')">${o.l}</button>`).join('');
 }
 function dashSetGranularity(g){ dashGran=g; document.querySelectorAll('#dashGranSeg .seg-item').forEach(b=>b.classList.toggle('on',b.dataset.g===g)); renderDashTrend(); }
@@ -3524,12 +3567,12 @@ async function dashboardHTML(){
   const chinglishRanking=Object.entries(chinglishStats).sort((a,b)=>b[1]-a[1]);
 
   // 至今整體進度：各等級精通字數 / 該等級總字庫（平行查 Supabase，有快取）
-  const totals=await Promise.all(CEFR_LEVELS.map(l=>getLevelTotal(l)));
-  const masteredRows=CEFR_LEVELS.map((l,i)=>({level:l,mastered:(levelProgress[l]?.mastered||[]).length,total:totals[i]}));
+  const totals=await Promise.all(PRACTICE_LEVELS.map(l=>getLevelTotal(l)));
+  const masteredRows=PRACTICE_LEVELS.map((l,i)=>({level:l,mastered:(levelProgress[l]?.mastered||[]).length,total:totals[i]}));
   const totalMastered=masteredRows.reduce((s,r)=>s+r.mastered,0);
   const totalWords=masteredRows.reduce((s,r)=>s+r.total,0);
 
-  const levelRows=CEFR_LEVELS.map(l=>{
+  const levelRows=PRACTICE_LEVELS.map(l=>{
     const arr=SENT_HISTORY.filter(h=>h.level===l);
     return {level:l,count:distinctWordVolume(arr),ga:avg(arr,'grammar_accuracy'),ch:avg(arr,'chinglish_percent')};
   }).filter(r=>r.count>0);
@@ -3592,7 +3635,7 @@ async function dashboardHTML(){
           // 0% 會被讀成「一個都沒精通」，那是把查詢失敗講成學習成果。
           const pct=r.total?Math.round(r.mastered/r.total*100):null;
           return `<div class="use-item" style="align-items:center">
-          <span class="use-ico">${r.level}</span>
+          <span class="use-ico">${levelLabel(r.level)}</span>
           <div style="flex:1">
             <div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div>
             <div class="lvl-bar"><div class="lvl-bar-fill" style="width:${pct==null?0:pct}%"></div></div>
@@ -3604,7 +3647,7 @@ async function dashboardHTML(){
       ${levelRows.length?`<div class="prac-card">
         <div class="card-lbl">${ic('target',14)} 各等級表現（累計）</div>
         ${levelRows.map(r=>`<div class="use-item">
-          <span class="use-ico">${r.level}</span>
+          <span class="use-ico">${levelLabel(r.level)}</span>
           <div style="flex:1">
             <div class="use-lbl">練習 ${r.count} 字</div>
             <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
@@ -3672,7 +3715,7 @@ function showSentHistory(){
     <div class="hist-zh">${h.zh_sentence}</div>
     <div class="hist-ans">你：${h.userAns}</div>
     <div class="hist-badges">
-      ${h.level?`<span class="score-badge cefr-badge">Lv ${h.level}</span>`:''}
+      ${h.level?`<span class="score-badge cefr-badge">${isBizLevel(h.level)?'💼 商業':'Lv '+h.level}</span>`:''}
       <span class="score-badge cefr-badge">${h.cefr}</span>
       ${typeof h.grammar_accuracy==='number'?`<span class="score-badge ${gAccClass(h.grammar_accuracy)}">文法 ${h.grammar_accuracy}%</span>`:''}
       <span class="score-badge ${chingClass(h.chinglish_percent)}">中式 ${h.chinglish_percent}%</span>
@@ -3696,7 +3739,7 @@ async function showSentHistDetail(i){
       corrections:(h.corrections||[]).map(c=>({...c,fix:'',why:'（無法載入完整說明）'})),
       chinglish_issues:(h.chinglish_issues||[]).map(c=>({...c,natural:'',explanation:''}))};
   }
-  body.innerHTML=back+sentResultHTML(full.word,full.zh_sentence,full.userAns,full.definition,full.translation,full.level,full);
+  body.innerHTML=back+sentResultHTML(full.word,full.zh_sentence,full.userAns,full.definition,full.translation,full.level,full,{target:full.target});
 }
 
 /* ── 英文寫作 ── */
@@ -4406,7 +4449,7 @@ function renderSpeakResult(res){
     <div style="font-size:11px;color:var(--faint);margin-top:8px">${res.seconds.toFixed(1)} 秒</div>
   </div>
   ${pronCardHTML(res.pron,{note:'⚠️ 翻譯模式的參考文字是「你被聽成什麼」，所以唸錯到變成另一個字的情況這裡看不出來。想要完全可信的發音分數，用下面的按鈕改唸正確版本。'})}
-  ${sentResultHTML(res.q.word,res.q.zh_sentence,res.pron.text,res.q.definition,res.q.translation,res.q.level,res.content,{spoken:true})}
+  ${sentResultHTML(res.q.word,res.q.zh_sentence,res.pron.text,res.q.definition,res.q.translation,res.q.level,res.content,{spoken:true,target:res.q.target})}
   ${res.content.corrected_sentence?`<button class="prac-submit" style="margin-top:10px" onclick="readAloudFrom(${JSON.stringify(res.content.corrected_sentence).replace(/"/g,'&quot;')})">${ic('mic',14)} 唸唸看正確版本</button>`:''}
   <button class="next-btn" style="margin-top:8px" onclick="startSpeak()">下一題 →</button>`;
 }
@@ -4430,7 +4473,7 @@ function readAloudFrom(text){
 function saveSpeakHistory({q,transcript,content,pron,seconds}){
   const full={
     mode:'spoken',
-    word:q.word, level:q.level, zh_sentence:q.zh_sentence,
+    word:q.word, level:q.level, target:q.target||null, zh_sentence:q.zh_sentence,
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!content.questionFlawed,
@@ -4462,7 +4505,7 @@ function parseJSON(txt){
   return JSON.parse(txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim());
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2300);}
-const POS_LABELS={noun:'名詞',adjective:'形容詞',verb:'動詞',adverb:'副詞',number:'數詞','ordinal number':'序數詞',pronoun:'代名詞',determiner:'限定詞',preposition:'介系詞',exclamation:'感嘆詞','modal verb':'情態動詞',conjunction:'連接詞','definite article':'定冠詞','indefinite article':'不定冠詞','infinitive marker':'不定詞標記','linking verb':'連綴動詞',NN:'名詞',NNS:'名詞',JJ:'形容詞',JJR:'形容詞',JJS:'形容詞',VB:'動詞',VBD:'動詞',VBG:'動詞',VBN:'動詞',VBZ:'動詞',VBP:'動詞',RB:'副詞',RBR:'副詞',RBS:'副詞'};
+const POS_LABELS={noun:'名詞',adjective:'形容詞',verb:'動詞',adverb:'副詞',number:'數詞','ordinal number':'序數詞',pronoun:'代名詞',determiner:'限定詞',preposition:'介系詞',exclamation:'感嘆詞','modal verb':'情態動詞',conjunction:'連接詞','definite article':'定冠詞','indefinite article':'不定冠詞','infinitive marker':'不定詞標記','linking verb':'連綴動詞','phrasal verb':'片語動詞',phrase:'片語',NN:'名詞',NNS:'名詞',JJ:'形容詞',JJR:'形容詞',JJS:'形容詞',VB:'動詞',VBD:'動詞',VBG:'動詞',VBN:'動詞',VBZ:'動詞',VBP:'動詞',RB:'副詞',RBR:'副詞',RBS:'副詞'};
 function posLabel(pos){ return pos ? (POS_LABELS[pos]||pos) : ''; }
 function submitOnCmdEnter(e,fn){ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); fn(); } }
 
