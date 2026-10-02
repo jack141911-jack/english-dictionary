@@ -213,6 +213,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .pron-w.score-good{border-color:rgba(217,176,107,.45)}
 .pron-w.score-needs{border-color:rgba(217,115,107,.55);background:rgba(217,115,107,.12)}
 .pron-w.pron-err{font-weight:700}
+/* 朗讀文章 */
+.art-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.art-topic{padding:6px 12px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--dim);cursor:pointer;background:var(--card2)}
+.art-topic.on{background:var(--accent-wash-strong);color:var(--accent-lighter);border-color:transparent}
+.art-title{font-size:19px;font-weight:700;line-height:1.4}
+.art-title-zh{font-size:12px;color:var(--faint);margin-top:4px}
+.art-para{margin-top:14px;line-height:1.85;font-size:15px}
+.art-seg{cursor:pointer;border-radius:6px;padding:1px 2px;transition:background .15s}
+.art-seg.cur{background:var(--accent-wash-strong)}
+.art-seg.done.score-excellent{text-decoration:underline;text-decoration-color:rgba(111,191,139,.7);text-underline-offset:4px}
+.art-seg.done.score-good{text-decoration:underline;text-decoration-color:rgba(217,176,107,.7);text-underline-offset:4px}
+.art-seg.done.score-needs{text-decoration:underline;text-decoration-color:rgba(217,115,107,.8);text-underline-offset:4px}
+.art-zh{font-size:12px;color:var(--faint);line-height:1.7;margin-top:4px}
 .fam-n{font-size:11px;color:var(--faint2);width:30px;text-align:right;flex-shrink:0}
 /* 各等級精通完成度：長條 + 百分比。刻意跟 .fam-bar 分開一組——那組是「錯誤集中度」的
    相對長條（分母是最大值），這組的分母是該等級總字庫，兩者共用樣式會讓日後改動互相牽連。 */
@@ -1337,6 +1350,10 @@ function ensureDailyLevelCount(){
    而那正是最慢的一次（要付冷連線的 1.75 秒）。 */
 const WORDS_CACHE_VER=1;
 const WORDS_CACHE_TTL=7*86400000;
+/* 字表查詢失敗的原因。sbSelectWords 失敗時回 []（讓翻頁迴圈自然結束），原因原本就這樣被吞掉，
+   出題只能顯示「no word available for level」——分不出是表不存在（404）、權限、還是離線。
+   2026-10-01 商業字表沒建就是這樣查了半天。pickLevelWord 開頭清空，buildQuestion 挑不到字時帶出來。 */
+let lastWordsErr=null;
 async function sbSelectWords(level,offset){
   const ck=`c_words_v${WORDS_CACHE_VER}_${level}_${offset}`;
   try{
@@ -1347,13 +1364,13 @@ async function sbSelectWords(level,offset){
     const r=await fetch(isBizLevel(level)
       ? `${SB_URL}/rest/v1/business_words?select=word,pos,level&order=frequency.desc&limit=200&offset=${offset}`
       : `${SB_URL}/rest/v1/cefr_words?level=eq.${level}&select=word,pos&order=frequency.desc&limit=200&offset=${offset}`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
-    if(!r.ok) return [];
+    if(!r.ok){ lastWordsErr=`字表查詢 HTTP ${r.status}`; return []; }
     const rows=await r.json(); // [{word,pos}, ...]；商業字多一個 level（該字自己的 CEFR，精通門檻用）
     // 空陣列不要快取：那代表「這一頁沒有資料」或這次查詢出了問題，
     // 存起來會讓 pickLevelWord 的翻頁迴圈在接下來 7 天都提早結束。
     if(rows.length) lsSet(ck,JSON.stringify({ts:Date.now(),rows}));
     return rows;
-  }catch{ return []; }
+  }catch(e){ lastWordsErr=`字表連線失敗：${e?.message||e}`; return []; }
 }
 
 async function getLevelTotal(level){
@@ -1420,6 +1437,7 @@ const REVIEW_POOL_SIZE=20;
 // level 一定要由呼叫端傳進來，不可以在這裡讀 curLevel：出題全程橫跨數趟網路，
 // 使用者中途切等級會讓「挑字的等級」跟「記錄的等級」對不上（見 startSent() 的 qLevel）。
 async function pickLevelWord(level,avoidWord){
+  lastWordsErr=null;
   ensureDailyLevelCount();
   // avoidWord 由呼叫端傳入而不是在這裡讀 lastSentWord：背景預抓下一題時，「要避開的字」
   // 是使用者正在作答的那一題，而那時候 lastSentWord 正好就是它——但把來源寫死在這裡的話，
@@ -1660,11 +1678,33 @@ function recentZhFor(word){
 // 出題端原本一個程式檢查都沒有，所有規則都只靠 prompt 遵從度——而 2026-08-12 的 danger 回報
 // 證明「情境逼學生換詞性」這條規則從 2026-08-03 就寫在 prompt 裡、到現在還是會破，
 // 而且 Jack 說「已經出現非常多次」。這裡比照批改端的做法用程式強制檢查、抓到就重出一次。
-function questionIssues(q,word,recentZh){
+/* 題目等級的句型下限（2026-10-02，回報 #62 equal）。B1 題出了「Men and women should have equal
+   opportunities in the workplace.」——單一子句，自然英譯本來就只需要 A2 句型，學生翻得完全正確
+   也只會被判 A2，這個字永遠精通不了。prompt 的【句型複雜度要跟練習等級走】從 8 月就寫著，照樣出，
+   因為那段寫的是「目標，不是硬性要求」，也沒有程式檢查。
+   這裡檢查 natural_en 至少要有一個 B1 起跳的結構；只用 and/but/so/because 接簡單子句是 A2，不算。
+   實測（批改過的 B1 句子）：4 句被判 A2 的全部擋下；「the speed limit is…」這類靠用字撐到 B1 的也會擋，
+   那只是多重出一次，換來的是題目真的需要那個等級的句型。
+   B2 以上用同一個下限而不是 B2 清單：B2 題的目標單字本身就是 B2 用字（批改的用字軸），
+   硬要 B2 句型會把「The sponge completely absorbed…」這種合格的題目也擋掉。 */
+const B1_MARKERS=[
+  ['從屬連接詞',/\b(although|though|when|whenever|while|since|after|before|until|unless|if|whether|once|as soon as|so that|even though|as long as)\b/i],
+  ['關係子句/名詞子句',/\b(who|whom|whose|which|what)\b|\b\w+\s+where\s+\w+|\bthat\s+(i|you|he|she|it|we|they|the|a|an|this|these|those|there|my|his|her|their|our|your|its|no|some|many|most|all|every|is|was|are|were|has|have|had|will|would|can|could|should|may|might|must|does|did|don't|doesn't|didn't)\b/i],
+  ['完成式',/\b(has|have|had|'ve|'d)\s+(never\s+|already\s+|just\s+|not\s+|ever\s+|recently\s+)?(been|\w+ed|grown|known|seen|done|gone|taken|given|written|eaten|made|found|got|gotten|left|lost|come|become|begun|chosen|driven|forgotten|spoken|thought|bought|brought|taught|told|said|heard|felt|kept|met|paid|run|sold|sent|spent|won|built|broken|fallen)\b/i],
+  ['被動',/\b(is|are|was|were|be|been|being|am)\s+(\w+ly\s+)?(\w+ed|built|made|done|given|taken|written|seen|known|held|sold|sent|told|paid|kept|left|found|chosen|broken|stolen|born|hidden|shown|thrown|caught|bought|brought|taught|spent|won|lost)\b(?!\s+(of|about|with)\b)/i],
+  ['比較級',/\b(\w+er|more|less)\s+(\w+\s+)?than\b/i],
+  ['分詞/動名詞子句',/(^\s*\w+ing\b|,\s*\w+ing\b)/i],
+  ['would／假設／推測',/\b(would|might|'d)\b|\b(could|should|must|might)\s+have\s+(been|\w+ed|known|seen|done|gone|taken|given|made|told|said)\b/i],
+  ['間接引述',/\b(said|told|asked|announced|explained|realized|thought|knew|believe|think|hope|heard)\s+(\w+\s+)?(that|if|whether)\b/i],
+];
+function structureMarkers(en){ return B1_MARKERS.filter(([,re])=>re.test(en)).map(([n])=>n); }
+function questionIssues(q,word,recentZh,target){
   if(!q||!q.zh_sentence) return ['缺 zh_sentence'];
   const issues=[];
   if(!q.natural_en) issues.push('缺 natural_en');
   else if(!hasTargetWord(q.natural_en,word)) issues.push('自然英譯裡沒有出現目標單字本身（可能被換成別的字或別的詞性變化形）');
+  if(q.natural_en&&cefrRank(target)>=cefrRank('B1')&&!structureMarkers(q.natural_en).length)
+    issues.push(`natural_en 句型太簡單，只有 A2 程度：${target} 題的自然英譯至少要有一個從屬連接詞（when/although/if/since/until…）、關係子句、完成式、被動、比較級、分詞子句或 would；只用 and/but/so/because 接簡單子句算 A2。請換一個母語者講這件事本來就會用到這些結構的情境`);
   if(recentZh.some(s=>zhSimilar(s,q.zh_sentence))) issues.push('這個中文句子跟之前出過的幾乎一樣');
   // 時間線索刻意不列在這裡（不觸發重出），見 timeFrameIssue 的說明。
   return issues;
@@ -1705,7 +1745,7 @@ function timeFrameLine(q){
    - 沒用到的存貨寫進 localStorage，下次開 App 還是這一題，不是丟掉重出。
    - 存貨依等級分開存，切等級不會把另一個等級的存貨浪費掉。
    真正會浪費的只剩「預抓完就再也不練這個等級了」，而那一題也還留在本機等著被用。 */
-const PREFETCH_VER=1;
+const PREFETCH_VER=2;   // 2：加了句型下限檢查，舊存貨可能是句型太簡單的題目
 const PREFETCH_TTL=7*86400000;   // 存太久的題目先丟掉，避免用到字表更新前的舊字
 let prefetchQ={};                 // { 等級: 題目物件 } 現成存貨
 let prefetchInflight={};          // { 等級: Promise } 正在背景出的題
@@ -1799,7 +1839,7 @@ async function buildQuestion(qLevel,avoidWord){
   const t0=Date.now();
   await refreshPickFilters();   // ← 堵在這裡：挑字之前，也就是花 token 之前
   const picked=await pickLevelWord(qLevel,avoidWord===undefined?lastSentWord:avoidWord);
-  if(!picked) throw new Error('no word available for level');
+  if(!picked) throw new Error(lastWordsErr?`${levelLabel(qLevel)}：${lastWordsErr}`:`${levelLabel(qLevel)} 字表是空的，挑不到字`);
   const word=picked.word;
   const pos=picked.pos;
   // 商業字：出題難度與精通門檻都用這個字自己的 CEFR；一般等級就是題目等級本身
@@ -1831,7 +1871,7 @@ ${isBizLevel(qLevel)?BIZ_Q_NOTE:''}${recentZh.length?`這個單字之前已經�
     try{
       const txt=await callClaude(qUserPrompt(attempt>1?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
       const cand=parseJSON(txt);
-      issues=questionIssues(cand,word,recentZh);
+      issues=questionIssues(cand,word,recentZh,target);
       fallback=fallback||cand;
       if(issues.length===0){ parsed=cand; usedAttempt=attempt; break; }
       console.log('questionIssues:',issues.join('；'));
@@ -2735,7 +2775,13 @@ async function generateExamples(word,zh,pos,want,retryNote){
 請寫出母語者會怎麼把這句中文翻成英文${want.length>1?'，給 B2 跟 C1 兩個版本':`的 ${EXAMPLE_LVL[want[0]]} 版本`}。
 1. 必須是這句中文的自然英譯，維持完全一樣的情境跟意思，不可以換場景或加入原句沒有的資訊。
 2. 必須用到目標單字「${word}」本身或其自然變化形（時態、單複數這種同一個詞性內的變化），不可以換成同義字${pos?`，也不可以換成 ${posLabel(pos)} 以外的詞性`:''}。
-3. 大約一句話，語氣自然口語，像母語者日常真的會這樣講——不要為了展示程度堆疊子句或用冷僻字。C1 可以用字更精準、語感更道地，但不代表更長更複雜。
+3. 大約一句話，語氣自然口語，像母語者日常真的會這樣講，不要用冷僻字。
+4. 標的等級必須「名副其實」，學生會拿自己的句子跟它比；如果學生寫出一模一樣的句子，批改老師必須判到同一個等級。批改老師的判準是：
+   - 單一子句、只有 should/can/will 這類基礎助動詞、用字是日常基礎詞彙 → 只算 A2，不能當 B2 範例。
+   - 只用 and/but/because/or/so 連接兩個簡單子句 → A2；用 although/when/since、現在完成式、簡單關係子句 → B1。這兩種都不夠當 B2 範例。
+   - B2：要有被動語態、較複雜的關係子句（whose/whom/受格關係子句）、第二/第三類條件句、間接引述其中之一；或是選用明顯超越基礎程度、精準道地的慣用搭配（例如 bargain、chicken out、level the playing field）。
+   - C1：倒裝句、分詞構句、插入語、混合條件句等母語者技巧，或高度精準道地的慣用語。
+   要用「這句中文本來就容納得下」的方式達到等級（例如換成更精準的動詞或慣用搭配、把資訊組成關係子句或被動），不可以為了湊結構加入原句沒有的資訊。
 ${retryNote?`\n上一次不合格：${retryNote}。請重寫。\n`:''}
 只輸出純 JSON，不要加 markdown、不要加說明：
 {${want.map(k=>`"${k}_example":"句子"`).join(',')}}`;
@@ -3001,7 +3047,7 @@ function saveSentHistory(userAns,r,q){
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     // 量測用：出題端的失敗率從來沒有人量過（批改端量過是 18%）。存這兩個欄位，
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
-    time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
+    natural_en:q.natural_en||'', time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!r.questionFlawed,
     mode:'typed',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
@@ -4046,16 +4092,6 @@ function bytesToBase64(arrayBuffer){
 let speakSubTab='translate';        // 'translate' | 'readaloud'
 let curSpeakQ=null;                 // 翻譯模式的題目（形狀跟 curSentQ 一樣）
 let curReadTarget=null;             // 朗讀模式：{text,label}
-let curReadSrcTs=null;              // 這句是從哪一筆練習紀錄挑出來的（記唸過次數用；從批改結果直接跳進來時是 null）
-/* 朗讀唸過的次數 {歷史ts: 次數}。刻意不寫進 SENT_HISTORY：練習量的口徑是「相異單字」，
-   而朗讀就是複誦同一句，混進去會把「今日已練習」跟儀表板灌水，數字不再是「練了幾個字」。
-   這份資料只服務朗讀清單的排序與標記，一筆約 20 bytes。 */
-let READ_DONE=(()=>{ try{ return JSON.parse(lsGet('c_read_done','{}'))||{}; }catch(e){ return {}; } })();
-function markRead(ts){
-  if(!ts) return;
-  READ_DONE[ts]=(READ_DONE[ts]||0)+1;
-  lsSet('c_read_done',JSON.stringify(READ_DONE));
-}
 let recState='idle';                // idle | recording | processing
 let mediaRec=null, recChunks=[], recStream=null, recTick=null, recStartTs=0;
 
@@ -4221,7 +4257,8 @@ async function finishReadAloud(wavB64,seconds){
   // 參考文字是本來就已知的正確句子 → 分數完全可信，而且 miscue 能標出漏唸/多唸
   const pron=extractPron(await azureSpeech({wavB64,referenceText:target.text,enableMiscue:true}));
   recState='idle';
-  markRead(curReadSrcTs);     // 評分回來了才算唸過一次，錄音失敗不算
+  // 文章模式：分數記回那一段，結果顯示在文章頁裡，不跳到獨立結果頁
+  if(target.artSeg!=null&&ARTICLE){ saveArticleScore(target.artSeg,pron); renderArticle(pron); return; }
   renderSpeakResult({mode:'readaloud',target,pron,seconds});
 }
 
@@ -4251,68 +4288,156 @@ async function renderSpeakHome(){
       <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSpeak()">開始練習 →</button>
     </div>`;
   }else{
-    body.innerHTML=seg+await readAloudPickerHTML();
+    body.innerHTML=seg+readAloudHomeHTML();
   }
 }
 
-/* 朗讀模式的句子來源：你自己練過、而且被批改成正確版本的句子。
-   ReferenceText 是真的已知，所以這個模式的音素分數沒有翻譯模式那個循環問題。
-   本機索引沒有 corrected_sentence（toIndex 丟掉了），所以是點下去才向伺服器取。 */
-async function readAloudPickerHTML(){
-  /* 去重（2026-08-31）。同一題改寫重送會在歷史裡各留一筆——實測 08-01 起 1,703 筆裡有
-     428 筆是改寫（25.1%，最多的一題重寫了 6 次），原本直接 slice(0,15) 就會讓同一句中文
-     在清單裡出現兩三次，把其他可以唸的句子擠出畫面。依「單字＋中文原句」去重，
-     保留最新的那一筆（SENT_HISTORY 是 unshift，索引 0 最新，也就是改寫後的版本）。 */
-  const seen=new Set(), cands=[];
-  for(const h of SENT_HISTORY){
-    if(!h.userAns) continue;
-    const key=(h.word||'')+'|'+(h.zh_sentence||'');
-    if(seen.has(key)) continue;
-    seen.add(key); cands.push(h);
-    if(cands.length>=15) break;
-  }
-  /* 唸過的排到後面、標出次數，但不隱藏——朗讀跟讀本來就適合重複練同一句，
-     問題只是它不該一直擋在最前面。sort 在現行 JS 是穩定的，同組內仍維持由新到舊。 */
-  cands.sort((a,b)=>((READ_DONE[a.ts]||0)?1:0)-((READ_DONE[b.ts]||0)?1:0));
-  if(!cands.length) return `<div class="empty">
-    <div class="empty-ico">${ic('mic',44)}</div>
-    <div class="empty-h">還沒有可以唸的句子</div>
-    <div class="empty-p">先去造句或中翻英口說練幾題<br>批改後的正確句子就會出現在這裡</div></div>`;
-  return `<div class="prac-card">
-    <div class="card-lbl">${ic('mic',14)} 挑一句來唸</div>
+/* 朗讀文章（2026-10-01）。原本朗讀的句子來源是「自己練過的句子」，改成 Claude 依等級寫的
+   實用短文，從 B1 起跳——朗讀要練的是長一點的連續語流，自己練過的單句太短、內容也重複。
+   Azure 短音訊發音評分有 30 秒上限，所以文章切成「段」來唸：依句子邊界組合，每段不超過
+   ART_SEG_WORDS 個字（以 B1 學習者約 100 wpm 估，35 字約 21 秒，還在 SPEAK_MAX_SEC 以內）。
+   參考文字是已知的原文，分數跟原本的朗讀模式一樣完全可信。
+   不寫進 SENT_HISTORY／練習量：理由跟原本的朗讀一樣，練習量的口徑是相異單字。 */
+const ART_LEVELS=['B1','B2','C1','C2'];
+const ART_TOPICS=['隨機','科技','商業職場','健康','科學','心理學','金錢理財','社會','環境','文化歷史','旅遊生活'];
+const ART_WORDS={B1:220,B2:280,C1:330,C2:360};
+const ART_SEG_WORDS=35;
+let artLevel=(()=>{ const l=lsGet('c_art_level',''); return ART_LEVELS.includes(l)?l:(ART_LEVELS.includes(curLevel)?curLevel:'B1'); })();
+let artTopic=lsGet('c_art_topic','隨機');
+let artShowZh=false;
+let ARTICLE=(()=>{ try{ return JSON.parse(lsGet('c_read_article','null')); }catch(e){ return null; } })();
+// 最近讀過的標題，丟給 Claude 避免一直寫同一個題目
+let ART_RECENT=(()=>{ try{ return JSON.parse(lsGet('c_art_recent','[]'))||[]; }catch(e){ return []; } })();
+function saveArticle(){ lsSet('c_read_article',JSON.stringify(ARTICLE)); }
+
+function wc(t){ return (t.match(/\S+/g)||[]).length; }
+// 依句子邊界切段；單一句就超過上限時自己成一段（prompt 已經要求句子不超過 30 字）
+function splitSegments(paras){
+  const segs=[];
+  paras.forEach((p,pi)=>{
+    const sents=(p.en.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[p.en]).map(x=>x.trim()).filter(Boolean);
+    let buf='';
+    for(const st of sents){
+      if(buf&&wc(buf)+wc(st)>ART_SEG_WORDS){ segs.push({p:pi,text:buf}); buf=st; }
+      else buf=buf?buf+' '+st:st;
+    }
+    if(buf) segs.push({p:pi,text:buf});
+  });
+  return segs;
+}
+
+function readAloudHomeHTML(){
+  const a=ARTICLE;
+  const done=a?Object.keys(a.scores||{}).length:0;
+  const resume=a?`<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 上次讀到一半</div>
+    <div class="hist-item" onclick="renderArticle()">
+      <div class="hist-zh">${escHTML(a.title)}</div>
+      <div class="hist-ans">${a.level} · ${escHTML(a.topic)} · 已唸 ${done} / ${a.segs.length} 段 →</div>
+    </div></div>`:'';
+  return resume+`<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 產生一篇新文章</div>
     <div style="font-size:11px;color:var(--faint);line-height:1.6;margin-bottom:12px">
-      這個模式的標準答案是已知的，所以發音分數完全可信，還會標出漏唸／多唸的字。</div>
-    ${cands.map(h=>`<div class="hist-item" onclick="pickReadTarget(${h.ts})">
-      <div class="hist-zh">${escHTML(h.zh_sentence||h.word||'')}${READ_DONE[h.ts]?` <span style="font-size:11px;font-weight:400;color:var(--faint2)">· 已唸過 ${READ_DONE[h.ts]} 次</span>`:''}</div>
-      <div class="hist-ans">${escHTML((h.userAns||'').slice(0,60))} →</div>
-    </div>`).join('')}
+      Claude 依等級寫一篇實用短文，切成幾段，一段一段唸、一段一段評分。標準答案是原文，發音分數完全可信。</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:6px">等級</div>
+    <div class="seg" style="margin-top:0">${ART_LEVELS.map(l=>`<span class="seg-item ${l===artLevel?'on':''}" onclick="setArtLevel('${l}')">${l}</span>`).join('')}</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:6px">主題</div>
+    <div class="art-topics">${ART_TOPICS.map(t=>`<span class="art-topic ${t===artTopic?'on':''}" onclick="setArtTopic('${t}')">${t}</span>`).join('')}</div>
+    <button class="prac-submit" onclick="newArticle()">產生文章 →</button>
   </div>`;
 }
+function setArtLevel(l){ artLevel=l; lsSet('c_art_level',l); renderSpeakHome(); }
+function setArtTopic(t){ artTopic=t; lsSet('c_art_topic',t); renderSpeakHome(); }
 
-async function pickReadTarget(ts){
-  curReadSrcTs=ts;
+async function newArticle(){
+  const level=artLevel, topic=artTopic;
   const body=document.getElementById('speakBody');
-  body.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">取句子中...</div></div>`;
-  let h=null;
-  try{ h=await fetchSentDetail(ts); }catch(e){ console.error('fetchSentDetail:',e); }
-  if(!h){ body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
-    <div class="err-box" style="display:block">${ic('xcircle',14)} 取不到這句的完整內容，換一句試試</div>`; return; }
-  // 優先順序：批改後的正確版本 > B2 範例 > C1 範例 > 學生自己寫的（沒有錯誤時 corrected_sentence 是空的）
-  const opts=[
-    h.corrected_sentence&&{text:h.corrected_sentence,label:'批改後的正確版本'},
-    h.b2_example&&{text:h.b2_example,label:'B2 範例句'},
-    h.c1_example&&{text:h.c1_example,label:'C1 範例句'},
-    h.userAns&&{text:h.userAns,label:'你當時寫的'},
-  ].filter(Boolean);
-  body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  body.innerHTML=`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">Claude 寫文章中…（約 20–40 秒）</div></div>`;
+  const prompt=`請寫一篇給英語學習者「朗讀練習」用的英文短文。
+
+等級：CEFR ${level}（字彙與句型都要落在這個等級，不要明顯超出）
+主題：${topic==='隨機'?'自選一個實用的主題':topic}
+長度：約 ${ART_WORDS[level]} 個英文字，分成 3–5 段
+
+內容要求：
+- 要「有用」：讀完能學到真實、正確的知識或可以實際用上的方法（例如某個現象背後的原因、一個實用技巧、一個值得知道的概念）。不要寫小說、故事或空泛的心靈雞湯。
+- 事實要正確；不確定的數字或細節就不要寫，不要編造研究或引用。
+- 這是要唸出來的：用自然的口語節奏，每一句不超過 30 個字，不要用括號、清單、縮寫符號、網址或特殊符號。
+${ART_RECENT.length?`- 避開這些最近讀過的題目：${ART_RECENT.slice(0,10).join('；')}\n`:''}
+只輸出純 JSON，格式如下：
+{"title":"英文標題","title_zh":"繁體中文標題","paragraphs":[{"en":"英文段落","zh":"這一段的繁體中文翻譯"}]}`;
+  try{
+    let r=null,lastErr=null;
+    for(let attempt=0;attempt<2;attempt++){
+      try{ r=parseJSON(await callClaude(prompt,3000,'claude-sonnet-5')); break; }
+      catch(e){ lastErr=e; if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e; }
+    }
+    if(!r) throw lastErr||new Error('產生失敗');
+    const paras=(r.paragraphs||[]).filter(p=>p&&p.en);
+    if(!paras.length) throw new Error('回應裡沒有段落');
+    ARTICLE={level,topic,title:r.title||'Untitled',title_zh:r.title_zh||'',paras,segs:splitSegments(paras),scores:{},cur:0,ts:Date.now()};
+    saveArticle();
+    ART_RECENT=[ARTICLE.title,...ART_RECENT.filter(t=>t!==ARTICLE.title)].slice(0,20);
+    lsSet('c_art_recent',JSON.stringify(ART_RECENT));
+    renderArticle();
+  }catch(e){
+    console.error('產生文章失敗:',e);
+    body.innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+    <div class="err-box" style="display:block">${ic('xcircle',14)} ${escHTML(aiErrorMsg(e,'產生文章失敗，請重試'))}</div>
+    <button class="prac-submit" onclick="newArticle()" style="margin-top:12px">重試</button>`;
+  }
+}
+
+function saveArticleScore(i,pron){
+  ARTICLE.scores[i]={pron:pron.pron,accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,completeness:pron.completeness};
+  saveArticle();
+}
+function artGo(i){
+  if(recState!=='idle'){ toast('請先結束目前的錄音'); return; }
+  if(!ARTICLE||i<0||i>=ARTICLE.segs.length) return;
+  ARTICLE.cur=i; saveArticle(); renderArticle();
+}
+function artToggleZh(){ artShowZh=!artShowZh; renderArticle(); }
+function avg(xs){ xs=xs.filter(v=>v!=null); return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null; }
+
+// pron 有帶 = 剛唸完這段，把評分卡顯示在文章下面
+function renderArticle(pron=null){
+  const a=ARTICLE; if(!a) return renderSpeakHome();
+  const i=a.cur, seg=a.segs[i];
+  curReadTarget={text:seg.text,label:a.title,artSeg:i};
+  const sc=Object.values(a.scores);
+  const allDone=sc.length===a.segs.length;
+  const parasHTML=a.paras.map((p,pi)=>`<div class="art-para">${
+    a.segs.map((s,si)=>s.p!==pi?'':`<span class="art-seg ${si===i?'cur':''} ${a.scores[si]?'done '+pronClass(a.scores[si].pron):''}" onclick="artGo(${si})">${escHTML(s.text)}</span> `).join('')
+  }${artShowZh&&p.zh?`<div class="art-zh">${escHTML(p.zh)}</div>`:''}</div>`).join('');
+  const isLast=i===a.segs.length-1;
+  document.getElementById('speakBody').innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
   <div class="prac-card">
-    <div class="card-lbl">${ic('mic',14)} 選一句來唸</div>
-    ${opts.map((o,i)=>`<div class="hist-item" onclick="startReadAloud(${i})">
-      <div class="hist-zh">${escHTML(o.text)}</div>
-      <div class="hist-ans">${o.label} →</div>
-    </div>`).join('')}
-  </div>`;
-  window.__readOpts=opts;
+    <div class="card-lbl">${ic('mic',14)} ${a.level} · ${escHTML(a.topic)} · 已唸 ${sc.length} / ${a.segs.length} 段</div>
+    <div class="art-title">${escHTML(a.title)}</div>
+    ${a.title_zh?`<div class="art-title-zh">${escHTML(a.title_zh)}</div>`:''}
+    ${parasHTML}
+    <button class="next-btn" style="margin-top:14px" onclick="artToggleZh()">${artShowZh?'隱藏中文翻譯':'顯示中文翻譯'}</button>
+  </div>
+  ${allDone?`<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 整篇平均</div>
+    <div class="pron-grid">
+      <div class="stat-tile"><div class="stat-label">綜合</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.pron)))}">${pronNum(avg(sc.map(x=>x.pron)))}</div></div>
+      <div class="stat-tile"><div class="stat-label">流暢度</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.fluency)))}">${pronNum(avg(sc.map(x=>x.fluency)))}</div></div>
+      <div class="stat-tile"><div class="stat-label">語調</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.prosody)))}">${pronNum(avg(sc.map(x=>x.prosody)))}</div></div>
+    </div>
+    <button class="prac-submit" onclick="renderSpeakHome()">換一篇新文章</button>
+  </div>`:''}
+  <div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 第 ${i+1} 段</div>
+    <div class="prac-zh" style="font-size:17px">${escHTML(seg.text)}</div>
+    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
+  </div>
+  ${pron?`<div class="sent-def" style="margin-bottom:8px">辨識到：${escHTML(pron.text)}</div>${pronCardHTML(pron,{miscue:true})}`:''}
+  <div id="recZone"></div>
+  ${pron&&!isLast?`<button class="prac-submit" style="margin-top:8px" onclick="artGo(${i+1})">下一段 →</button>`:''}`;
+  __pronWords=pron?(pron.words||[]):[];
+  renderRecUI();
 }
 
 function startReadAloud(i){
@@ -4462,7 +4587,6 @@ function startReadAloudAgain(){
 // 而且「剛寫錯 → 馬上唸一次正確版本」是這兩個模式最自然的接點
 function readAloudFrom(text){
   speakSubTab='readaloud';
-  curReadSrcTs=null;          // 這一句還沒進歷史清單，沒有可以記次數的對象
   window.__readOpts=[{text,label:'批改後的正確版本'}];
   switchTab('speak'); startReadAloud(0);
 }
@@ -4475,7 +4599,7 @@ function saveSpeakHistory({q,transcript,content,pron,seconds}){
     mode:'spoken',
     word:q.word, level:q.level, target:q.target||null, zh_sentence:q.zh_sentence,
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
-    time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
+    natural_en:q.natural_en||'', time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!content.questionFlawed,
     userAns:transcript, cefr:content.cefr,
     chinglish_percent:content.chinglish_percent, grammar_accuracy:content.grammar_accuracy,
