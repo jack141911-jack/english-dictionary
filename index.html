@@ -1698,6 +1698,59 @@ const B1_MARKERS=[
   ['間接引述',/\b(said|told|asked|announced|explained|realized|thought|knew|believe|think|hope|heard)\s+(\w+\s+)?(that|if|whether)\b/i],
 ];
 function structureMarkers(en){ return B1_MARKERS.filter(([,re])=>re.test(en)).map(([n])=>n); }
+
+/* ── 中文題目審查（2026-10-06）──
+   SENT_Q_SYSTEM 第二步、自我檢查第 4 條從 8 月就要求「讀起來像翻譯腔就重寫中文」，照樣出：
+   「嚇得很害怕」（frightened）、「地下鐵很方便，方便人們到處移動」、escape 出成「在繪畫中找到寄託」、
+   term 出成「學年」。Jack：「有時候根本看不懂題目的中文，完全沒有邏輯」。
+   出題的同一次呼叫裡要模型回頭挑自己剛寫的中文，實際上不會挑，所以另外開一次呼叫、
+   只給它成品、只問這三件事。程式擋不了「像不像人話」，只能靠第二雙眼睛。
+   第 3 條補的是 B1_MARKERS 的盲點：那個檢查只看 natural_en，可是學生看不到 natural_en——
+   natural_en 有 when 子句、中文卻寫成兩件並列的事，學生照實翻就只會用 and，拿不到目標等級。 */
+const ZH_REVIEW_SYSTEM=`你是台灣的英文老師，負責審查一題「看中文寫英文」的翻譯題。學生只看得到中文句子，要把它翻成英文，並且要用到指定的目標單字。
+
+你會拿到：目標單字與詞性、練習等級、題目的中文句子、出題者心中的標準英文（學生看不到）。
+
+逐項判斷，任何一項不合格就整題不合格：
+
+1. 中文是不是一句台灣人真的會講的話？
+   不合格的例子：
+   - 重複囉唆：「嚇得很害怕」（嚇到就是害怕）、「很方便，方便人們到處移動」、「各自分開的臥室」、「踢出一腳漂亮的球，把球踢到…」
+   - 翻譯腔：「很遺憾地，她…」「自然地感到很開心」「服務生七點的時候給我們上了晚餐」——意思懂，但台灣人不會這樣講
+   - 語意不通、前後矛盾、或要讀兩三遍才懂在講什麼
+   小問題不要挑：語氣稍微書面、用字可以換更好的，都算合格。只有母語者讀了會皺眉的才算不合格。
+
+2. 只看中文的學生，翻成英文時會不會自然想到目標單字（指定的詞性）？
+   不合格的例子：escape 出「他在繪畫中找到了寄託」（寄託想不到 escape）、term 出「學年從九月開始」（學年是 school year，term 是學期）、understanding（名詞）出「老師很了解學生」（會寫成動詞 understand）。
+   判準：一個懂這個單字的學生，看到這句中文，會不會把它當成最自然的選擇之一。不需要是唯一選擇。
+
+3. 標準英文裡讓句子達到練習等級的句型，中文有沒有保留下來？
+   例：標準英文是「She was frightened when she heard a strange noise」，中文卻寫成「她聽到奇怪的聲音，嚇得很害怕」——學生照中文翻會寫成兩句用 and 接起來，when 子句消失了。中文應該寫成「她聽到外面有奇怪的聲音時，嚇壞了」這種保留「…的時候」的講法。
+   A1、A2 等級這一項一律合格。
+
+只輸出純 JSON，不要任何其他文字：
+{"ok":true或false,"problem":"不合格時用一句話（60 字以內）說明是哪一項、哪幾個字有問題；合格時是空字串"}
+JSON 後面不要再加任何說明。`;
+
+// 回傳不合格原因（空字串＝合格）。審查本身失敗時放行：這是加在出題上的第二道關卡，
+// 它掛掉不應該讓整個練習出不了題。放行的題目會記成 qReview:'skipped'，量得到。
+async function reviewZh(q,word,pos,target){
+  try{
+    const txt=await callClaude(`目標單字：${word}
+詞性：${posLabel(pos)}
+練習等級：${target}
+題目中文：${q.zh_sentence}
+標準英文（學生看不到）：${q.natural_en}`,400,'claude-haiku-4-5-20251001',ZH_REVIEW_SYSTEM);
+    // 實測 44 次裡有 1 次在 JSON 後面多寫一段說明、1 次被 200 tokens 截斷，兩種都會變成「放行」，
+    // 所以 tokens 拉到 400，解析失敗時退回抓第一個 {...}
+    let v; try{ v=parseJSON(txt); }catch{ const m=txt.match(/\{[^{}]*\}/); if(!m) throw new Error('reviewZh 回傳不是 JSON：'+txt.slice(0,80)); v=JSON.parse(m[0]); }
+    if(v&&v.ok===false) return String(v.problem||'中文審查不合格');
+    return '';
+  }catch(e){
+    console.log('reviewZh 失敗，放行:',e?.code||'',e?.message||e);
+    return null;
+  }
+}
 function questionIssues(q,word,recentZh,target){
   if(!q||!q.zh_sentence) return ['缺 zh_sentence'];
   const issues=[];
@@ -1866,14 +1919,23 @@ ${isBizLevel(qLevel)?BIZ_Q_NOTE:''}${recentZh.length?`這個單字之前已經�
      這是 danger／economy／continuous／birth 那幾筆回報的直接來源。
      改成合格的才進 parsed；都不合格就用 fallback，但標記起來讓使用者知道可以跳過。
      重試次數維持 2 次（不加成本）——要不要加第三次或換單字，等下面記錄的失敗率出來再決定。 */
-  let parsed=null,fallback=null,lastQErr=null,issues=[],usedAttempt=0;
+  // qReview：每次中文審查的結果，量測用（審查擋下多少、放行多少）
+  let parsed=null,fallback=null,lastQErr=null,issues=[],usedAttempt=0,qReview=[];
   for(let attempt=1;attempt<=2;attempt++){
     try{
       const txt=await callClaude(qUserPrompt(attempt>1?issues.join('；'):null),1000,'claude-haiku-4-5-20251001',SENT_Q_SYSTEM);
       const cand=parseJSON(txt);
       issues=questionIssues(cand,word,recentZh,target);
       fallback=fallback||cand;
-      if(issues.length===0){ parsed=cand; usedAttempt=attempt; break; }
+      // 程式檢查先過了才花錢審中文；程式檢查沒過的本來就要重出，不用審
+      if(issues.length===0){
+        const zhProblem=await reviewZh(cand,word,pos,target);
+        qReview.push(zhProblem===null?'skipped':zhProblem||'ok');
+        if(zhProblem) issues=[`中文題目不合格：${zhProblem}`];
+        else{ parsed=cand; usedAttempt=attempt; break; }
+        // 兩次都沒過時，硬出的那題優先用「程式檢查有過、只是中文被挑」的這一題
+        fallback=cand;
+      }
       console.log('questionIssues:',issues.join('；'));
     }catch(e){
       lastQErr=e;
@@ -1890,6 +1952,7 @@ ${isBizLevel(qLevel)?BIZ_Q_NOTE:''}${recentZh.length?`這個單字之前已經�
   parsed.qUnverified=qUnverified;
   parsed.qIssues=qUnverified?issues.join('；'):'';
   parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
+  parsed.qReview=qReview;
   parsed.time_issue=timeFrameIssue(parsed);
   if(parsed.time_issue) console.log('出題時間線索不合格（照出，批改改用寬鬆時態規則）:',word,parsed.time_issue);
   const dict=await dictP;
@@ -2021,7 +2084,7 @@ async function renderSentQ(){
     </div>
     ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
     ${(showTranslation&&curSentQ.translation)?`<div class="sent-def">${ic('translate',13)} ${curSentQ.translation}</div>`:''}
-    ${curSentQ.qUnverified?`<div class="corr-repeat" style="margin:8px 0">⚠️ 這題可能無法自然用到「${curSentQ.word}」
+    ${curSentQ.qUnverified?`<div class="corr-repeat" style="margin:8px 0">⚠️ ${/^中文題目不合格/.test(curSentQ.qIssues||'')?'這題的中文可能不太通順':`這題可能無法自然用到「${curSentQ.word}」`}
       <div class="corr-repeat-prev">系統檢查沒通過（${curSentQ.qIssues}）。可以直接換一題，不用浪費時間。</div>
       <button class="next-btn" style="font-size:12px;padding:6px;margin-top:6px" onclick="startSent()">${ic('refresh',13)} 換一題</button>
     </div>`:''}
@@ -2980,6 +3043,25 @@ async function pushReport({word,reason,ts}){
   }catch(e){ console.log('pushReport:',e); }
 }
 
+/* 句子全對、但等級沒到目標時給的句型方向（2026-10-06 frightened 回報）。
+   以前「重寫這一題」只在有 corrections 時出現，全對的句子就沒有路往上修。
+   內容對應出題 prompt【句型複雜度要跟練習等級走】，只講句型方向、不給答案。 */
+const LEVEL_UP_HINTS={
+  A2:'用 and / but / so / because 把兩件事接起來。',
+  // 不列 because：B1_MARKERS 把 and/but/so/because 接簡單子句算 A2，提示要跟它一致
+  B1:'試著用 when / although / after / if 帶出時間、對比或條件的子句、用關係子句（who / which），或在適合的地方用現在完成式。只用 and / because 接兩個簡單句通常還是 A2。',
+  B2:'試著用被動語態、關係子句（who / which / that）、假設語氣（if … would）或間接引述（he said that …）其中一種。',
+  C1:'試著用分詞構句（Hearing the noise, she …）或 even though / despite 這類讓步結構，用字也可以更精準。',
+  C2:'試著用倒裝、強調句（It was … that …）或更細膩、抽象的說法。'
+};
+function levelUpHTML(r,q){
+  if(r.questionFlawed||r.corrections?.length) return '';
+  const target=masteryTarget(q.level,q.target);
+  if(cefrRank(r.cefr)>=cefrRank(target)) return '';
+  return `<div class="corr-repeat" style="margin:12px 0 6px">句子沒有錯，但這次是 ${r.cefr}，目標是 ${target}。${LEVEL_UP_HINTS[target]||''}</div>`
+    +`<button class="next-btn" style="background:transparent" onclick="renderSentQ()">${ic('pencil',14)} 再寫一次，挑戰 ${target}</button>`;
+}
+
 // q 是題目快照（見 submitSent 的 q0）。不要在這裡讀 curSentQ：使用者按下「下一題」的
 // 瞬間它就被換掉了，而預抓讓那一按變成即時。
 async function renderSentResult(userAns,r,q){
@@ -2988,6 +3070,7 @@ async function renderSentResult(userAns,r,q){
   document.getElementById('pracBody').innerHTML=bar
     +sentResultHTML(q.word,q.zh_sentence,userAns,q.definition,q.translation,q.level,r,{target:q.target})
     +(r.corrections?.length?`<button class="next-btn" style="background:transparent" onclick="renderSentQ()">${ic('pencil',14)} 重寫這一題</button>`:'')
+    +levelUpHTML(r,q)
     +`<button class="next-btn" onclick="startSent()">下一題 →</button>`;
 }
 
@@ -3049,6 +3132,7 @@ function saveSentHistory(userAns,r,q){
     // 一週後就能算出「有多少題是硬出的」，才有依據決定要不要加第三次重試或換單字。
     natural_en:q.natural_en||'', time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!r.questionFlawed,
+    qReview:q.qReview||[],   // 中文審查每次的結果（ok／skipped／不合格原因），量審查擋下多少
     mode:'typed',
     userAns, cefr:r.cefr, chinglish_percent:r.chinglish_percent, grammar_accuracy:r.grammar_accuracy,
     corrected_sentence:r.corrected_sentence, corrections:r.corrections||[], chinglish_issues:r.chinglish_issues||[], precision_note:r.precision_note||'', b2_example:r.b2_example||'', c1_example:r.c1_example, tip:r.tip||'',
@@ -4601,6 +4685,7 @@ function saveSpeakHistory({q,transcript,content,pron,seconds}){
     definition:q.definition||'', translation:q.translation||'', audioURL:q.audioURL||'',
     natural_en:q.natural_en||'', time_frame:q.time_frame||'', time_cue:q.time_cue||'', time_issue:q.time_issue??null,   // 批改時態用的基準，留著才查得到被扣分的那題當時設定了什麼
     qAttempt:q.qAttempt||0, qUnverified:!!q.qUnverified, questionFlawed:!!content.questionFlawed,
+    qReview:q.qReview||[],
     userAns:transcript, cefr:content.cefr,
     chinglish_percent:content.chinglish_percent, grammar_accuracy:content.grammar_accuracy,
     corrected_sentence:content.corrected_sentence, corrections:content.corrections||[],
