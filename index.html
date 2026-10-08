@@ -1768,8 +1768,8 @@ function questionIssues(q,word,recentZh,target){
    所以出題時就要定下時間、並在中文裡放一個看得到的線索，批改拿同一個設定當基準。
    線索要逐字出現在中文裡才算數——只靠 prompt 叮嚀「不要出有歧義的句子」從 8 月就寫著，照樣出。
    但它不觸發重出：現在出題一次就過的比例是 98.6%（1,646／1,670），把時間也當成重出條件，
-   等於為了「學生可能猜錯時態」多付一次出題費跟 2-4 秒。沒過的題目照出，批改改用寬鬆規則
-   （timeFrameLine 的退回分支），學生不會因此被扣分；沒過的比例記在 time_issue，太高再回來收緊 prompt。 */
+   等於為了「學生可能猜錯時態」多付一次出題費跟 2-4 秒。沒過的題目照出，沒過的比例記在 time_issue。
+   2026-10-08 起批改完全不看這個設定（原因見下方註解），它只負責讓出題端寫出時間比較清楚的中文。 */
 const TIME_FRAMES=['此刻','習慣或常態','過去','過去延續到現在','未來'];
 function timeFrameIssue(q){
   if(!TIME_FRAMES.includes(q.time_frame)) return `time_frame 必須是 ${TIME_FRAMES.join('／')} 其中之一`;
@@ -1778,13 +1778,16 @@ function timeFrameIssue(q){
   if(!q.zh_sentence.includes(cue)) return `time_cue「${cue}」沒有逐字出現在中文句子裡`;
   return '';
 }
-// 給批改看的時間設定。硬出（兩次都沒過檢查）或舊存貨沒有這兩個欄位時，不能把一個沒驗證過的設定
-// 當成基準交給批改，退回「只看中文裡明確的時間字眼」那條規則。
-function timeFrameLine(q){
-  if(q.zh_sentence&&!timeFrameIssue(q))
-    return `這題設定的時間：${q.time_frame}${q.time_cue?`（中文原句裡的時間線索：「${q.time_cue}」）`:''}\n`;
-  return '這題出題時沒有設定時間：時態只能依中文原句裡明確出現的時間字眼判斷。\n';
-}
+/* 批改端完全不看 time_frame（2026-10-08 glove 回報）。
+   9/21 原本讓批改「照設定判時態」，等於把「挑一種讀法、把另一種判錯」從批改端搬到出題端，
+   而且挑的結果學生看不到。查 sentence_history：有設定的題目底下 24 筆時態修正，約 6-8 筆是
+   學生寫得通卻被扣分，例如「開始在實驗室工作前，必須先戴手套」has to 被改 had to（cue 是「前」）、
+   「我平常喝咖啡，但今天喝茶了」drank 被改 I'm having（cue 是真的，frame 填錯）、
+   「她退休以後有了更多閒暇」has 被改 has had。後兩類 cue 都合格，所以修 cue 檢查救不了，
+   要改的是批改的判準：時態只看學生看得到的中文（GRADE_SYSTEM 的時態規則 1、2）。
+   中間版本曾把設定降級成「只供寫 corrected_sentence 參考」，但修正版是學生會照抄的句子、
+   本來就該基於學生原句——帶著參考讀法，等於讓它在修正版裡把學生成立的時態偷偷改掉，
+   同一個毛病換個欄位而已，所以整行拿掉。 */
 
 /* ── 預先出下一題 ──────────────────────────────────────────────
    這是這次延遲優化裡最大的一項。出題的時間結構是固定的：挑字往返 + 代理往返 +
@@ -1954,7 +1957,7 @@ ${isBizLevel(qLevel)?BIZ_Q_NOTE:''}${recentZh.length?`這個單字之前已經�
   parsed.qAttempt=usedAttempt;   // 0 = 兩次都沒過
   parsed.qReview=qReview;
   parsed.time_issue=timeFrameIssue(parsed);
-  if(parsed.time_issue) console.log('出題時間線索不合格（照出，批改改用寬鬆時態規則）:',word,parsed.time_issue);
+  if(parsed.time_issue) console.log('出題時間線索不合格（照出）:',word,parsed.time_issue);
   const dict=await dictP;
   parsed.word=word;      // 不讓模型改動目標單字本身
   parsed.level=qLevel;   // 挑字時的等級，不是現在的 curLevel
@@ -2348,6 +2351,47 @@ function isSpellingFix(c){
   return d>=1&&d<=2;
 }
 
+/* 時態修正的複查（2026-10-08 glove 回報的第二步）。
+   光改判準（GRADE_SYSTEM 時態規則 1-3）之後重跑 23 筆歷史答案，誤判從 8 筆降到 2-3 筆，剩下的是
+   「I've been there… and the food is delicious」被要求改成 has been 這種：批改的任務是「找錯」，
+   模型先認定要改再找理由，prompt 加例子也改不動。試過要它在每條修正裡附 tense_check 證據
+   （學生的意思＋衝突的原文），結果更糟：它會替判斷編證據（was too high 引「今天」當衝突），
+   還把 is decrease 這種形式錯誤判成「沒衝突」刪掉。
+   改成批改完之後，對每條時態修正另外問一個是非題「學生原本那段成不成立」——沒有找錯的立場。
+   拿舊版產生的 31 條時態修正實測（每條兩輪）：明確誤判 10/10 放行，明確真錯誤 15/17 兩輪都保留
+   （has/gave 混用、was causing 各 1/2），邊界的 got…in the past ten years、was calling 會被放行。
+   was seeing／was hearing 這種感官動詞用進行式的錯誤原本也會被放行，所以第 3 條把這條英文規則講明。
+   成本：近 30 天 1,083 次批改裡 74 次（7%）含時態修正，只有那些會多一次短呼叫（約 3-5 秒）。
+   複查失敗就保留原修正，等於退回沒有複查的行為。 */
+async function verifyTenseCorrections(r,ans,zh){
+  const tense=(r.corrections||[]).filter(c=>GRAMMAR_FAMILIES['時態'].includes(c.category)&&c.error&&c.fix);
+  if(!tense.length||!zh) return;
+  const verdicts=await Promise.all(tense.map(c=>callClaude(`你是英文老師，在幫另一位老師複查一條批改。這是一題中翻英練習，學生只看得到中文原句。
+中文原句：「${zh}」
+學生答案：「${ans}」
+另一位老師要學生把「${c.error}」改成「${c.fix}」，理由跟時態有關。
+
+請判斷：學生原本那段的動詞，到底成不成立？依序檢查四件事，任何一件不過就是不成立：
+1. 形式：動詞形式本身文法正確（例如 is decrease、he sleep、the team done 都是形式錯誤）。
+2. 跟學生自己的句子一致：學生自己寫了時間字眼（例如 last year、yesterday、this morning），或用別的時態講同一段經過，學生這個動詞不可以跟它們衝突（例如寫了 last year 卻用現在完成式；前半用現在式、後半講同一件事卻用過去式）。
+3. 進行式的用法：see、hear、know、like 這類表示感知或狀態的動詞，在描述「看到／聽到／知道」時不用進行式（例如 I am knowing the answer、when I was noticing the smell 都不成立）。
+4. 跟中文一致：中文動詞沒有時態，同一句中文常常可以理解成不同的時間（已經發生、一般描述、習慣、正在進行）。只要中文說得通、母語者會接受學生這樣寫，就算成立；「改了會更好」不代表原本不成立。
+拼字、冠詞、介系詞、用字等跟動詞時態無關的問題不用管。
+只輸出 JSON：{"reason":"一句繁體中文，說明是哪一條不過或為什麼都過","student_ok":true 或 false}`,300,'claude-sonnet-5')
+    .then(t=>parseJSON(t)).catch(e=>{console.warn('時態複查失敗，保留原修正:',c.error,e.message);return null;})));
+  const drop=tense.filter((c,i)=>verdicts[i]?.student_ok===true);
+  if(!drop.length) return;
+  for(const c of drop){
+    console.log('時態複查放行:',c.error,'→',c.fix,'｜',verdicts[tense.indexOf(c)].reason);
+    // 修正版也退回學生原本的寫法，不然學生會看到時態被改了、卻找不到任何一條說明
+    const cs=r.corrected_sentence||'';
+    if(cs.split(c.fix).length===2) r.corrected_sentence=cs.replace(c.fix,c.error);
+  }
+  r.corrections=r.corrections.filter(c=>!drop.includes(c));
+  // grammar_accuracy 是批改照修正條數扣的；刪到一條不剩還顯示 85 分會對不上。只剩部分時沒辦法知道
+  // 被刪那條當初扣了幾分，就不動。
+  if(!r.corrections.length&&typeof r.grammar_accuracy==='number') r.grammar_accuracy=100;
+}
 function sanitizeGradeResult(r,ans,word){
   const fixed=[];
   /* 2026-08-20：schema 裡的 "chinglish_percent":20,"grammar_accuracy":90 是寫死的數字，
@@ -2538,11 +2582,12 @@ ${GRAMMAR_CATEGORIES.map((c,i)=>`${i+1}. ${c}`).join('\n')}
 
 以上「不可以憑空捏造」的原則不是只適用於 corrections 的 error 欄位——precision_note、tip 裡如果提到「學生寫了/用了/沒有用/漏掉了」這類對學生答案實際內容的具體描述，寫之前務必回頭逐字核對學生答案原文，確認學生真的有寫（或真的沒寫）你描述的那個字/片語，不能單憑常見錯誤模式或印象就假設學生寫了什麼；只要你描述的內容在學生答案裡找不到逐字對應，就要刪掉那段描述或修正成學生真正寫的內容。
 
-【時態：照出題設定的時間判斷，不可以自己替學生決定】
-中文動詞沒有時態，所以 user 訊息會告訴你這題出題時設定的時間（此刻／習慣或常態／過去／過去延續到現在／未來）跟中文原句裡的時間線索。判斷時態只能照下面三條：
-1. 有設定時間：學生的時態跟設定衝突，才算時態錯誤。why 要點出中文原句裡的那個時間線索（例如「中文說『上個月』，是已經發生完的事，要用過去式」），不能只說「這句描述的是過去／當下的狀況」。
-2. 沒有設定時間：只能依中文原句裡明確出現的時間字眼判斷（例如昨天、那天、上次、已經、正在、明天、每天）。找不到這種字眼時，學生選的時態只要是一種合理的讀法就不是錯誤，why 裡也不可以寫中文原句沒有明講的時間理由。例如「我很喜歡那部電影的結尾」寫 I like 或 I liked 都成立；「我們兩個人對這件事的看法完全不同」寫 have 或 had 都成立。
-3. 學生自己在同一句話裡，講同一段時間的事卻中途換了時態（例如「We walked into the park and walk along the path.」）：要指出的是前後時態不一致，why 點出前面已經用了哪個時態、後面卻換掉。fix 的方向：有設定時間就統一成設定的時間；沒有設定就順著學生先用的那個時態統一，不要把學生本來成立的時態改掉。但兩個子句講的本來就是不同時間的事，就不是不一致，不能列成錯誤——例如「He was born into a poor family, but he studies hard.」出身是過去、用功是現在，兩個時態都對。
+【時態：只看學生看得到的中文】
+中文動詞沒有時態，同一句中文常常有不只一種成立的英文時態。學生只看得到中文原句（跟出題提示），所以判斷時態只能照下面三條：
+1. 只有中文原句裡明確出現的時間字眼，排除了學生用的時態，才算時態錯誤（例如昨天、那天、上個月、已經、正在、明天、從…以來）。why 要引用那個字眼並說明它為什麼排除學生的時態（例如「中文說『上個月』，是已經發生完的事，要用過去式」）。「前」「後」「時」「的時候」「最後」「後來」「然後」只表示事情的先後順序，看不出事情發生在過去、現在還是習慣，不能拿來當時態的理由。
+2. 找不到這種字眼時，學生選的時態只要是一種合理的讀法就不是錯誤。習慣性的讀法（每次都這樣做）也是合理讀法。例如「我很喜歡那部電影的結尾」寫 I like 或 I liked 都成立；「我洗完澡後用毛巾擦乾身體」寫 I use 或 I used 都成立；「她退休以後有了更多閒暇」寫 has 或 has had 都成立；「我看過這部電影三次，每次都會哭」寫 I cry every time 或 I've cried every time 都成立——後半句是一般的描述，不必跟前半句的完成式對齊。
+   corrected_sentence 也一樣：學生的時態成立，修正版就保留學生的時態，不可以換成另一種讀法。出題提示建議了某個時態，也只是建議：學生沒照提示的時態寫、但句子在中文裡成立，同樣不算錯。
+3. 學生自己在同一句話裡，講同一段時間的事卻中途換了時態：這條跟第 2 條是分開的，第 2 條的寬鬆只管「選哪一個時態」，不管「選了之後前後混用」。就算中文沒有任何時間字眼，學生自己已經用某個時態把事情講成已經發生，同一件事的其他部分卻換成別的時態，照樣是錯誤（例如「We walked into the park and walk along the path.」；「她弄丟了鑰匙，所以我幫她開門」寫成「She loses her key, so I opened the door for her.」——弄丟鑰匙跟開門是同一段經過，前半用現在式、後半卻用過去式）：要指出的是前後時態不一致，why 點出前面已經用了哪個時態、後面卻換掉。fix 的方向：順著學生先用的那個時態統一，除非那個時態被中文裡明確的時間字眼排除；不要把學生本來成立的時態改掉。但兩個子句講的本來就是不同時間的事，就不是不一致，不能列成錯誤——例如「He was born into a poor family, but he studies hard.」出身是過去、用功是現在，兩個時態都對。
 
 【不可以跟出題提示自相矛盾】
 如果 user 訊息裡有「出題時給學生的提示」，代表學生是照著那個提示寫的。批改時不可以反過來把提示教的用法判成錯誤——學生按照提示做卻被扣分，是系統自己前後不一致，不是學生的問題。
@@ -2613,7 +2658,7 @@ async function submitSent(){
        system prompt 的自我檢查第 (7) 條會用到這個值，沒帶就是一條不可執行的規則。
        約 5 個 token，而且是動態值、放 user 訊息不影響 system 的快取。 */
     const gradeUserPrompt=`中文原句：「${q0.zh_sentence}」
-${timeFrameLine(q0)}目標單字：${q0.word}
+目標單字：${q0.word}
 ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}${q0.hint?`出題時給學生的提示：「${q0.hint}」\n`:''}學生答案：「${ans}」
 ${prevBlock}
 請依照 system prompt 裡的規則批改這則翻譯，只輸出規定格式的純 JSON。`;
@@ -2645,6 +2690,8 @@ ${prevBlock}
     // 就地清掉不影響分數的壞欄位、夾正沒有依據的 chinglish_percent。
     // 一定要在 mastered 之前跑：夾值會影響下面的精通判定。
     sanitizeGradeResult(r,ans,q0.word);
+    // 要在 sentAttempts／精通／文法統計之前：被複查放行的時態修正不該被記成錯誤
+    await verifyTenseCorrections(r,ans,q0.zh_sentence);
     // 記進同一題的作答歷程，供下一次重寫時帶給批改端擋住前後矛盾。
     // 放在 sanitize 之後：要記的是「真的顯示給學生看的那些修正」，被就地清掉的不算。
     sentAttempts.push({userAns:ans,corrections:(r.corrections||[]).filter(c=>c.error&&c.fix)});
@@ -4310,7 +4357,7 @@ async function finishTranslate(wavB64,seconds){
   // 沿用打字那份 GRADE_SYSTEM（逐字相同才命中 prompt caching），
   // 口說專屬的規則放在 user 訊息——它每次都會變，本來就不該進 system。
   const userPrompt=`中文原句：「${q0.zh_sentence}」
-${timeFrameLine(q0)}目標單字：${q0.word}
+目標單字：${q0.word}
 ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學生答案：「${transcript}」
 
 【重要：這是口說練習，學生答案是語音辨識的轉錄稿，不是打字的】
@@ -4329,6 +4376,7 @@ ${q0.pos?`這個單字在這題指定的詞性：${posLabel(q0.pos)}\n`:''}學�
     catch(e){ lastErr=e; if(e.code==='quota'||e.code==='auth'||e.code==='upstream') throw e; }
   }
   if(!r) throw lastErr||new Error('批改失敗');
+  await verifyTenseCorrections(r,transcript,q0.zh_sentence);
 
   recState='idle';
   renderSpeakResult({mode:'translate',q:q0,transcript,pron,content:r,seconds});
