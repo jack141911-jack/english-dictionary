@@ -4,30 +4,38 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="超級英語學習平台">
-<meta name="theme-color" content="#0c1712">
+<meta name="theme-color" content="#f4f6fa">
 <!-- 每一次出題／批改的第一個請求都要先跟 supabase.co 建 TCP+TLS，實測這一段就要 0.21-1.21 秒
      （量測 2026-08-26：連線建立 connect=0.21s / tls 到 1.21s，之後同連線的往返只剩 0.33s）。
      preconnect 讓瀏覽器在還在讀 HTML 時就把連線建好，使用者按「開始練習」時已經是暖連線。
      dictionaryapi.dev 是出題時平行去抓發音用的，同理。 -->
 <link rel="preconnect" href="https://qkkpjhffwpyyrzrdhxii.supabase.co" crossorigin>
 <link rel="preconnect" href="https://api.dictionaryapi.dev" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Noto+Serif+TC:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&family=Caveat:wght@700&display=swap">
 <title>超級英語學習平台</title>
 <style>
 :root{
-  --bg:#0c1712; --card:#13201a; --card2:#192a22; --border:#24382e; --inset:#101d17;
-  --text:#e7ece8; --text-bright:#f2f6f2; --text-soft:#d9e0da;
-  --dim:#8b9a90; --dim2:#93a89b; --faint:#57685c; --faint2:#6c7d70;
-  --accent:#c9a25e; --accent-active:#a8854a; --accent-light:#ddb877; --accent-lighter:#e8cd9a; --accent-on:#1c1409;
-  --accent-rgb:201,162,94;
-  --accent-wash:rgba(var(--accent-rgb),.14); --accent-wash-strong:rgba(var(--accent-rgb),.24); --accent-wash-soft:rgba(var(--accent-rgb),.18);
-  --good:#6fc496; --good-wash:rgba(111,196,150,.16);
-  --mid:#d98a4a; --mid-wash:rgba(217,138,74,.16);
-  --bad:#d1745f; --bad-strong:#cf6a56; --bad-wash:rgba(209,116,95,.16);
-  --bad-box-bg:#1a100e; --bad-box-border:#5c2e28; --bad-box-text:#e3a89a;
-  --teal:#5aa8a0;
-  --series2:#7fa3d9;
+  /* 2026-10-12 改版「辭典批改本」：淺色紙面 × 海軍藍。紅色（--bad）只代表老師批改與錯誤。 */
+  --bg:#f4f6fa; --card:#f4f6fa; --card2:#e8ecf3; --border:#d5dbe7; --inset:#eef1f6;
+  --text:#0f1a2e; --text-bright:#0f1a2e; --text-soft:#1d2a44;
+  --dim:#46526b; --dim2:#46526b; --faint:#6a758b; --faint2:#59647b;
+  --accent:#14306b; --accent-active:#0d2250; --accent-light:#14306b; --accent-lighter:#14306b; --accent-on:#ffffff;
+  --accent-rgb:20,48,107;
+  --accent-wash:rgba(var(--accent-rgb),.07); --accent-wash-strong:rgba(var(--accent-rgb),.13); --accent-wash-soft:rgba(var(--accent-rgb),.10);
+  --good:#1f7a4d; --good-wash:rgba(31,122,77,.12);
+  --mid:#b05a12; --mid-wash:rgba(176,90,18,.12);
+  --bad:#c23a22; --bad-strong:#b8321b; --bad-wash:rgba(194,58,34,.10);
+  --bad-box-bg:#fbeeea; --bad-box-border:#efc3b9; --bad-box-text:#8f2a17;
+  --teal:#1f7a76;
+  --series2:#8a97b3;
+  --serif:'Source Serif 4','Noto Serif TC',Georgia,serif; --zh-serif:'Noto Serif TC','Source Serif 4',serif;
+  --sans:'Noto Sans TC',-apple-system,BlinkMacSystemFont,'SF Pro Text','PingFang TC',sans-serif;
+  --hand:'Caveat','Noto Sans TC',cursive;
+  color-scheme:light;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 .ic{display:inline-block;vertical-align:-3px;flex-shrink:0}
@@ -286,6 +294,167 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .str-item:last-child,.imp-item:last-child{border-bottom:none}
 .str-item::before{content:'✓';color:var(--good);flex-shrink:0;font-weight:700}
 .imp-item::before{content:'→';color:var(--mid);flex-shrink:0;font-weight:700}
+
+/* ═══ 改版覆寫層（辭典批改本 × 海軍藍 × 淺色）═══
+   原則：沒有卡片框，層次靠字級與細線；直角；紅色只給批改；標題與單字用襯線。
+   原本的規則不動，要回復整段刪掉即可。 */
+body{font-family:var(--sans)}
+.panels,.panel{background:var(--bg)}
+.prac-hd h2,.set-hd h2,.empty-h{font-family:var(--zh-serif);font-weight:600;letter-spacing:.02em}
+.prac-hd h2{font-size:28px;line-height:1.1}
+.prac-hd h2 .ic,.set-hd h2 .ic{display:none}
+.prac-hd,.set-hd{border-bottom:1px solid var(--border);padding-top:50px}
+.prac-hd p{color:var(--faint)}
+.prac-body{padding:16px 20px}
+/* 單字：辭典標題字 */
+.prac-word-badge{background:none;border:0;border-radius:0;padding:0;color:var(--text);font:600 44px/1.05 var(--serif);letter-spacing:-.01em;margin-bottom:6px}
+.prac-word-badge .ic{display:none}
+.prac-word-pos{background:none;padding:0;border-radius:0;font:italic 400 16px var(--serif);color:var(--accent);letter-spacing:.02em}
+.hist-item .prac-word-badge,.ent .prac-word-badge{font-size:22px;margin-bottom:2px}
+.prac-word-row{margin-bottom:8px}
+/* 卡片：沒有外框，只留上緣細線 */
+.prac-card,.hist-item,.stat-row,.detail-toggle{background:transparent;border:0;border-top:1px solid var(--border);border-radius:0;padding:16px 2px;margin-bottom:0}
+.prac-card:first-child{border-top:0}
+.set-card{background:transparent;border:0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);border-radius:0}
+.set-row,.use-item,.corr-item,.str-item,.imp-item{border-bottom:1px solid var(--border)}
+.use-item:last-child,.corr-item:last-child,.str-item:last-child,.imp-item:last-child,.set-row:last-child{border-bottom:0}
+.model-box,.stat-tile,.ielts-box,.prac-hint,.outline-starter{background:var(--card2);border-radius:3px}
+.hist-item:active{background:var(--accent-wash)}
+/* 按鈕：直角、字距拉開 */
+.prac-submit,.set-save,.su-btn{border-radius:2px;font-weight:500;letter-spacing:.2em}
+.next-btn{background:transparent;border:1px solid var(--accent);border-radius:2px;color:var(--accent);font-weight:500;letter-spacing:.14em}
+.next-btn:active{background:var(--accent-wash-strong)}
+.back-btn{background:var(--bg);border:0;border-radius:0;padding:10px 24px 10px 0;color:var(--faint);font-weight:500;letter-spacing:.08em}
+.back-btn:active{background:var(--bg);color:var(--accent)}
+.back-btn{box-shadow:none!important}
+#histSearch{font:600 22px var(--serif);padding:10px 0;border-bottom:2px solid var(--text)}
+#histSearch::placeholder{font:400 16px var(--sans);color:var(--faint)}
+.hist-btn{background:none;border:0;border-radius:0;padding:0 0 3px;color:var(--accent);font-weight:500;letter-spacing:.06em;font-size:13px}
+.hist-btn .ic{display:none}
+/* 小標籤、分段控制：方框，不是膠囊 */
+.filt,.art-topic,.score-badge,.cefr-badge{border-radius:3px}
+.filt.on,.art-topic.on{background:var(--accent);border-color:var(--accent);color:var(--accent-on)}
+.seg{border-radius:3px;background:transparent;padding:0;gap:0;overflow:hidden}
+.seg-item{border-radius:0;border-left:1px solid var(--border);padding:9px 0;font-weight:500}
+.seg-item:first-child{border-left:0}
+.seg-item.on{background:var(--accent);color:var(--accent-on)}
+.toast{border-radius:3px;background:var(--text);border-color:var(--text);color:#fff}
+.btn{border-radius:3px}
+.empty-ico{display:none}
+.empty{text-align:left;padding:28px 2px}
+.empty-h{font-size:24px;line-height:1.35}
+.empty-p{font-size:14px}
+.empty .prac-submit{max-width:none!important}
+/* 作答區：橫線紙 */
+.prac-inp{background:repeating-linear-gradient(transparent 0 35px,var(--border) 35px 36px);background-attachment:local;border:0;border-bottom:1px solid var(--border);border-radius:0;padding:0 2px;font:400 19px/36px var(--serif);min-height:144px;color:var(--text)}
+.prac-inp:focus{border-bottom-color:var(--accent)}
+.essay-inp{background:var(--card2);border:0;border-radius:3px;font-family:var(--serif);line-height:1.8}
+.set-inp,.su-input{font-family:var(--sans);border-radius:3px;background:transparent;border:0;border-bottom:2px solid var(--text);border-radius:0;padding-left:0}
+.prac-zh{font-family:var(--zh-serif);font-weight:400;font-size:21px;line-height:1.75}
+.model-t,.hist-ans,.sent-def{font-family:var(--serif)}
+/* 批改：錯的用紅筆劃線，修正是襯線藍字 */
+.corr-err{text-decoration:line-through;text-decoration-thickness:1.5px;font-family:var(--serif);font-size:15px}
+.corr-fix{color:var(--accent);font-family:var(--serif);font-size:17px}
+.corr-why{font-size:13px;line-height:1.6}
+.corr-repeat{border-radius:0;background:none;color:var(--bad);border-left-color:var(--bad)}
+.corr-tag{display:inline-block;font:500 11px var(--sans);letter-spacing:.12em;color:var(--bad);margin-bottom:4px}
+/* 成績：襯線大字，不用膠囊 */
+.mt{display:flex;gap:16px;align-items:baseline;flex-wrap:wrap;font:12px var(--sans);color:var(--faint)}
+.mt b{color:var(--accent);font-weight:500;letter-spacing:.06em}
+.mt em{font:600 15px var(--serif);font-style:normal;font-variant-numeric:lining-nums}
+.mt em.g{color:var(--good)}.mt em.m{color:var(--mid)}.mt em.b{color:var(--bad)}
+.dl{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin:6px 0 4px}
+.dl>div{padding:11px 0}.dl>div+div{padding-left:14px;border-left:1px solid var(--border)}
+.dl dt{font:500 11px var(--sans);letter-spacing:.14em;color:var(--faint)}
+.dl dd{font:600 28px var(--serif);margin-top:2px;font-variant-numeric:lining-nums}
+.dl dd.g{color:var(--good)}.dl dd.m{color:var(--mid)}.dl dd.b{color:var(--bad)}
+.stamp{display:inline-block;font:700 26px/1 var(--hand);color:var(--bad);border:2.5px solid var(--bad);border-radius:50%/55%;padding:3px 12px;transform:rotate(-5deg)}
+.score-num,.band-score,.stat-value,.stat-row .val,.ielts-sc{font-family:var(--serif);font-weight:600;font-variant-numeric:lining-nums tabular-nums}
+.score-num{font-size:56px}
+.card-lbl,.set-sec-lbl,.use-lbl,.ielts-name,.model-lbl{letter-spacing:.14em;text-transform:none;font-weight:500}
+.card-lbl .ic,.use-ico .ic{display:none}
+.use-ico{display:none}
+.use-lbl{color:var(--accent)}
+/* 追問與回報：文字連結 */
+#followUpBox>.next-btn,#reportBox>.next-btn{width:auto;border:0;padding:6px 0;font:700 19px var(--hand);letter-spacing:.02em;text-align:left;color:var(--accent)}
+#reportBox>.next-btn{color:var(--bad)}
+#followUpBox>.next-btn .ic,#reportBox>.next-btn .ic{display:none}
+/* 等級拇指索引（首頁） */
+.lvhome{position:relative;padding-right:46px;min-height:300px}
+.thumb{position:absolute;right:-20px;top:0;display:flex;flex-direction:column;gap:2px}
+.thumb .seg-item{flex:none;width:34px;padding:9px 0;border:0;border-radius:3px 0 0 3px;background:var(--card2);color:var(--dim);font-size:12px;text-align:center}
+.thumb .seg-item.on{width:44px;background:var(--accent);color:var(--accent-on)}
+.lvmain .lbl{font:500 11px var(--sans);letter-spacing:.16em;color:var(--faint);margin-top:6px}
+.lvmain .num{font:600 60px/1 var(--serif);font-variant-numeric:lining-nums tabular-nums;letter-spacing:-.01em;margin-top:6px}
+.lvmain .num small{font:400 21px var(--serif);color:var(--faint);margin-left:6px}
+.lvmain .bar{height:3px;background:var(--border);margin:12px 0 8px;position:relative}
+.lvmain .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--text)}
+.lvmain .lvrow{display:flex;justify-content:space-between;font:13px var(--sans);color:var(--dim);font-variant-numeric:tabular-nums}
+.breakdown{padding:0;margin-top:14px;line-height:1.7}
+/* 歷史與 Dashboard */
+.hist-date{font-variant-numeric:tabular-nums}
+.hist-zh{font-family:var(--zh-serif);font-weight:400;font-size:15px}
+.tbl{width:100%;border-collapse:collapse;margin-top:10px}
+.tbl th{font:500 11px var(--sans);letter-spacing:.12em;color:var(--faint);text-align:right;padding:0 0 8px;border-bottom:1px solid var(--text)}
+.tbl td{font:600 20px var(--serif);text-align:right;padding:13px 0;border-bottom:1px solid var(--border);font-variant-numeric:lining-nums tabular-nums}
+.tbl td:first-child,.tbl th:first-child{text-align:left}.tbl td b{font:600 18px var(--zh-serif)}
+.tbl td.g{color:var(--good)}.tbl td.m{color:var(--mid)}.tbl td.b{color:var(--bad)}
+.tbn{font:12px/1.7 var(--sans);color:var(--faint);margin-top:10px}
+.fam-bar,.lvl-bar{border-radius:0;height:6px;background:var(--border)}.fam-bar-fill,.lvl-bar-fill{border-radius:0}
+.lvl-pct{font-family:var(--serif)}
+/* 口說 */
+.pron-w{background:none;border:0;border-bottom:2px solid var(--border);border-radius:0;padding:2px 0;font:400 19px var(--serif)}
+.pron-w.score-excellent{border-color:var(--good)}.pron-w.score-good{border-color:var(--mid)}
+.pron-w.score-needs{border-color:var(--bad);background:none}
+.pron-words{gap:6px 12px}
+.prac-submit.rec-on{background:var(--bad)}
+.art-seg{border-radius:2px}
+.art-title,.art-para{font-family:var(--serif)}
+.art-title{font-weight:600;font-size:22px}
+.art-para{font-size:16px;line-height:1.95}
+/* 設定 */
+.set-lbl{font-weight:500}
+.set-ico{display:none}
+.set-danger{color:var(--bad)!important}
+/* 登入 */
+#authView{align-items:stretch;text-align:left;padding:90px 26px 40px}
+.su-logo{display:none}
+.su-title{font:600 38px/1.2 var(--zh-serif);letter-spacing:.01em}
+.su-sub{margin-top:6px}
+.su-label{font-weight:500;letter-spacing:.14em;margin-top:14px}
+.su-group,.su-btn{max-width:none}
+.su-input{font-size:17px;font-family:var(--serif);padding:10px 0}
+/* 底部分頁：只留文字，作用中的在上緣畫一條線 */
+.tab-bar{border-top:1px solid var(--border);padding:0 0 22px}
+.tab{padding:14px 0 0;position:relative}
+.tab-ic{display:none}
+.tab-lb{font-size:13px;font-weight:500;letter-spacing:.08em;color:var(--faint)}
+.tab.on .tab-lb{color:var(--text)}
+.tab.on::before{content:"";position:absolute;top:-1px;left:24%;right:24%;height:2px;background:var(--accent)}
+.spin{border-color:var(--card2);border-top-color:var(--accent)}
+
+/* 補丁：殘留的圖示與統計方塊 */
+.detail-toggle .ic{display:none}
+.detail-toggle{padding:14px 2px}
+.stat-grid{gap:0;border-top:1px solid var(--text);border-bottom:1px solid var(--border)}
+.stat-tile{background:transparent;border-radius:0;text-align:left;padding:12px 4px 12px 14px;border-left:1px solid var(--border)}
+.stat-tile:first-child{border-left:0;padding-left:2px}
+.stat-label{letter-spacing:.14em;font-size:10px}
+.stat-value{font-size:28px;margin-top:2px}
+.refresh-btn{border:0;background:none;color:var(--accent);width:auto;height:auto}
+.pron-grid{gap:0}
+.lvl-bar{margin-top:6px}
+
+/* 補丁 2：寫作評分 */
+.band-score{color:var(--accent)!important;font-size:84px}
+.band-wrap{text-align:left;padding:8px 0 14px}
+.band-label{letter-spacing:.14em;font-size:11px}
+.ielts-grid{gap:0;border-top:1px solid var(--text);margin-bottom:12px}
+.ielts-box{background:transparent;border-radius:0;padding:12px 12px 12px 0;border-bottom:1px solid var(--border)}
+.ielts-box:nth-child(even){padding-left:12px;padding-right:0;border-left:1px solid var(--border)}
+.essay-type{color:var(--accent);letter-spacing:.14em;font-weight:500}
+.essay-topic{font-family:var(--serif);font-weight:600}
+#dashLevelChips{scrollbar-width:none}#dashLevelChips::-webkit-scrollbar{display:none}
 </style>
 </head>
 <body>
@@ -322,8 +491,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
           <p>選 CEFR 等級，依常用單字出題</p>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="hist-btn" onclick="showDashboard()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg> Dashboard</button>
-          <button class="hist-btn" onclick="showSentHistory()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> 歷史</button>
+          <button class="hist-btn" onclick="showDashboard()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg> 數據</button>
+          <button class="hist-btn" onclick="histQ='';histWordSel=null;histServerRows=[];showSentHistory()"><svg class="ic" style="width:14px;height:14px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg> 歷史</button>
         </div>
       </div>
       <div class="prac-body" id="pracBody">
@@ -1522,13 +1691,20 @@ async function levelBarHTML(){
   const masteredCount=(levelProgress[curLevel]?.mastered||[]).length;
   const chips=PRACTICE_LEVELS.map(l=>`<span class="seg-item ${l===curLevel?'on':''}" onclick="selectLevel('${l}')">${levelLabel(l)}</span>`).join('');
   const breakdown=PRACTICE_LEVELS.map(l=>`${levelLabel(l)} <b>${dailyLevelCount.byLevel?.[l]?.length||0}</b>`).join(' · ');
+  const today=dailyLevelCount.words?.length||0;
+  const pct=Math.min(100,Math.round(today/Math.max(1,dailyGoal)*100));
+  /* 版型：右側是字典拇指索引（等級），左側是今日進度的大數字。 */
   return `
-  <div class="seg">${chips}</div>
-  <div class="stat-row">
-    <div class="stat"><div class="lbl">今日進度</div><div class="val">${dailyLevelCount.words?.length||0} <small>/ ${dailyGoal}</small></div></div>
-    <div class="stat"><div class="lbl">${levelLabel(curLevel)} 精通</div><div class="val">${masteredCount} <small>/ ${total||'—'}</small></div></div>
-  </div>
-  <div class="breakdown">${breakdown}</div>`;
+  <div class="lvhome">
+    <div class="thumb">${chips}</div>
+    <div class="lvmain">
+      <div class="lbl">今日單字</div>
+      <div class="num">${today}<small>/ ${dailyGoal}</small></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="lvrow"><span>${levelLabel(curLevel)} 精通</span><span>${masteredCount} / ${total||'—'}</span></div>
+      <div class="breakdown">${breakdown}</div>
+    </div>
+  </div>`;
 }
 
 // 出題規則手冊。逐字不含目標單字/詞性/等級這些每次呼叫都會變的值，才能被 Anthropic prompt
@@ -2087,7 +2263,7 @@ async function renderSentQ(){
     </div>
     ${curSentQ.definition?`<div class="sent-def">${curSentQ.definition}</div>`:''}
     ${(showTranslation&&curSentQ.translation)?`<div class="sent-def">${ic('translate',13)} ${curSentQ.translation}</div>`:''}
-    ${curSentQ.qUnverified?`<div class="corr-repeat" style="margin:8px 0">⚠️ ${/^中文題目不合格/.test(curSentQ.qIssues||'')?'這題的中文可能不太通順':`這題可能無法自然用到「${curSentQ.word}」`}
+    ${curSentQ.qUnverified?`<div class="corr-repeat" style="margin:8px 0">${/^中文題目不合格/.test(curSentQ.qIssues||'')?'這題的中文可能不太通順':`這題可能無法自然用到「${curSentQ.word}」`}
       <div class="corr-repeat-prev">系統檢查沒通過（${curSentQ.qIssues}）。可以直接換一題，不用浪費時間。</div>
       <button class="next-btn" style="font-size:12px;padding:6px;margin-top:6px" onclick="startSent()">${ic('refresh',13)} 換一題</button>
     </div>`:''}
@@ -2169,6 +2345,22 @@ function normLoose(s){ return (s||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').
 function fabricatedCorrections(r,ans){
   const na=normLoose(ans);
   return (r.corrections||[]).filter(c=>c.error&&!na.includes(normLoose(c.error))).map(c=>c.error);
+}
+/* 講解宣稱「學生已經用了某連接詞」，但學生原句根本沒有（#65 location 回報 2026-10-09：
+   中文是「因為……所以」，學生寫 which…, so…，批改卻說「前面已經用 because，後面不能再用 so」，
+   because 是模型照中文句型套出來的）。fabricatedCorrections 只比對 error 片段，抓不到 why 裡的捏造前提。
+   判準刻意窄：只抓「已經用／前面…」+ 連接詞這種「宣稱學生寫過」的說法。
+   第一版只要 why 提到連接詞、學生句沒有就算，在 1,276 條歷史修正命中 4 筆，其中 3 筆是正常講解
+   （anyway 的 though/although 是建議用法、block 的 "but here" 是講解語氣、consequence 的
+   "Because X, Y" 是示範句型），會誤刪 block 那條正確的修正，所以收窄。 */
+const PHANTOM_CONNECTORS=['because','although','though','however','but','so'];
+function phantomConnectorCorrections(r,ans){
+  const na=' '+normLoose(ans)+' ';
+  return (r.corrections||[]).filter(c=>{
+    if(!c.why) return false;
+    return PHANTOM_CONNECTORS.some(w=>
+      new RegExp('(已經?(用|使用|有|寫|出現)|前面|前半|上半|先前)[^。；]{0,12}\\b'+w+'\\b','i').test(c.why)&&!na.includes(' '+w+' '));
+  }).map(c=>c.error);
 }
 // corrections[].fix 依 754(2) 不能把 error 本身也列成可接受答案，那代表這根本不是錯誤
 function fixDuplicatesError(r){
@@ -2258,7 +2450,7 @@ function weakTip(r){
    上線後要看 CEFR 分布有沒有往 B1 塌回去。 */
 // 批改結果整體驗證：目標單字缺漏、捏造學生沒寫過的內容、corrections 違反自我檢查規則、CEFR 判斷跟自己給的範例矛盾，任一項不合格就值得重打一次
 function gradeResultIssues(r,ans,word){
-  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...fixNotAppliedInCorrected(r), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
+  return [...missingTargetWordFields(r,word), ...fabricatedCorrections(r,ans), ...phantomConnectorCorrections(r,ans), ...fixDuplicatesError(r), ...invalidGrammarCategory(r), ...badReasoningCorrections(r), ...weakTip(r), ...fixNotAppliedInCorrected(r), ...fabricatedChinglishIssues(r,ans), ...duplicateChinglishAndCorrections(r)];
 }
 
 // ─── 就地修掉、不重打的檢查 ────────────────────────────────────────────────
@@ -2440,6 +2632,13 @@ function sanitizeGradeResult(r,ans,word){
   if(noop.length){
     r.corrections=(r.corrections||[]).filter(c=>!noop.includes(c.error));
     fixed.push(`刪掉 ${noop.length} 項空修正`);
+  }
+
+  // 講解的前提是學生沒寫過的連接詞（#65 location）→ 刪掉那條，重打耗盡後的安全網
+  const phantom=phantomConnectorCorrections(r,ans);
+  if(phantom.length){
+    r.corrections=(r.corrections||[]).filter(c=>!phantom.includes(c.error));
+    fixed.push(`刪掉 ${phantom.length} 項捏造連接詞前提的修正`);
   }
 
   // 同一個編輯講成兩條 → 留精確的那條。純顯示問題，不值得為它多打一次批改（4-7 秒 + NT$0.11），
@@ -2787,26 +2986,26 @@ function renderGradingProgress(sofar){
   const dupErr=redundantWiderCorrections(r);
   const corr=(r.corrections||[]).filter(c=>c&&c.error&&c.fix&&!dupErr.includes(c.error));
   if(corr.length){
-    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">${ic('search',14)} 錯誤修正</div>`);
+    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">錯誤修正</div>`);
     for(const c of corr) parts.push(`<div class="corr-item">
-      <div class="corr-err">✗ ${escHTML(c.error)}</div>
-      <div class="corr-fix">✓ ${escHTML(c.fix)}</div>
+      <div class="corr-err">${escHTML(c.error)}</div>
+      <div class="corr-fix">${escHTML(c.fix)}</div>
       ${c.why?`<div class="corr-why">${escHTML(c.why)}</div>`:''}
     </div>`);
   }
   const ching=(r.chinglish_issues||[]).filter(c=>c&&c.phrase&&c.natural);
   if(ching.length){
-    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">🀄 中式英文類型</div>`);
+    parts.push(`<div class="card-lbl" style="margin:12px 0 8px">中式英文類型</div>`);
     for(const c of ching) parts.push(`<div class="corr-item">
-      <div class="corr-err">✗ ${escHTML(c.phrase)}</div>
-      <div class="corr-fix">✓ ${escHTML(c.natural)}</div>
+      <div class="corr-err">${escHTML(c.phrase)}</div>
+      <div class="corr-fix">${escHTML(c.natural)}</div>
       ${c.why?`<div class="corr-why">${escHTML(c.why)}</div>`:''}
     </div>`);
   }
   // corrections 是空陣列且後面的欄位已經開始生成，才敢說「沒有錯誤」——
   // 只憑「目前還沒有任何 corrections」會在剛開始串流時誤報一次沒錯誤。
   if(!corr.length&&Array.isArray(r.corrections)&&('chinglish_issues' in r)){
-    parts.push(`<div style="color:var(--good);font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`);
+    parts.push(`<div style="color:var(--good);font-size:14px;padding:8px 0">沒有語法錯誤。</div>`);
   }
   if(r.corrected_sentence) parts.push(`<div class="model-box" style="margin-top:12px">
     <div class="model-lbl">修正版（基於你的句子）</div>
@@ -2947,21 +3146,21 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r,opts={}){
   curResultCtx={word,zh,userAns,def,translation,level,r};
   return `
   <div class="prac-card">
-    <div class="card-lbl">${ic('document',14)} 原題</div>
-    ${word?`<div class="prac-word-badge" style="margin-bottom:8px">${ic('tag',13)} ${word}</div>`:''}
+    <div class="card-lbl">原題</div>
+    ${word?`<div class="prac-word-badge">${escHTML(word)}</div>`:''}
     ${def?`<div class="sent-def">${def}</div>`:''}
-    ${(showTranslation&&translation)?`<div class="sent-def">${ic('translate',13)} ${translation}</div>`:''}
+    ${(showTranslation&&translation)?`<div class="sent-def">${translation}</div>`:''}
     <div class="prac-zh" style="font-size:17px">${zh}</div>
-    <div style="font-size:13px;color:var(--faint2);margin-top:8px">你的答案：<span style="color:var(--dim2);font-style:italic">${userAns}</span></div>
+    <div style="font-size:13px;color:var(--faint);margin-top:8px">你的答案　<span style="color:var(--dim2);font-family:var(--serif);font-style:italic;font-size:15px">${userAns}</span></div>
   </div>
   <div class="prac-card">
-    <div class="score-ring">
-      <span class="score-badge cefr-badge">${r.cefr}</span>
-      ${typeof r.grammar_accuracy==='number'?`<span class="score-badge ${gAccClass(r.grammar_accuracy)}">文法正確度 ${r.grammar_accuracy}%</span>`:''}
-      <span class="score-badge ${chingClass(r.chinglish_percent)}">中式英文 ${r.chinglish_percent}%</span>
-      ${mastered?`<span class="score-badge score-excellent">${ic('award',13)} 已精通</span>`:''}
-    </div>
-    ${r.questionFlawed?`<div class="corr-repeat" style="margin-top:12px">⚠️ 這題的目標單字「${word}」放不進這個情境，是題目本身的問題
+    <dl class="dl">
+      ${typeof r.grammar_accuracy==='number'?`<div><dt>文法</dt><dd class="${r.grammar_accuracy>=80?'g':r.grammar_accuracy>=60?'m':'b'}">${r.grammar_accuracy}%</dd></div>`:''}
+      <div><dt>中式英文</dt><dd class="${r.chinglish_percent<=10?'g':r.chinglish_percent<=25?'m':'b'}">${r.chinglish_percent}%</dd></div>
+      <div><dt>程度</dt><dd><span class="stamp">${r.cefr}</span></dd></div>
+    </dl>
+    ${mastered?`<div style="font:500 13px var(--sans);color:var(--good);letter-spacing:.1em;margin-top:8px">已精通</div>`:''}
+    ${r.questionFlawed?`<div class="corr-repeat" style="margin-top:12px">這題的目標單字「${word}」放不進這個情境，是題目本身的問題
       <div class="corr-repeat-prev">下面的修正仍可參考，但這題<b>不列入計分與統計</b>，不會影響你的進度。</div>
     </div>`:''}
     ${r.overall?`<div style="font-size:14px;color:var(--text);line-height:1.6;margin-top:12px;padding:10px 12px;background:rgba(var(--accent-rgb),.08);border-radius:10px">${r.overall}</div>`:''}
@@ -2969,29 +3168,29 @@ function sentResultHTML(word,zh,userAns,def,translation,level,r,opts={}){
       <div class="model-lbl">修正版（基於你的句子）</div>
       <div class="model-t">${r.corrected_sentence}</div>
     </div>`:''}
-    ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">${ic('search',14)} 錯誤修正</div>
+    ${r.corrections?.length?`<div class="card-lbl" style="margin:12px 0 8px">錯誤修正</div>
     ${r.corrections.map(c=>`<div class="corr-item">
       ${repeatNoteHTML(c.error,c.category,'corrections')}
-      <div class="corr-err">✗ ${c.error}</div>
-      <div class="corr-fix">✓ ${c.fix}</div>
+      <div class="corr-err">${c.error}</div>
+      <div class="corr-fix">${c.fix}</div>
       <div class="corr-why">${c.why}</div>
-    </div>`).join('')}`:`<div style="color:var(--good);font-size:13px;padding:8px 0">✓ 沒有語法錯誤！</div>`}
-    ${r.chinglish_issues?.length?`<div class="card-lbl" style="margin:12px 0 8px">🀄 中式英文類型</div>
+    </div>`).join('')}`:`<div style="color:var(--good);font-size:14px;padding:8px 0">沒有語法錯誤。</div>`}
+    ${r.chinglish_issues?.length?`<div class="card-lbl" style="margin:12px 0 8px">中式英文類型</div>
     ${r.chinglish_issues.map(c=>`<div class="corr-item">
       ${repeatNoteHTML(c.phrase,null,'chinglish_issues')}
-      <span class="score-badge" style="background:rgba(var(--accent-rgb),.15);color:var(--accent-light);border:1px solid var(--accent-light);padding:2px 9px;font-size:11px;margin-bottom:5px;display:inline-block">${c.type}</span>
-      <div class="corr-err">✗ ${c.phrase}</div>
-      <div class="corr-fix">✓ ${c.natural}</div>
+      <span class="corr-tag">${c.type}</span>
+      <div class="corr-err">${c.phrase}</div>
+      <div class="corr-fix">${c.natural}</div>
       <div class="corr-why">${c.why}</div>
     </div>`).join('')}`:''}
-    ${r.precision_note?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('target',18)}</span><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
+    ${r.precision_note?`<div class="use-item" style="margin-top:12px"><div><div class="use-lbl">用字精準度提醒</div><div class="use-t">${r.precision_note}</div></div></div>`:''}
     <div id="exampleBox">${examplesHTML(r)}</div>
-    ${r.tip?`<div class="use-item" style="margin-top:12px"><span class="use-ico">${ic('bulb',18)}</span><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
+    ${r.tip?`<div class="use-item" style="margin-top:12px"><div><div class="use-lbl">口語技巧</div><div class="use-t">${r.tip}</div></div></div>`:''}
     <div id="followUpBox" style="margin-top:12px">
-      <button class="next-btn" style="font-size:12px;padding:8px" onclick="showFollowUpForm()">${ic('help',14)} 針對這題問文法問題</button>
+      <button class="next-btn" style="font-size:12px;padding:8px" onclick="showFollowUpForm()">針對這題問文法問題 ?</button>
     </div>
     <div id="reportBox" style="margin-top:12px">
-      <button class="next-btn" id="reportBtn" style="font-size:12px;padding:8px" onclick="showReportForm()">${ic('flag',14)} 這題評分有問題？回報給我</button>
+      <button class="next-btn" id="reportBtn" style="font-size:12px;padding:8px" onclick="showReportForm()">這題評分有問題？回報給我 →</button>
     </div>
   </div>`;
 }
@@ -3160,7 +3359,7 @@ function repeatNoteHTML(fragment,category,field){
   const same=priorFragmentHits(fragment,field);
   if(same.length){
     const last=same[0];
-    return `<div class="corr-repeat">⚠️ 這個寫法你是第 ${same.length+1} 次用了 · 上次：${agoLabel(last.ts)}
+    return `<div class="corr-repeat">這個寫法你是第 ${same.length+1} 次用了 · 上次：${agoLabel(last.ts)}
       <div class="corr-repeat-prev">當時：${last.userAns||''}</div>
     </div>`;
   }
@@ -3373,10 +3572,9 @@ async function renderSentHome(){
   const body=document.getElementById('pracBody');
   body.innerHTML=bar+`
   <div class="empty">
-    <div class="empty-ico">${ic('pencil',44)}</div>
     <div class="empty-h">準備好練習了嗎？</div>
-    <div class="empty-p">選好等級後開始造句練習<br>每天目標至少練習 ${dailyGoal} 個單字</div>
-    <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSent()">開始練習 →</button>
+    <div class="empty-p">選好等級後開始造句練習。每天目標至少練習 ${dailyGoal} 個單字。</div>
+    <button class="prac-submit" style="margin-top:20px" onclick="startSent()">開始練習</button>
   </div>`;
   /* 「已全部精通」的攔截畫面要先翻完整份字表才知道該不該出現。先把一般畫面畫出來、再視情況
      覆蓋，是因為第一次查（快取還沒暖）會發好幾次網路請求，先 await 再畫會讓等級一點下去
@@ -3397,11 +3595,10 @@ async function renderSentHome(){
   const next=isBizLevel(lvl)?null:CEFR_LEVELS[CEFR_LEVELS.indexOf(lvl)+1];
   body.innerHTML=bar+`
   <div class="empty">
-    <div class="empty-ico">${ic('award',44)}</div>
     <div class="empty-h">${levelLabel(lvl)} 已全部精通</div>
     <div class="empty-p">${total||''} 個單字全部達標了。<br>${next?`建議往上挑戰 ${next}；`:''}留在 ${levelLabel(lvl)} 的話會改成複習模式，<br>優先出你文法正確度最低的那些字。</div>
-    ${next?`<button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="selectLevel('${next}')">挑戰 ${next} →</button>`:''}
-    <button class="btn" style="margin-top:${next?'10px':'24px'};max-width:280px;width:100%;height:44px;border-radius:12px" onclick="startLevelReview()">繼續複習 ${levelLabel(lvl)}（挑最弱的字）</button>
+    ${next?`<button class="prac-submit" style="margin-top:20px" onclick="selectLevel('${next}')">挑戰 ${next}</button>`:''}
+    <button class="next-btn" style="margin-top:${next?'10px':'20px'}" onclick="startLevelReview()">繼續複習 ${levelLabel(lvl)}（挑最弱的字）</button>
   </div>`;
 }
 
@@ -3660,7 +3857,7 @@ function renderDashTrendHeadline(agg){
   const f=valid.filter(p=>p.i<mid), s=valid.filter(p=>p.i>=mid);
   if(!f.length||!s.length){ el.innerHTML=`目前平均文法正確度 ${Math.round(avg(valid,'acc'))}%`; return; }
   const a1=avg(f,'acc'), a2=avg(s,'acc'), delta=Math.round(a2-a1), up=delta>=0;
-  el.innerHTML=`📈 文法正確度平均從 ${Math.round(a1)}% ${up?'進步到':'下滑到'} ${Math.round(a2)}% <b style="color:${up?'var(--good)':'var(--bad)'}">(${delta>=0?'+':''}${delta})</b>`;
+  el.innerHTML=`文法正確度平均從 ${Math.round(a1)}% ${up?'進步到':'下滑到'} ${Math.round(a2)}% <b style="color:${up?'var(--good)':'var(--bad)'}">(${delta>=0?'+':''}${delta})</b>`;
 }
 
 function renderDashTrendLines(agg,W){
@@ -3761,7 +3958,7 @@ async function dashboardHTML(){
        不再用 stat-tile 單獨列——那些數字本身不是行動。分類清單預設收起來，點按鈕才展開。 -->
   <div class="prac-card" style="border-color:var(--accent-wash-strong)">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:10px">
-      <div class="card-lbl" style="margin-bottom:0">✨ AI 學習總結（近 14 天）</div>
+      <div class="card-lbl" style="margin-bottom:0">AI 學習總結（近 14 天）</div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
         <div style="display:flex;align-items:center;gap:8px">
           <span id="dashSummaryNote" style="font-size:10px;color:var(--faint)">${dashSummaryNoteText()}</span>
@@ -3780,7 +3977,7 @@ async function dashboardHTML(){
     ${famRank.length>3?`<div class="fam-more">其餘 ${famRank.length-3} 個項目合計 ${famRest} 次</div>`:''}
     <div style="height:14px"></div>`:''}
 
-    ${errorCats.length?`<button class="filt" id="dashBtn-cats" onclick="toggleDashCatList('cats')">📋 文法錯誤分類 (${errorCats.length})</button>`:''}
+    ${errorCats.length?`<button class="filt" id="dashBtn-cats" onclick="toggleDashCatList('cats')">文法錯誤分類 (${errorCats.length})</button>`:''}
     ${(unclassified||legacyCount)?`<div style="font-size:11px;color:var(--faint);margin-top:10px;line-height:1.6">
       ${unclassified?`另有 ${unclassified} 個錯誤批改時沒能歸到具體文法點（分類為「其他」）。`:''}
       ${legacyCount?`${unclassified?'<br>':''}另有 ${legacyCount} 個 8/8 改版前的錯誤使用舊分類，只保留在歷史紀錄。`:''}
@@ -3812,7 +4009,7 @@ async function dashboardHTML(){
           // 0% 會被讀成「一個都沒精通」，那是把查詢失敗講成學習成果。
           const pct=r.total?Math.round(r.mastered/r.total*100):null;
           return `<div class="use-item" style="align-items:center">
-          <span class="use-ico">${levelLabel(r.level)}</span>
+          <b style="font:600 17px var(--serif);width:44px">${levelLabel(r.level)}</b>
           <div style="flex:1">
             <div class="use-t">精通 ${r.mastered} / ${r.total||'—'}</div>
             <div class="lvl-bar"><div class="lvl-bar-fill" style="width:${pct==null?0:pct}%"></div></div>
@@ -3822,21 +4019,17 @@ async function dashboardHTML(){
       </div>
 
       ${levelRows.length?`<div class="prac-card">
-        <div class="card-lbl">${ic('target',14)} 各等級表現（累計）</div>
-        ${levelRows.map(r=>`<div class="use-item">
-          <span class="use-ico">${levelLabel(r.level)}</span>
-          <div style="flex:1">
-            <div class="use-lbl">練習 ${r.count} 字</div>
-            <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
-              ${r.ga!=null?`<span class="score-badge ${gAccClass(r.ga)}" style="padding:3px 10px;font-size:11px">文法 ${r.ga}%</span>`:''}
-              ${r.ch!=null?`<span class="score-badge ${chingClass(r.ch)}" style="padding:3px 10px;font-size:11px">中式 ${r.ch}%</span>`:''}
-            </div>
-          </div>
-        </div>`).join('')}
+        <div class="card-lbl">各等級表現（累計）</div>
+        <table class="tbl"><thead><tr><th></th><th>練習字數</th><th>文法正確</th><th>中式英文</th></tr></thead><tbody>
+        ${levelRows.map(r=>`<tr><td><b>${levelLabel(r.level)}</b></td><td>${r.count}</td>
+          <td class="${r.ga==null?'':r.ga>=80?'g':r.ga>=60?'m':'b'}">${r.ga!=null?r.ga+'%':'—'}</td>
+          <td class="${r.ch==null?'':r.ch<=10?'g':r.ch<=25?'m':'b'}">${r.ch!=null?r.ch+'%':'—'}</td></tr>`).join('')}
+        </tbody></table>
+        <p class="tbn">文法越高越好，中式英文越低越好。80% 以上與 10% 以下為綠，其間為橘，其餘為紅。</p>
       </div>`:''}
 
       ${chinglishRanking.length?`<div class="prac-card">
-        <div class="card-lbl">🀄 中式英文類型排行</div>
+        <div class="card-lbl">中式英文類型排行</div>
         ${chinglishRanking.map(([type,count])=>`<div class="hist-item" style="cursor:default">
           <div class="hist-zh">${type}</div>
           <div class="hist-ans">已出現 ${count} 次</div>
@@ -3881,29 +4074,126 @@ async function showDashboard(){
   if(SENT_HISTORY.length){ renderDashLevelChips(); renderDashTrend(); updateSummaryRefreshGate(); }
 }
 
+/* ── 造句歷史 ＋ 單字查詢 ──
+   搜尋框輸入就即時比對本機索引（只有近 90 天），同時 debounce 後向伺服器補查更早的紀錄
+   （伺服器保留全部）。比對是「子字串」：ben → bend、benefit、beneficial；開頭相符排前面。
+   結果依單字分組（出現次數、最近一次），點單字才展開那個字的所有紀錄。 */
+let histQ='', histWordSel=null, histServerRows=[], histSearchSeq=0, histSearchTimer=null;
+
+function histCardHTML(h,onclick){
+  return `
+  <div class="hist-item" onclick="${onclick}">
+    <div class="hist-date">${new Date(h.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
+    <div class="prac-word-badge">${escHTML(h.word)}</div>
+    <div class="hist-zh">${h.zh_sentence||''}</div>
+    <div class="hist-ans">${h.userAns}</div>
+    <div class="mt">
+      <b>${(()=>{const lv=h.level?(isBizLevel(h.level)?'商業':h.level):''; return !lv||lv===h.cefr?(h.cefr||lv):`${lv} 題・判定 ${h.cefr}`;})()}</b>
+      ${typeof h.grammar_accuracy==='number'?`<span>文法 <em class="${h.grammar_accuracy>=80?'g':h.grammar_accuracy>=60?'m':'b'}">${h.grammar_accuracy}%</em></span>`:''}
+      <span>中式 <em class="${h.chinglish_percent<=10?'g':h.chinglish_percent<=25?'m':'b'}">${h.chinglish_percent}%</em></span>
+    </div>
+  </div>`;
+}
+
 function showSentHistory(){
   document.getElementById('pracBody').innerHTML=`
   <button class="back-btn" onclick="renderSentHome()">← 返回</button>
   ${SENT_HISTORY.length===0?`<div class="empty"><div class="empty-ico">${ic('history',44)}</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成造句練習後會顯示在這裡</div></div>`
-  :SENT_HISTORY.map((h,i)=>`
-  <div class="hist-item" onclick="showSentHistDetail(${i})">
-    <div class="hist-date">${new Date(h.ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</div>
-    <div class="prac-word-badge" style="margin-bottom:8px">${ic('tag',13)} ${h.word}</div>
-    <div class="hist-zh">${h.zh_sentence}</div>
-    <div class="hist-ans">你：${h.userAns}</div>
-    <div class="hist-badges">
-      ${h.level?`<span class="score-badge cefr-badge">${isBizLevel(h.level)?'💼 商業':'Lv '+h.level}</span>`:''}
-      <span class="score-badge cefr-badge">${h.cefr}</span>
-      ${typeof h.grammar_accuracy==='number'?`<span class="score-badge ${gAccClass(h.grammar_accuracy)}">文法 ${h.grammar_accuracy}%</span>`:''}
-      <span class="score-badge ${chingClass(h.chinglish_percent)}">中式 ${h.chinglish_percent}%</span>
+  :`<div style="position:relative;margin-bottom:12px">
+      <input id="histSearch" class="set-inp" style="width:100%;box-sizing:border-box;padding-right:40px" type="search" inputmode="latin" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="查詢練習過的單字，例如 ben" value="${escHTML(histQ)}" oninput="histSearchInput(this.value)">
     </div>
-  </div>`).join('')}`;
+    <div id="histOut"></div>`}`;
+  if(SENT_HISTORY.length) histRender();
 }
+
+function histNorm(q){ return String(q||'').toLowerCase().replace(/[^a-z' -]/g,'').trim(); }
+
+function histSearchInput(v){
+  histQ=v; histWordSel=null; histServerRows=[];
+  clearTimeout(histSearchTimer);
+  histRender();
+  const q=histNorm(v);
+  if(q.length<2) return;
+  const seq=++histSearchSeq;
+  histSearchTimer=setTimeout(async()=>{
+    const rows=await fetchHistByWord(q);
+    if(seq!==histSearchSeq) return;          // 使用者已經又打了別的字
+    histServerRows=rows; histRender();
+  },300);
+}
+
+// 伺服器端查詢：只取列表要用的欄位，不拉整筆 payload（tip／範例句那些很大）。
+async function fetchHistByWord(q){
+  try{
+    const t=await authToken(); if(!t) return [];
+    const sel='ts_ms,word,level,user_ans,cefr,chinglish_percent,grammar_accuracy,zh_sentence:payload->>zh_sentence';
+    const r=await fetch(`${SB_URL}/rest/v1/sentence_history?select=${encodeURIComponent(sel)}&word=ilike.${encodeURIComponent('*'+q+'*')}&order=ts_ms.desc&limit=300`,
+      {headers:{'apikey':SB_KEY,'Authorization':`Bearer ${t}`}});
+    if(!r.ok){ console.log('fetchHistByWord:',r.status,await r.text()); return []; }
+    return (await r.json()).map(x=>({ts:x.ts_ms,word:x.word,level:x.level,userAns:x.user_ans,cefr:x.cefr,
+      chinglish_percent:x.chinglish_percent,grammar_accuracy:x.grammar_accuracy,zh_sentence:x.zh_sentence||''}));
+  }catch(e){ console.log('fetchHistByWord:',e); return []; }
+}
+
+// 本機索引 ＋ 伺服器補查，以 ts 去重（本機優先）
+function histMatches(q){
+  const seen=new Set(), out=[];
+  for(const h of SENT_HISTORY.concat(histServerRows)){
+    if(seen.has(h.ts)) continue;
+    if(String(h.word||'').toLowerCase().includes(q)){ seen.add(h.ts); out.push(h); }
+  }
+  return out;
+}
+
+function histRender(){
+  const box=document.getElementById('histOut'); if(!box) return;
+  const q=histNorm(histQ);
+  if(!q){
+    box.innerHTML=SENT_HISTORY.map((h,i)=>histCardHTML(h,`showSentHistDetail(${i})`)).join('');
+    return;
+  }
+  const hits=histMatches(q);
+  if(histWordSel!==null){
+    const recs=hits.filter(h=>h.word.toLowerCase()===histWordSel).sort((a,b)=>b.ts-a.ts);
+    box.innerHTML=`<button class="back-btn" onclick="histPickWord(null)">← 回到「${escHTML(q)}」的結果</button>`
+      +recs.map(h=>histCardHTML(h,`showSentHistDetailByTs(${h.ts})`)).join('');
+    return;
+  }
+  const g={};
+  for(const h of hits){
+    const w=h.word.toLowerCase();
+    const e=g[w]||(g[w]={word:h.word,n:0,last:0,level:h.level});
+    e.n++; if(h.ts>e.last){ e.last=h.ts; e.level=h.level; }
+  }
+  const words=Object.values(g).sort((a,b)=>{
+    const ap=a.word.toLowerCase().startsWith(q)?0:1, bp=b.word.toLowerCase().startsWith(q)?0:1;
+    return ap-bp || a.word.localeCompare(b.word);
+  });
+  if(!words.length){
+    box.innerHTML=`<div class="empty"><div class="empty-h">沒有練習過包含「${escHTML(q)}」的單字</div></div>`;
+    return;
+  }
+  box.innerHTML=`<div style="font-size:12px;color:var(--dim2);margin:0 2px 8px">找到 ${words.length} 個單字、${hits.length} 筆紀錄</div>`
+    +words.map(e=>`
+    <div class="hist-item" style="padding:14px 16px" onclick="histPickWord('${e.word.toLowerCase().replace(/'/g,"\\'")}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div class="prac-word-badge" style="margin:0">${ic('tag',13)} ${escHTML(e.word)}</div>
+        <div style="font-size:12px;color:var(--dim2);white-space:nowrap">練過 ${e.n} 次・最近 ${new Date(e.last).toLocaleDateString('zh-TW',{month:'2-digit',day:'2-digit'})}</div>
+      </div>
+    </div>`).join('');
+}
+function histPickWord(w){ histWordSel=w; histRender(); }
+
+// 本機索引或搜尋結果裡的紀錄都能開詳情；詳情本身向伺服器取完整內容。
+function showSentHistDetailByTs(ts){
+  const h=SENT_HISTORY.find(x=>x.ts===ts)||histServerRows.find(x=>x.ts===ts);
+  if(h) showSentHistDetailObj(h);
+}
+function showSentHistDetail(i){ showSentHistDetailObj(SENT_HISTORY[i]); }
 
 // 本機只有索引，詳情（tip／範例句／corrections 的說明文字）要向伺服器取。
 // 抓不到就退回用索引渲染——句子、你的答案、錯誤片段還是看得到，不會開天窗。
-async function showSentHistDetail(i){
-  const h=SENT_HISTORY[i];
+async function showSentHistDetailObj(h){
   const back=`<button class="back-btn" onclick="showSentHistory()">← 返回歷史</button>`;
   const body=document.getElementById('pracBody');
   body.innerHTML=back+`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">載入紀錄中...</div></div>`;
@@ -4183,7 +4473,10 @@ async function blobToWav(blob){
     if(p&&p.then) p.then(res,rej);
   }).catch(e=>{ throw new Error('音訊解碼失敗（'+(e&&e.message||e)+'）'); });
   const mono=await toMono16k(decoded);
-  return {wav:encodeWav16k(mono,SPEAK_SAMPLE_RATE), seconds:mono.length/SPEAK_SAMPLE_RATE};
+  // 音量峰值（0~1）。麥克風被靜音、權限給了但沒有輸入時，整段是 0：這種音訊送去 Azure
+  // 只會得到「全部漏唸、分數 0」，看起來像評分壞掉，其實是根本沒錄到聲音。
+  let peak=0; for(let i=0;i<mono.length;i++){ const a=Math.abs(mono[i]); if(a>peak) peak=a; }
+  return {wav:encodeWav16k(mono,SPEAK_SAMPLE_RATE), seconds:mono.length/SPEAK_SAMPLE_RATE, peak};
 }
 
 // 256 KB 的音訊不能用 String.fromCharCode(...bytes)——展開會超過引數上限直接爆掉，
@@ -4326,8 +4619,10 @@ function speakStep(msg){
 async function onRecordingDone(blob){
   try{
     speakStep('轉檔中…');
-    const {wav,seconds}=await blobToWav(blob);
+    const {wav,seconds,peak}=await blobToWav(blob);
     if(seconds<0.4) throw new Error(`只錄到 ${seconds.toFixed(1)} 秒，太短了`);
+    console.log(`口說錄音：${seconds.toFixed(1)} 秒，音量峰值 ${(peak*100).toFixed(1)}%`);
+    if(peak<0.02) throw new Error(`幾乎沒有錄到聲音（音量峰值 ${(peak*100).toFixed(1)}%）。請確認麥克風沒有靜音、選對輸入裝置，並靠近一點再錄`);
     const wavB64=bytesToBase64(wav);
     if(speakSubTab==='readaloud') await finishReadAloud(wavB64,seconds);
     else await finishTranslate(wavB64,seconds);
@@ -4640,7 +4935,7 @@ function renderRecUI(){
   const rec=recState==='recording';
   z.innerHTML=`
   <button class="prac-submit ${rec?'rec-on':''}" onclick="recToggle()">
-    ${rec?`⏹ 結束錄音　<span id="recTimer">0.0s</span>`:`🎤 開始錄音`}
+    ${rec?`結束錄音　<span id="recTimer">0.0s</span>`:`開始錄音`}
   </button>
   <div style="font-size:11px;color:var(--faint);text-align:center;margin-top:8px">
     ${rec?`說完再按一次結束（最長 ${SPEAK_MAX_SEC} 秒）`:'按下之後直接說，不用等提示音'}
