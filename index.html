@@ -2874,7 +2874,8 @@ ${prevBlock}
            完整修正在整份輸出的 8% 位置就能顯示出來。
            只有第一次嘗試需要逐步顯示；重打那次畫面上已經有東西了，安靜換掉就好。 */
         const onDelta=attempt===0?renderGradingProgress:null;
-        const txt=await callClaude(gradeUserPrompt,attempt===0?GRADE_MAX_TOKENS:GRADE_MAX_TOKENS_RETRY,gradeModel(q0.level),GRADE_SYSTEM,onDelta);
+        const promptNow=attempt===0?gradeUserPrompt:gradeUserPrompt+'\n\n【注意】上一次的回應不是純 JSON。這次第一個字元必須是 {，不要寫任何前言、思考過程或說明，直接輸出規定格式的 JSON。';
+        const txt=await callClaude(promptNow,attempt===0?GRADE_MAX_TOKENS:GRADE_MAX_TOKENS_RETRY,gradeModel(q0.level),GRADE_SYSTEM,onDelta);
         r=parseJSON(txt);
         if(gradeResultIssues(r,ans,q0.word).length===0) break;
       }catch(e){
@@ -5054,7 +5055,17 @@ function saveSpeakHistory({q,transcript,content,pron,seconds}){
 /* ── UTILS ── */
 function parseJSON(txt){
   // 去掉 Claude 有時加的 ```json ... ``` 包裝
-  return JSON.parse(txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim());
+  const clean=txt.replace(/^```(?:json)?\s*/i,'').replace(/\s*```\s*$/i,'').trim();
+  try{ return JSON.parse(clean); }
+  catch(e){
+    /* 2026-10-13：批改回應開頭多了一段「我先檢查目標單字的詞性…」的中文前言，整段被當 JSON 解析而失敗
+       （Unexpected token '我'）。前言之後如果真的有 JSON，就抽出最外層的 { … } 來解析。
+       只在整段解析失敗時才走這條路；找不到完整物件（例如被截斷）仍然丟出原本的錯誤，
+       不會把半截資料當成功。 */
+    const a=clean.indexOf('{'), b=clean.lastIndexOf('}');
+    if(a>=0&&b>a){ try{ return JSON.parse(clean.slice(a,b+1)); }catch(_){} }
+    throw e;
+  }
 }
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2300);}
 const POS_LABELS={noun:'名詞',adjective:'形容詞',verb:'動詞',adverb:'副詞',number:'數詞','ordinal number':'序數詞',pronoun:'代名詞',determiner:'限定詞',preposition:'介系詞',exclamation:'感嘆詞','modal verb':'情態動詞',conjunction:'連接詞','definite article':'定冠詞','indefinite article':'不定冠詞','infinitive marker':'不定詞標記','linking verb':'連綴動詞','phrasal verb':'片語動詞',phrase:'片語',NN:'名詞',NNS:'名詞',JJ:'形容詞',JJR:'形容詞',JJS:'形容詞',VB:'動詞',VBD:'動詞',VBG:'動詞',VBN:'動詞',VBZ:'動詞',VBP:'動詞',RB:'副詞',RBR:'副詞',RBS:'副詞'};
