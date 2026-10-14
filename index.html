@@ -221,6 +221,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-
 .pron-w.score-good{border-color:rgba(217,176,107,.45)}
 .pron-w.score-needs{border-color:rgba(217,115,107,.55);background:rgba(217,115,107,.12)}
 .pron-w.pron-err{font-weight:700}
+.rec-player{display:block;width:100%;height:38px;margin-top:14px}
+.seg-text{font-size:19px;line-height:2.05}
+.art-w{cursor:pointer;border-bottom:2px solid transparent;padding-bottom:1px}
+.art-w.aw-ok{border-color:var(--good)}
+.art-w.aw-mid{border-color:var(--mid)}
+.art-w.aw-bad{border-color:var(--bad);font-weight:700}
+.pace-note{font-size:12px;color:var(--dim);line-height:1.7;margin-top:12px}
+.pace-note ul{margin:4px 0 0;padding-left:18px}
 /* 朗讀文章 */
 .art-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .art-topic{padding:6px 12px;border-radius:999px;border:1px solid var(--border);font-size:12px;color:var(--dim);cursor:pointer;background:var(--card2)}
@@ -797,7 +805,7 @@ function authResetLocalIfNewUser(){
     // c_sent_pushed_ts 一定要一起清：那是「已上傳到 sentence_history 的最大 ts」水位。
     // 沒清的話，新使用者接手這台裝置時會沿用前一個人的水位，自己的紀錄因為 ts 比水位小
     // 而被判定為「已上傳」，於是永遠不會進雲端，而且完全沒有錯誤訊息。
-    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_served_today','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id','c_prefetch_q'].forEach(lsDel);
+    ['c_sent_hist','c_essay_hist','c_reports','c_level_progress','c_daily_level','c_served_today','c_grammar_stats','c_chinglish_stats','c_grammar_learning_log','c_dashboard_summary','c_sent_pushed_ts','c_sent_pulled_id','c_prefetch_q','c_read_hist'].forEach(lsDel);
     SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; servedToday={date:'',byLevel:{}};
   }
   lsSet('c_last_uid',uid);
@@ -886,7 +894,7 @@ async function syncFromCloud(){try{const[eh,lp,dl,gs,cs,rpts,dg,dsum]=await Prom
     /* 合併有可能把雲端的壞資料帶回本機，所以這裡再清一次；清掉了就立刻把乾淨的版本推回雲端，
        否則雲端那筆會在下一次 syncFromCloud() 又被拉回來，永遠清不掉。 */
     if(pruneBogusReports()) sbSet('reports',JSON.stringify(REPORTS)).catch(()=>{});
-    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}await pullSentHistory();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged=mergeLevelProgress(levelProgress,remote);if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
+    }if(gs){const remote=JSON.parse(gs);const merged={...grammarStats};for(const cat in remote){merged[cat]=Math.max(merged[cat]||0,remote[cat]);}if(JSON.stringify(merged)!==JSON.stringify(grammarStats)){grammarStats=merged;lsSet('c_grammar_stats',JSON.stringify(grammarStats));}}await pullSentHistory();await pullReadHist();if(eh){const remote=JSON.parse(eh);const merged=[...ESSAY_HISTORY];for(const rh of remote){if(!merged.find(h=>h.ts===rh.ts&&h.topic===rh.topic))merged.push(rh);}merged.sort((a,b)=>(b.ts||0)-(a.ts||0));if(JSON.stringify(merged)!==JSON.stringify(ESSAY_HISTORY)){ESSAY_HISTORY=merged;lsSet('c_essay_hist',JSON.stringify(ESSAY_HISTORY));}}if(lp){const remote=JSON.parse(lp);const merged=mergeLevelProgress(levelProgress,remote);if(JSON.stringify(merged)!==JSON.stringify(levelProgress)){levelProgress=merged;lsSet('c_level_progress',JSON.stringify(levelProgress));}if(pruneStaleMastered()) sbSet('levelprogress',JSON.stringify(levelProgress)).catch(()=>{});}if(dl){const remote=JSON.parse(dl);let merged=dailyLevelCount;if(remote.date===dailyLevelCount.date){const set=new Set([...(dailyLevelCount.words||[]),...(remote.words||[])]);const byLevel={};const lvls=new Set([...Object.keys(dailyLevelCount.byLevel||{}),...Object.keys(remote.byLevel||{})]);for(const lvl of lvls){byLevel[lvl]=[...new Set([...(dailyLevelCount.byLevel?.[lvl]||[]),...(remote.byLevel?.[lvl]||[])])];}merged={date:dailyLevelCount.date,words:[...set],byLevel};}else if((remote.date||'')>(dailyLevelCount.date||'')){merged={date:remote.date,words:remote.words||[],byLevel:remote.byLevel||{}};}if(JSON.stringify(merged)!==JSON.stringify(dailyLevelCount)){dailyLevelCount=merged;lsSet('c_daily_level',JSON.stringify(dailyLevelCount));}}}catch(e){console.log('sync:',e);}}
 function syncToCloud(){/* senthist 不再整包上傳：改由 pushSentHistory() 一題 append 一列到 sentence_history。
    這一行是每答一題 1 MB 上傳量的來源（實測 senthist blob 1.04 MB）。拿掉之後
    syncToCloud() 剩下的 9 個 key 合計約 85 KB。舊的 user_data.senthist 保留不刪，
@@ -1400,7 +1408,7 @@ function refreshSettingChips(){
 function clearData(){
   if(!confirm('確定清除所有資料？')) return;
   SENT_HISTORY=[]; ESSAY_HISTORY=[]; REPORTS=[]; levelProgress={}; dailyLevelCount={}; servedToday={date:'',byLevel:{}}; grammarStats={}; chinglishStats={}; dashboardSummary=null;
-  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_served_today'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary');  // c_grammar_learning_log 是已移除的文法學習頁留下的，繼續清掉避免換帳號後殘留
+  lsDel('c_sent_hist'); lsDel('c_essay_hist'); lsDel('c_reports'); lsDel('c_level_progress'); lsDel('c_daily_level'); lsDel('c_served_today'); lsDel('c_sent_daily'); lsDel('c_grammar_stats'); lsDel('c_chinglish_stats'); lsDel('c_grammar_learning_log'); lsDel('c_dashboard_summary'); lsDel('c_read_hist'); READ_HISTORY=[];  // c_grammar_learning_log 是已移除的文法學習頁留下的，繼續清掉避免換帳號後殘留
   toast('✓ 已清除');
   syncToCloud();
 }
@@ -4519,6 +4527,15 @@ let curSpeakQ=null;                 // 翻譯模式的題目（形狀跟 curSent
 let curReadTarget=null;             // 朗讀模式：{text,label}
 let recState='idle';                // idle | recording | processing
 let mediaRec=null, recChunks=[], recStream=null, recTick=null, recStartTs=0;
+let lastRecURL=null;                // 最近一次錄音的 blob URL，只留在記憶體，不上傳、不存檔
+let recBtnLabel='開始錄音';
+function setLastRec(blob){
+  if(lastRecURL) URL.revokeObjectURL(lastRecURL);
+  lastRecURL=URL.createObjectURL(blob);
+}
+function recPlayerHTML(){
+  return lastRecURL?`<div style="font-size:11px;color:var(--faint);margin-top:14px">我的錄音</div><audio class="rec-player" controls preload="metadata" src="${lastRecURL}" style="margin-top:4px"></audio>`:'';
+}
 
 /* ── Azure 語音（透過同一支 Edge Function 代理，Key 不在前端）── */
 async function azureSpeech({wavB64, referenceText=null, enableMiscue=false}){
@@ -4560,6 +4577,7 @@ function extractPron(d){
     completeness:b.CompletenessScore, pron:b.PronScore,
     words:(b.Words||[]).map(w=>({
       word:w.Word, acc:w.AccuracyScore, err:w.ErrorType||'None',
+      off:w.Offset, dur:w.Duration,   // 100ns 為單位；節奏分析用，沒帶就略過
       phonemes:(w.Phonemes||[]).map(p=>({p:p.Phoneme,acc:p.AccuracyScore}))
     }))
   };
@@ -4619,6 +4637,7 @@ function speakStep(msg){
 
 async function onRecordingDone(blob){
   try{
+    setLastRec(blob);
     speakStep('轉檔中…');
     const {wav,seconds,peak}=await blobToWav(blob);
     if(seconds<0.4) throw new Error(`只錄到 ${seconds.toFixed(1)} 秒，太短了`);
@@ -4714,16 +4733,17 @@ async function renderSpeakHome(){
       <div class="empty-h">看中文，直接用英文說</div>
       <div class="empty-p">沒有時間回頭修改，練的是即時把中文轉成正確英文<br>今天已完成 ${todayN} 句</div>
       <button class="prac-submit" style="margin-top:24px;max-width:280px" onclick="startSpeak()">開始練習 →</button>
+      <button class="next-btn" style="margin-top:8px;max-width:280px" onclick="showSpeakHistory('translate')">歷史紀錄</button>
     </div>`;
   }else{
-    body.innerHTML=seg+readAloudHomeHTML();
+    body.innerHTML=seg+readAloudHomeHTML()+`<button class="next-btn" style="margin-top:4px" onclick="showSpeakHistory('read')">歷史紀錄（${READ_HISTORY.length} 篇）</button>`;
   }
 }
 
 /* 朗讀文章（2026-10-01）。原本朗讀的句子來源是「自己練過的句子」，改成 Claude 依等級寫的
    實用短文，從 B1 起跳——朗讀要練的是長一點的連續語流，自己練過的單句太短、內容也重複。
-   Azure 短音訊發音評分有 30 秒上限，所以文章切成「段」來唸：依句子邊界組合，每段不超過
-   ART_SEG_WORDS 個字（以 B1 學習者約 100 wpm 估，35 字約 21 秒，還在 SPEAK_MAX_SEC 以內）。
+   Azure 短音訊發音評分有 30 秒上限，所以文章切成「段」來唸：依句子邊界平均切開，每段約
+   ART_SEG_WORDS 個字、最多 ART_SEG_MAX（以 B1 學習者約 100 wpm 估，35 字約 21 秒，還在 SPEAK_MAX_SEC 以內）。
    參考文字是已知的原文，分數跟原本的朗讀模式一樣完全可信。
    不寫進 SENT_HISTORY／練習量：理由跟原本的朗讀一樣，練習量的口徑是相異單字。 */
 const ART_LEVELS=['B1','B2','C1','C2'];
@@ -4737,23 +4757,90 @@ let ARTICLE=(()=>{ try{ return JSON.parse(lsGet('c_read_article','null')); }catc
 // 最近讀過的標題，丟給 Claude 避免一直寫同一個題目
 let ART_RECENT=(()=>{ try{ return JSON.parse(lsGet('c_art_recent','[]'))||[]; }catch(e){ return []; } })();
 function saveArticle(){ lsSet('c_read_article',JSON.stringify(ARTICLE)); }
+/* 朗讀文章歷史：每篇文章第一次有段落被評分時開始記，之後每評一段更新同一筆。
+   只留最近 READ_HIST_MAX 篇——整篇文章（含中文翻譯）一篇約 5 KB，不設上限會一直長。
+   不放進 syncToCloud()：那支每答一題就會呼叫一次，會讓每題都多上傳這一包；
+   這裡自己用 3 秒去抖推上去，推之前先拉一次合併，避免兩台裝置互相蓋掉對方的文章。 */
+const READ_HIST_MAX=30;
+let READ_HISTORY=(()=>{ try{ const v=JSON.parse(lsGet('c_read_hist','[]')); return Array.isArray(v)?v:[]; }catch(e){ return []; } })();
+let readHistPushTimer=null;
+function readScoredCount(h){ return Object.keys(h.scores||{}).length; }
+function upsertReadHist(){
+  const a=ARTICLE; if(!a||!readScoredCount(a)) return;
+  const e={id:a.ts,upd:Date.now(),level:a.level,topic:a.topic,title:a.title,title_zh:a.title_zh,paras:a.paras,segs:a.segs,scores:a.scores};
+  const i=READ_HISTORY.findIndex(x=>x.id===a.ts);
+  if(i>=0) READ_HISTORY[i]=e; else READ_HISTORY.unshift(e);
+  READ_HISTORY.sort((x,y)=>(y.upd||0)-(x.upd||0));
+  READ_HISTORY=READ_HISTORY.slice(0,READ_HIST_MAX);
+  lsSet('c_read_hist',JSON.stringify(READ_HISTORY));
+  clearTimeout(readHistPushTimer);
+  readHistPushTimer=setTimeout(async()=>{ await pullReadHist(); sbSet('readhist',JSON.stringify(READ_HISTORY)).catch(()=>{}); },3000);
+}
+// 合併雲端：同一篇取「已唸段數較多」的，一樣多取較新的；本機沒有的整篇帶進來
+async function pullReadHist(){
+  try{
+    const raw=await sbGet('readhist'); if(!raw) return;
+    const remote=JSON.parse(raw); if(!Array.isArray(remote)) return;
+    const byId=new Map(READ_HISTORY.map(x=>[x.id,x])); let changed=false;
+    for(const r of remote){
+      if(!r||r.id==null||!Array.isArray(r.segs)) continue;
+      const l=byId.get(r.id), rn=readScoredCount(r), ln=l?readScoredCount(l):-1;
+      if(!l||rn>ln||(rn===ln&&(r.upd||0)>(l.upd||0))){ byId.set(r.id,r); changed=true; }
+    }
+    if(!changed) return;
+    READ_HISTORY=[...byId.values()].sort((x,y)=>(y.upd||0)-(x.upd||0)).slice(0,READ_HIST_MAX);
+    lsSet('c_read_hist',JSON.stringify(READ_HISTORY));
+  }catch(e){ console.log('pullReadHist:',e); }
+}
+function readHistAvg(h,k='pron'){
+  let t=0,n=0;
+  (h.segs||[]).forEach((sg,i)=>{ const v=h.scores?.[i]?.[k]; if(v!=null){ const c=wc(sg.text); t+=v*c; n+=c; } });
+  return n?t/n:null;
+}
 
 function wc(t){ return (t.match(/\S+/g)||[]).length; }
-// 依句子邊界切段；單一句就超過上限時自己成一段（prompt 已經要求句子不超過 30 字）
+// 依句子邊界切段，並且「平均」切：先算這個段落需要幾段（總字數 ÷ ART_SEG_WORDS 進位），
+// 再找讓各段字數最接近平均的切法，每段不超過 ART_SEG_MAX。
+// 原本是貪婪湊段（塞到快滿就換下一段），剩下的零頭自成一段——70 字會切成 66 / 4，
+// 讀起來只有半句話。單一句就超過上限時自己成一段（prompt 已經要求句子不超過 30 字）。
+const ART_SEG_MAX=40, ART_SEG_MIN=12;
+function balancedCuts(ws,k){
+  // ws：每句字數。回傳 k 段的切點（句子 index 的起點），找不到可行解回傳 null。
+  const m=ws.length, pre=[0]; ws.forEach(w=>pre.push(pre[pre.length-1]+w));
+  const target=pre[m]/k, INF=1e18;
+  const cost=Array.from({length:k+1},()=>Array(m+1).fill(INF)), from=Array.from({length:k+1},()=>Array(m+1).fill(-1));
+  cost[0][0]=0;
+  for(let j=1;j<=k;j++) for(let i=j;i<=m;i++) for(let h=j-1;h<i;h++){
+    if(cost[j-1][h]>=INF) continue;
+    const w=pre[i]-pre[h];
+    if(w>ART_SEG_MAX && i-h>1) continue;     // 超過上限且還能再拆 → 不允許
+    const c=cost[j-1][h]+(w-target)*(w-target);
+    if(c<cost[j][i]){ cost[j][i]=c; from[j][i]=h; }
+  }
+  if(cost[k][m]>=INF) return null;
+  const cuts=[]; let i=m;
+  for(let j=k;j>=1;j--){ const h=from[j][i]; cuts.unshift(h); i=h; }
+  return cuts;
+}
 function splitSegments(paras){
   const segs=[];
   paras.forEach((p,pi)=>{
     const sents=(p.en.match(/[^.!?]+[.!?]+["')\]]*\s*|[^.!?]+$/g)||[p.en]).map(x=>x.trim()).filter(Boolean);
-    let buf='';
-    for(const st of sents){
-      if(buf&&wc(buf)+wc(st)>ART_SEG_WORDS){ segs.push({p:pi,text:buf}); buf=st; }
-      else buf=buf?buf+' '+st:st;
-    }
-    if(buf) segs.push({p:pi,text:buf});
+    if(!sents.length) return;
+    const ws=sents.map(wc), total=ws.reduce((a,b)=>a+b,0);
+    const segW=c=>c.map((f,i)=>ws.slice(f,i+1<c.length?c[i+1]:ws.length).reduce((a,b)=>a+b,0));
+    let cuts=null;
+    for(let k=Math.max(1,Math.ceil(total/ART_SEG_WORDS));k<=sents.length&&!cuts;k++) cuts=balancedCuts(ws,k);
+    // 句子切不開時（例如 30 字 + 6 字）平均也救不了零頭；少切一段（只要沒超過 ART_SEG_MAX）比留一個小段好
+    if(cuts&&cuts.length>1&&Math.min(...segW(cuts))<ART_SEG_MIN){ const c1=balancedCuts(ws,cuts.length-1); if(c1) cuts=c1; }
+    if(!cuts) cuts=sents.map((_,i)=>i);      // 保底：一句一段
+    cuts.forEach((from,ci)=>{
+      const to=ci+1<cuts.length?cuts[ci+1]:sents.length;
+      segs.push({p:pi,text:sents.slice(from,to).join(' ')});
+    });
   });
   return segs;
 }
-
 function readAloudHomeHTML(){
   const a=ARTICLE;
   const done=a?Object.keys(a.scores||{}).length:0;
@@ -4819,56 +4906,72 @@ ${ART_RECENT.length?`- 避開這些最近讀過的題目：${ART_RECENT.slice(0,
 function saveArticleScore(i,pron){
   ARTICLE.scores[i]={pron:pron.pron,accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,completeness:pron.completeness};
   saveArticle();
+  upsertReadHist();
 }
 function artGo(i){
   if(recState!=='idle'){ toast('請先結束目前的錄音'); return; }
   if(!ARTICLE||i<0||i>=ARTICLE.segs.length) return;
-  ARTICLE.cur=i; saveArticle(); renderArticle();
+  ARTICLE.cur=i; saveArticle(); lastArtPron=null; renderArticle();
 }
-function artToggleZh(){ artShowZh=!artShowZh; renderArticle(); }
+// 切換中文翻譯不該丟掉剛出來的評分、也不該跳回頁首
+let lastArtPron=null;
+function artToggleZh(){
+  artShowZh=!artShowZh;
+  const sb=document.getElementById('speakBody'), top=sb?sb.scrollTop:0;
+  renderArticle(lastArtPron&&lastArtPron.seg===ARTICLE?.cur?lastArtPron.pron:null,true);
+  if(sb) sb.scrollTop=top;
+}
 function avg(xs){ xs=xs.filter(v=>v!=null); return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:null; }
 
-// pron 有帶 = 剛唸完這段，把評分卡顯示在文章下面
-function renderArticle(pron=null){
+// pron 有帶 = 剛唸完這段。版面順序：這一段的原文（評分直接標在字上）→ 錄音鈕 → 下一段 → 評分卡 → 整篇文章（導覽用）。
+// 錄音鈕、下一段、評分都在同一個畫面裡，唸完不用捲動找按鈕。
+function renderArticle(pron=null,keepScroll=false){
   const a=ARTICLE; if(!a) return renderSpeakHome();
   const i=a.cur, seg=a.segs[i];
   curReadTarget={text:seg.text,label:a.title,artSeg:i};
+  recBtnLabel=pron?'再唸一次':'開始錄音';
+  lastArtPron=pron?{seg:i,pron}:null;
   const sc=Object.values(a.scores);
   const allDone=sc.length===a.segs.length;
+  // 整篇平均依各段字數加權：35 字的段落跟 15 字的段落不該一樣重
+  const wavg=k=>{ let t=0,n=0; a.segs.forEach((sg,si)=>{ const v=a.scores[si]?.[k]; if(v!=null){ const c=wc(sg.text); t+=v*c; n+=c; } }); return n?t/n:null; };
   const parasHTML=a.paras.map((p,pi)=>`<div class="art-para">${
     a.segs.map((s,si)=>s.p!==pi?'':`<span class="art-seg ${si===i?'cur':''} ${a.scores[si]?'done '+pronClass(a.scores[si].pron):''}" onclick="artGo(${si})">${escHTML(s.text)}</span> `).join('')
   }${artShowZh&&p.zh?`<div class="art-zh">${escHTML(p.zh)}</div>`:''}</div>`).join('');
   const isLast=i===a.segs.length-1;
   document.getElementById('speakBody').innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
+  ${allDone?`<div class="prac-card">
+    <div class="card-lbl">${ic('mic',14)} 整篇平均（依字數加權）</div>
+    <div class="pron-grid">
+      <div class="stat-tile"><div class="stat-label">準確度</div><div class="stat-value ${pronClass(wavg('accuracy'))}">${pronNum(wavg('accuracy'))}</div></div>
+      <div class="stat-tile"><div class="stat-label">流暢度</div><div class="stat-value ${pronClass(wavg('fluency'))}">${pronNum(wavg('fluency'))}</div></div>
+      <div class="stat-tile"><div class="stat-label">語調</div><div class="stat-value ${pronClass(wavg('prosody'))}">${pronNum(wavg('prosody'))}</div></div>
+    </div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:12px">綜合發音分數 <b class="${pronClass(wavg('pron'))}">${pronNum(wavg('pron'))}</b></div>
+    <button class="prac-submit" onclick="renderSpeakHome()">換一篇新文章</button>
+  </div>`:''}
   <div class="prac-card">
-    <div class="card-lbl">${ic('mic',14)} ${a.level} · ${escHTML(a.topic)} · 已唸 ${sc.length} / ${a.segs.length} 段</div>
+    <div class="card-lbl">${ic('mic',14)} 第 ${i+1} / ${a.segs.length} 段 · 已唸 ${sc.length} 段</div>
+    <div class="prac-zh seg-text">${pron?segWordsHTML(seg.text,pron.words||[]):escHTML(seg.text)}</div>
+    ${pron?`<div style="font-size:11px;color:var(--faint);margin-top:6px">底線：綠 80 以上、黃 60–79、紅 60 以下；點單字看逐音素分數</div>`:''}
+    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
+  </div>
+  <div id="recZone"></div>
+  ${pron&&!isLast?`<button class="prac-submit" style="margin-top:8px" onclick="artGo(${i+1})">下一段 →</button>`:''}
+  ${pron?`<div class="sent-def" style="margin-top:12px;margin-bottom:8px">辨識到：${escHTML(pron.text)}</div>${pronCardHTML(pron,{miscue:true,noWords:true,player:true,refText:seg.text})}`:''}
+  <div class="prac-card" style="margin-top:12px">
+    <div class="card-lbl">${ic('mic',14)} ${a.level} · ${escHTML(a.topic)}</div>
     <div class="art-title">${escHTML(a.title)}</div>
     ${a.title_zh?`<div class="art-title-zh">${escHTML(a.title_zh)}</div>`:''}
     ${parasHTML}
     <button class="next-btn" style="margin-top:14px" onclick="artToggleZh()">${artShowZh?'隱藏中文翻譯':'顯示中文翻譯'}</button>
-  </div>
-  ${allDone?`<div class="prac-card">
-    <div class="card-lbl">${ic('mic',14)} 整篇平均</div>
-    <div class="pron-grid">
-      <div class="stat-tile"><div class="stat-label">綜合</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.pron)))}">${pronNum(avg(sc.map(x=>x.pron)))}</div></div>
-      <div class="stat-tile"><div class="stat-label">流暢度</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.fluency)))}">${pronNum(avg(sc.map(x=>x.fluency)))}</div></div>
-      <div class="stat-tile"><div class="stat-label">語調</div><div class="stat-value ${pronClass(avg(sc.map(x=>x.prosody)))}">${pronNum(avg(sc.map(x=>x.prosody)))}</div></div>
-    </div>
-    <button class="prac-submit" onclick="renderSpeakHome()">換一篇新文章</button>
-  </div>`:''}
-  <div class="prac-card">
-    <div class="card-lbl">${ic('mic',14)} 第 ${i+1} 段</div>
-    <div class="prac-zh" style="font-size:17px">${escHTML(seg.text)}</div>
-    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
-  </div>
-  ${pron?`<div class="sent-def" style="margin-bottom:8px">辨識到：${escHTML(pron.text)}</div>${pronCardHTML(pron,{miscue:true})}`:''}
-  <div id="recZone"></div>
-  ${pron&&!isLast?`<button class="prac-submit" style="margin-top:8px" onclick="artGo(${i+1})">下一段 →</button>`:''}`;
+  </div>`;
   __pronWords=pron?(pron.words||[]):[];
   renderRecUI();
+  if(!keepScroll){ const sb=document.getElementById('speakBody'); if(sb) sb.scrollTop=0; }
 }
-
 function startReadAloud(i){
+  recBtnLabel='開始錄音';
   curReadTarget=(window.__readOpts||[])[i];
   if(!curReadTarget) return;
   document.getElementById('speakBody').innerHTML=`
@@ -4910,6 +5013,7 @@ async function startSpeak(){
 
 function renderSpeakQ(){
   if(!curSpeakQ) return;
+  recBtnLabel='開始錄音';
   document.getElementById('speakBody').innerHTML=`
   <button class="back-btn" onclick="renderSpeakHome()">← 返回</button>
   <div class="prac-card">
@@ -4936,7 +5040,7 @@ function renderRecUI(){
   const rec=recState==='recording';
   z.innerHTML=`
   <button class="prac-submit ${rec?'rec-on':''}" onclick="recToggle()">
-    ${rec?`結束錄音　<span id="recTimer">0.0s</span>`:`開始錄音`}
+    ${rec?`結束錄音　<span id="recTimer">0.0s</span>`:recBtnLabel}
   </button>
   <div style="font-size:11px;color:var(--faint);text-align:center;margin-top:8px">
     ${rec?`說完再按一次結束（最長 ${SPEAK_MAX_SEC} 秒）`:'按下之後直接說，不用等提示音'}
@@ -4944,10 +5048,68 @@ function renderRecUI(){
 }
 
 /* ── 結果 ── */
+/* ── 節奏（流暢度的白話說明）──────────────────────────────────────────
+   Azure 的流暢度只有一個整段分數，看不出卡在哪。這裡用它回傳的逐字時間（Offset／Duration）
+   自己算「哪兩個字之間停了多久」跟語速。門檻是估的、不是微軟規定的：
+   句子中間 ≥0.6 秒、逗號後 ≥1.0 秒、句尾 ≥1.5 秒才提。回傳沒帶時間就整段略過，
+   寧可不說也不要說錯。語調（prosody）沒有位置資訊，只能誠實說「整體評估」。 */
+const PRON_TICK=1e7;
+function normW(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9']/g,''); }
+// Azure 的 Word 不帶標點；對回參考文字取每個字後面的標點
+function wordPuncts(words,refText){
+  const toks=String(refText||'').split(/\s+/).filter(Boolean); let j=0;
+  return words.map(w=>{
+    const n=normW(w.word);
+    for(let k=j;k<Math.min(toks.length,j+4);k++){
+      if(normW(toks[k])===n){ j=k+1; return (toks[k].match(/[.!?,;:]+["')\]]*$/)||[''])[0]; }
+    }
+    return '';
+  });
+}
+function paceInfo(pron,refText){
+  const w=(pron.words||[]).filter(x=>x.off!=null&&x.dur!=null&&x.err!=='Omission');
+  if(w.length<4) return null;
+  const pu=wordPuncts(w,refText), pauses=[];
+  for(let i=0;i<w.length-1;i++){
+    const gap=(w[i+1].off-(w[i].off+w[i].dur))/PRON_TICK;
+    const end=/[.!?]/.test(pu[i]), comma=/[,;:]/.test(pu[i]);
+    if(gap>=(end?1.5:comma?1.0:0.6)) pauses.push({after:w[i].word,before:w[i+1].word,gap,kind:end?'end':comma?'comma':'mid'});
+  }
+  const span=(w[w.length-1].off+w[w.length-1].dur-w[0].off)/PRON_TICK;
+  return {pauses, wpm:span>0?Math.round(w.length/span*60):null};
+}
+function paceHTML(pron,refText){
+  const info=paceInfo(pron,refText), items=[];
+  if(info) [...info.pauses].sort((a,b)=>b.gap-a.gap).slice(0,3).forEach(p=>items.push(p.kind==='mid'
+    ?`「${escHTML(p.after)}」和「${escHTML(p.before)}」之間停了 ${p.gap.toFixed(1)} 秒，句子還沒結束`
+    :`「${escHTML(p.after)}」後面停了 ${p.gap.toFixed(1)} 秒，比一般停頓久`));
+  const hasBreakErr=(pron.words||[]).some(x=>x.err==='UnexpectedBreak');
+  if(pron.fluency!=null&&pron.fluency<80&&!items.length&&!hasBreakErr)
+    items.push('流暢度偏低，但沒有偵測到特別長的停頓，可能是整體唸得太慢或節奏不均');
+  if(pron.prosody!=null&&pron.prosody<70)
+    items.push('語調是整體評估，沒辦法指出是哪個字；先聽一次示範，模仿句子的高低起伏');
+  const wpm=info?.wpm, off=wpm&&(wpm<90||wpm>190);
+  if(!items.length&&!off) return '';
+  return `<div class="pace-note"><b>節奏</b>${wpm?`　語速約 ${wpm} 字/分${off?'（一般自然朗讀約 120–160）':''}`:''}${items.length?`<ul>${items.map(t=>`<li>${t}</li>`).join('')}</ul>`:''}</div>`;
+}
+// 文章模式：把評分直接標在原文上（點字看逐音素），不另外列一排字
+function segWordsHTML(text,words){
+  let p=0;
+  return text.split(/(\s+)/).map(tok=>{
+    if(!tok.trim()) return tok;
+    const n=normW(tok); let hit=-1;
+    if(n) for(let k=p;k<Math.min(words.length,p+4);k++){ if(normW(words[k].word)===n){ hit=k; break; } }
+    if(hit<0) return escHTML(tok);
+    p=hit+1;
+    const x=words[hit], a=x.acc;
+    const cls=x.err==='Omission'||(a!=null&&a<60)?'aw-bad':a!=null&&a<80?'aw-mid':a!=null?'aw-ok':'';
+    return `<span class="art-w ${cls}" onclick="togglePhonemes(${hit})">${escHTML(tok)}</span>`;
+  }).join('');
+}
 function pronCardHTML(pron,opts={}){
   const w=pron.words||[];
   const bad=w.filter(x=>x.err&&x.err!=='None');
-  return `<div class="prac-card">
+  return `<div class="prac-card" id="pronCard">
     <div class="card-lbl">${ic('mic',14)} 發音評分</div>
     <div class="pron-grid">
       <div class="stat-tile"><div class="stat-label">準確度</div><div class="stat-value ${pronClass(pron.accuracy)}">${pronNum(pron.accuracy)}</div></div>
@@ -4956,13 +5118,15 @@ function pronCardHTML(pron,opts={}){
     </div>
     ${pron.pron!=null?`<div style="font-size:12px;color:var(--dim);margin-bottom:12px">綜合發音分數 <b class="${pronClass(pron.pron)}">${pronNum(pron.pron)}</b>${
       opts.miscue&&pron.completeness!=null?` · 完整度 <b class="${pronClass(pron.completeness)}">${pronNum(pron.completeness)}</b>`:''}</div>`:''}
-    ${w.length?`<div class="pron-words">${w.map((x,i)=>
+    ${w.length&&!opts.noWords?`<div class="pron-words">${w.map((x,i)=>
       `<span class="pron-w ${pronClass(x.acc)} ${x.err&&x.err!=='None'?'pron-err':''}" onclick="togglePhonemes(${i})">${escHTML(x.word)}<sub>${pronNum(x.acc)}</sub></span>`
-    ).join('')}</div>
-    <div id="phonemeBox" style="display:none"></div>`:''}
+    ).join('')}</div>`:''}
+    ${w.length?`<div id="phonemeBox" style="display:none"></div>`:''}
     ${bad.length?`<div style="font-size:12px;color:var(--dim);margin-top:12px;line-height:1.7">
       ${bad.map(x=>`「${escHTML(x.word)}」${({Mispronunciation:'唸得不夠準',Omission:'漏唸了',Insertion:'多唸了',UnexpectedBreak:'這裡不該停頓',MissingBreak:'這裡應該要停頓',Monotone:'語調太平'})[x.err]||x.err}`).join('　')}
     </div>`:''}
+    ${opts.refText!=null?paceHTML(pron,opts.refText):''}
+    ${opts.player?recPlayerHTML():''}
     ${opts.note?`<div style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.65">${opts.note}</div>`:''}
   </div>`;
 }
@@ -4971,7 +5135,7 @@ let __pronWords=[];
 function togglePhonemes(i){
   const box=document.getElementById('phonemeBox'); if(!box) return;
   const w=__pronWords[i]; if(!w||!w.phonemes.length){ box.style.display='none'; return; }
-  box.style.display=''; 
+  box.style.display=''; box.scrollIntoView({block:'nearest',behavior:'smooth'});
   box.innerHTML=`<div style="margin-top:10px;padding:10px;background:var(--inset);border-radius:10px">
     <div style="font-size:11px;color:var(--dim);margin-bottom:6px">「${escHTML(w.word)}」逐音素</div>
     <div class="pron-words">${w.phonemes.map(p=>
@@ -4989,7 +5153,7 @@ function renderSpeakResult(res){
       <div class="prac-zh" style="font-size:17px">${escHTML(res.target.text)}</div>
       <div class="sent-def">辨識到：${escHTML(res.pron.text)}</div>
     </div>
-    ${pronCardHTML(res.pron,{miscue:true})}
+    ${pronCardHTML(res.pron,{miscue:true,player:true,refText:res.target.text})}
     <button class="prac-submit" onclick="startReadAloudAgain()">再唸一次</button>
     <button class="next-btn" style="margin-top:8px" onclick="renderSpeakHome()">換一句</button>`;
     return;
@@ -5001,12 +5165,78 @@ function renderSpeakResult(res){
     <div class="sent-ans" style="margin-top:10px;font-size:17px">${escHTML(res.pron.text)}</div>
     <div style="font-size:11px;color:var(--faint);margin-top:8px">${res.seconds.toFixed(1)} 秒</div>
   </div>
-  ${pronCardHTML(res.pron,{note:'⚠️ 翻譯模式的參考文字是「你被聽成什麼」，所以唸錯到變成另一個字的情況這裡看不出來。想要完全可信的發音分數，用下面的按鈕改唸正確版本。'})}
+  ${pronCardHTML(res.pron,{player:true,refText:res.pron.text,note:'⚠️ 翻譯模式的參考文字是「你被聽成什麼」，所以唸錯到變成另一個字的情況這裡看不出來。想要完全可信的發音分數，用下面的按鈕改唸正確版本。'})}
   ${sentResultHTML(res.q.word,res.q.zh_sentence,res.pron.text,res.q.definition,res.q.translation,res.q.level,res.content,{spoken:true,target:res.q.target})}
   ${res.content.corrected_sentence?`<button class="prac-submit" style="margin-top:10px" onclick="readAloudFrom(${JSON.stringify(res.content.corrected_sentence).replace(/"/g,'&quot;')})">${ic('mic',14)} 唸唸看正確版本</button>`:''}
   <button class="next-btn" style="margin-top:8px" onclick="startSpeak()">下一題 →</button>`;
 }
 
+/* ── 口說歷史 ── */
+let speakHistTab='read';
+function fmtDT(ts){ return new Date(ts).toLocaleString('zh-TW',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+function showSpeakHistory(tab){
+  if(recState!=='idle'){ toast('請先結束目前的錄音'); return; }
+  if(tab) speakHistTab=tab;
+  const seg=`<div class="seg">
+    <button class="seg-item ${speakHistTab==='read'?'on':''}" onclick="showSpeakHistory('read')">朗讀文章</button>
+    <button class="seg-item ${speakHistTab==='translate'?'on':''}" onclick="showSpeakHistory('translate')">中翻英口說</button>
+  </div>`;
+  let list;
+  if(speakHistTab==='read'){
+    list=READ_HISTORY.length===0
+      ?`<div class="empty"><div class="empty-ico">${ic('history',44)}</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">朗讀文章唸完一段之後會顯示在這裡</div></div>`
+      :READ_HISTORY.map(h=>{
+        const avg=readHistAvg(h), n=readScoredCount(h);
+        return `<div class="hist-item" onclick="openReadHist(${h.id})">
+          <div class="hist-date">${fmtDT(h.upd||h.id)}</div>
+          <div class="hist-zh">${escHTML(h.title)}</div>
+          <div class="hist-ans">${h.level} · ${escHTML(h.topic)} · 已唸 ${n} / ${h.segs.length} 段</div>
+          <div class="hist-badges">${avg!=null?`<span class="score-badge ${pronClass(avg)}">綜合 ${Math.round(avg)}</span>`:''}${n<h.segs.length?`<span class="score-badge">未唸完</span>`:''}</div>
+        </div>`;
+      }).join('')+`<div style="font-size:11px;color:var(--faint);text-align:center;margin-top:10px">只保留最近 ${READ_HIST_MAX} 篇</div>`;
+  }else{
+    const rows=SENT_HISTORY.filter(h=>histMode(h)==='spoken');
+    list=rows.length===0
+      ?`<div class="empty"><div class="empty-ico">${ic('history',44)}</div><div class="empty-h">還沒有紀錄</div><div class="empty-p">完成中翻英口說之後會顯示在這裡</div></div>`
+      :rows.slice(0,100).map(h=>`<div class="hist-item" onclick="showSpokenDetail(${h.ts})">
+          <div class="hist-date">${fmtDT(h.ts)} · ${h.level||''}</div>
+          <div class="hist-zh">${escHTML(h.zh_sentence||'')}</div>
+          <div class="hist-ans">${escHTML(h.userAns||'')}</div>
+          <div class="hist-badges">${h.pron&&h.pron.pron!=null?`<span class="score-badge ${pronClass(h.pron.pron)}">發音 ${pronNum(h.pron.pron)}</span>`:''}${h.grammar_accuracy!=null?`<span class="score-badge">文法 ${h.grammar_accuracy}</span>`:''}</div>
+        </div>`).join('')+(rows.length>100?`<div style="font-size:11px;color:var(--faint);text-align:center;margin-top:10px">只顯示最近 100 筆</div>`:'');
+  }
+  document.getElementById('speakBody').innerHTML=`<button class="back-btn" onclick="renderSpeakHome()">← 返回</button>${seg}${list}`;
+}
+function openReadHist(id){
+  const h=READ_HISTORY.find(x=>x.id===id); if(!h) return;
+  const first=h.segs.findIndex((_,i)=>!h.scores?.[i]);
+  ARTICLE={level:h.level,topic:h.topic,title:h.title,title_zh:h.title_zh,paras:h.paras,segs:h.segs,
+           scores:JSON.parse(JSON.stringify(h.scores||{})),cur:first<0?0:first,ts:h.id};
+  saveArticle(); lastArtPron=null; renderArticle();
+}
+// 翻譯口說的紀錄存在 SENT_HISTORY（跟造句同一張表），詳情要向伺服器取；這裡只負責口說這邊的版面和返回鍵
+async function showSpokenDetail(ts){
+  const h=SENT_HISTORY.find(x=>x.ts===ts); if(!h) return;
+  const back=`<button class="back-btn" onclick="showSpeakHistory('translate')">← 返回歷史</button>`;
+  const body=document.getElementById('speakBody');
+  body.innerHTML=back+`<div class="loader" style="display:block"><div class="spin"></div><div class="loader-t">載入紀錄中...</div></div>`;
+  let full=await fetchSentDetail(ts);
+  if(!full){
+    toast('載入完整內容失敗，顯示簡化版');
+    full={...h,
+      corrections:(h.corrections||[]).map(c=>({...c,fix:'',why:'（無法載入完整說明）'})),
+      chinglish_issues:(h.chinglish_issues||[]).map(c=>({...c,natural:'',explanation:''}))};
+  }
+  const pr=full.pron||h.pron;
+  body.innerHTML=back+`<div class="prac-card">
+    <div class="card-lbl">${ic('translate',14)} 你說的</div>
+    <div class="prac-zh" style="font-size:15px;color:var(--dim)">${escHTML(full.zh_sentence||'')}</div>
+    <div class="sent-ans" style="margin-top:10px;font-size:17px">${escHTML(full.userAns||'')}</div>
+    ${full.speakSeconds!=null?`<div style="font-size:11px;color:var(--faint);margin-top:8px">${full.speakSeconds} 秒</div>`:''}
+  </div>
+  ${pr?pronCardHTML(pr,{note:'歷史紀錄只留四個分數，沒有逐字明細。'}):''}
+  ${sentResultHTML(full.word,full.zh_sentence,full.userAns,full.definition,full.translation,full.level,full,{spoken:true,target:full.target})}`;
+}
 function startReadAloudAgain(){
   const t=curReadTarget; if(!t) return;
   window.__readOpts=[t]; startReadAloud(0);
