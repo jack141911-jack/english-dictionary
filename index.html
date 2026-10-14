@@ -4527,6 +4527,20 @@ let curSpeakQ=null;                 // 翻譯模式的題目（形狀跟 curSent
 let curReadTarget=null;             // 朗讀模式：{text,label}
 let recState='idle';                // idle | recording | processing
 let mediaRec=null, recChunks=[], recStream=null, recTick=null, recStartTs=0;
+/* 目標口音。同時決定兩件事：示範音用哪種口音的語音、Azure 發音評分用哪個語系。
+   en-AU 的代價（微軟文件寫明）：沒有語調分數、沒有音素名稱。見 paceHTML／togglePhonemes 的處理。 */
+const ACCENTS={'en-US':'美式','en-AU':'澳洲'};
+let speakAccent=(()=>{ const a=lsGet('c_accent','en-US'); return ACCENTS[a]?a:'en-US'; })();
+function setAccent(a){
+  if(!ACCENTS[a]||recState!=='idle') return;
+  speakAccent=a; lsSet('c_accent',a); renderSpeakHome();
+}
+function accentChipsHTML(){
+  return `<div style="font-size:12px;color:var(--dim);margin:12px 0 6px">目標口音</div>
+  <div class="seg" style="margin-top:0">${Object.keys(ACCENTS).map(k=>`<span class="seg-item ${k===speakAccent?'on':''}" onclick="setAccent('${k}')">${ACCENTS[k]}</span>`).join('')}</div>
+  ${speakAccent!=='en-US'?`<div style="font-size:11px;color:var(--faint);line-height:1.6;margin-top:6px">示範音用${ACCENTS[speakAccent]}口音；發音評分改按${ACCENTS[speakAccent]}語系，<b>但微軟只有美式提供語調分數和音素名稱</b>，所以這兩樣會是空的。</div>`:''}`;
+}
+let lastWav=null;                   // 最近一次錄音的 WAV（base64）與評分，給「換口音比較」用，只留記憶體
 let lastRecURL=null;                // 最近一次錄音的 blob URL，只留在記憶體，不上傳、不存檔
 let recBtnLabel='開始錄音';
 function setLastRec(blob){
@@ -4538,13 +4552,13 @@ function recPlayerHTML(){
 }
 
 /* ── Azure 語音（透過同一支 Edge Function 代理，Key 不在前端）── */
-async function azureSpeech({wavB64, referenceText=null, enableMiscue=false}){
+async function azureSpeech({wavB64, referenceText=null, enableMiscue=false, language=null}){
   const t=await authToken();
   if(!t) throw new AIError('auth','請重新登入');
   const r=await fetch(PROXY_URL,{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':`Bearer ${t}`},
-    body:JSON.stringify({provider:'azure-speech',audioBase64:wavB64,referenceText,enableMiscue,language:'en-US'})
+    body:JSON.stringify({provider:'azure-speech',audioBase64:wavB64,referenceText,enableMiscue,language:language||speakAccent})
   });
   if(!r.ok){
     const e=await r.json().catch(()=>({}));
@@ -4578,7 +4592,7 @@ function extractPron(d){
     words:(b.Words||[]).map(w=>({
       word:w.Word, acc:w.AccuracyScore, err:w.ErrorType||'None',
       off:w.Offset, dur:w.Duration,   // 100ns 為單位；節奏分析用，沒帶就略過
-      phonemes:(w.Phonemes||[]).map(p=>({p:p.Phoneme,acc:p.AccuracyScore}))
+      phonemes:(w.Phonemes||[]).map(p=>({p:p.Phoneme||'',acc:p.AccuracyScore}))   // en-AU 沒有音素名稱，只有分數
     }))
   };
 }
@@ -4644,6 +4658,7 @@ async function onRecordingDone(blob){
     console.log(`口說錄音：${seconds.toFixed(1)} 秒，音量峰值 ${(peak*100).toFixed(1)}%`);
     if(peak<0.02) throw new Error(`幾乎沒有錄到聲音（音量峰值 ${(peak*100).toFixed(1)}%）。請確認麥克風沒有靜音、選對輸入裝置，並靠近一點再錄`);
     const wavB64=bytesToBase64(wav);
+    lastWav={b64:wavB64,ref:null,scores:{}};
     if(speakSubTab==='readaloud') await finishReadAloud(wavB64,seconds);
     else await finishTranslate(wavB64,seconds);
   }catch(e){
@@ -4703,6 +4718,7 @@ async function finishReadAloud(wavB64,seconds){
   speakStep('評發音…');
   // 參考文字是本來就已知的正確句子 → 分數完全可信，而且 miscue 能標出漏唸/多唸
   const pron=extractPron(await azureSpeech({wavB64,referenceText:target.text,enableMiscue:true}));
+  if(lastWav&&lastWav.b64===wavB64){ lastWav.ref=target.text; lastWav.scores[speakAccent]=pron; }
   recState='idle';
   // 文章模式：分數記回那一段，結果顯示在文章頁裡，不跳到獨立結果頁
   if(target.artSeg!=null&&ARTICLE){ saveArticleScore(target.artSeg,pron); renderArticle(pron); return; }
@@ -4727,7 +4743,7 @@ async function renderSpeakHome(){
   const body=document.getElementById('speakBody');
   if(speakSubTab==='translate'){
     const bar=await levelBarHTML();
-    body.innerHTML=seg+bar+`
+    body.innerHTML=seg+bar+accentChipsHTML()+`
     <div class="empty">
       <div class="empty-ico">${ic('mic',44)}</div>
       <div class="empty-h">看中文，直接用英文說</div>
@@ -4736,7 +4752,7 @@ async function renderSpeakHome(){
       <button class="next-btn" style="margin-top:8px;max-width:280px" onclick="showSpeakHistory('translate')">歷史紀錄</button>
     </div>`;
   }else{
-    body.innerHTML=seg+readAloudHomeHTML()+`<button class="next-btn" style="margin-top:4px" onclick="showSpeakHistory('read')">歷史紀錄（${READ_HISTORY.length} 篇）</button>`;
+    body.innerHTML=seg+accentChipsHTML()+readAloudHomeHTML()+`<button class="next-btn" style="margin-top:4px" onclick="showSpeakHistory('read')">歷史紀錄（${READ_HISTORY.length} 篇）</button>`;
   }
 }
 
@@ -4904,7 +4920,7 @@ ${ART_RECENT.length?`- 避開這些最近讀過的題目：${ART_RECENT.slice(0,
 }
 
 function saveArticleScore(i,pron){
-  ARTICLE.scores[i]={pron:pron.pron,accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,completeness:pron.completeness};
+  ARTICLE.scores[i]={pron:pron.pron,accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,completeness:pron.completeness,accent:speakAccent};
   saveArticle();
   upsertReadHist();
 }
@@ -4954,11 +4970,11 @@ function renderArticle(pron=null,keepScroll=false){
     <div class="card-lbl">${ic('mic',14)} 第 ${i+1} / ${a.segs.length} 段 · 已唸 ${sc.length} 段</div>
     <div class="prac-zh seg-text">${pron?segWordsHTML(seg.text,pron.words||[]):escHTML(seg.text)}</div>
     ${pron?`<div style="font-size:11px;color:var(--faint);margin-top:6px">底線：綠 80 以上、黃 60–79、紅 60 以下；點單字看逐音素分數</div>`:''}
-    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
+    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} ${demoBtnLabel()}</button>
   </div>
   <div id="recZone"></div>
   ${pron&&!isLast?`<button class="prac-submit" style="margin-top:8px" onclick="artGo(${i+1})">下一段 →</button>`:''}
-  ${pron?`<div class="sent-def" style="margin-top:12px;margin-bottom:8px">辨識到：${escHTML(pron.text)}</div>${pronCardHTML(pron,{miscue:true,noWords:true,player:true,refText:seg.text})}`:''}
+  ${pron?`<div class="sent-def" style="margin-top:12px;margin-bottom:8px">辨識到：${escHTML(pron.text)}</div>${pronCardHTML(pron,{miscue:true,noWords:true,player:true,compare:true,refText:seg.text})}`:''}
   <div class="prac-card" style="margin-top:12px">
     <div class="card-lbl">${ic('mic',14)} ${a.level} · ${escHTML(a.topic)}</div>
     <div class="art-title">${escHTML(a.title)}</div>
@@ -4979,19 +4995,34 @@ function startReadAloud(i){
   <div class="prac-card">
     <div class="card-lbl">${ic('mic',14)} 唸出這句話</div>
     <div class="prac-zh" style="font-size:19px">${escHTML(curReadTarget.text)}</div>
-    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} 先聽一次示範</button>
+    <button class="next-btn" style="margin-top:10px" onclick="speakTTS()">${ic('volume',14)} ${demoBtnLabel()}</button>
   </div>
   <div id="recZone"></div>`;
   renderRecUI();
 }
 
 // 用瀏覽器內建的語音合成唸一次示範，不多接一個 TTS 服務
+// 優先用裝置上符合口音的內建語音。沒有就退回預設語音並告訴使用者——不要悄悄播成別的口音。
+// Chrome 的語音清單是非同步載入，第一次可能是空的（空的時候不判定「沒有」，照樣交給 lang 讓瀏覽器挑）。
+function ttsVoiceFor(lang){
+  const vs=speechSynthesis.getVoices();
+  if(!vs.length) return {voice:null,known:false};
+  const norm=v=>v.lang.replace('_','-').toLowerCase();
+  return {voice:vs.find(v=>norm(v)===lang.toLowerCase())||null,known:true};
+}
 function speakTTS(){
   const t=curReadTarget?.text; if(!t||!window.speechSynthesis) return;
   const u=new SpeechSynthesisUtterance(t);
-  u.lang='en-US'; u.rate=0.9;
+  const {voice,known}=ttsVoiceFor(speakAccent);
+  if(voice){ u.voice=voice; u.lang=voice.lang; }
+  else{
+    u.lang=speakAccent;
+    if(known&&speakAccent!=='en-US') toast(`這台裝置沒有${ACCENTS[speakAccent]}口音的語音，示範音是預設口音`);
+  }
+  u.rate=0.9;
   speechSynthesis.cancel(); speechSynthesis.speak(u);
 }
+function demoBtnLabel(){ return `先聽一次示範${speakAccent!=='en-US'?`（${ACCENTS[speakAccent]}）`:''}`; }
 
 async function startSpeak(){
   const body=document.getElementById('speakBody');
@@ -5078,6 +5109,30 @@ function paceInfo(pron,refText){
   const span=(w[w.length-1].off+w[w.length-1].dur-w[0].off)/PRON_TICK;
   return {pauses, wpm:span>0?Math.round(w.length/span*60):null};
 }
+/* 用同一份錄音、換另一個口音的語系再評一次。不用重錄，所以是回答「澳洲語系的評分到底比較準還比較不準」
+   最直接的辦法：同一個人同一段聲音，兩個語系各給幾分。只在朗讀（參考文字已知）可用；
+   翻譯模式的參考文字是各自語系轉錄出來的，兩邊不可比。每按一次多一次 Azure 呼叫。 */
+async function compareAccent(){
+  const box=document.getElementById('cmpBox'); if(!box) return;
+  const w=lastWav; if(!w||!w.ref){ box.innerHTML='沒有可比較的錄音，請先唸一次'; return; }
+  const other=speakAccent==='en-US'?'en-AU':'en-US';
+  box.innerHTML='<span style="color:var(--dim)">評分中…</span>';
+  try{
+    if(!w.scores[other]) w.scores[other]=extractPron(await azureSpeech({wavB64:w.b64,referenceText:w.ref,enableMiscue:true,language:other}));
+    const rows=[['準確度','accuracy'],['流暢度','fluency'],['語調','prosody'],['完整度','completeness'],['綜合','pron']];
+    const a=w.scores['en-US'], b=w.scores['en-AU'];
+    box.innerHTML=`<table style="width:100%;font-size:13px;border-collapse:collapse;margin-top:6px">
+      <tr style="color:var(--dim);text-align:left"><th></th><th>美式</th><th>澳洲</th></tr>
+      ${rows.map(([lb,k])=>`<tr><td style="padding:4px 0;color:var(--dim)">${lb}</td><td><b class="${pronClass(a?.[k])}">${pronNum(a?.[k])}</b></td><td><b class="${pronClass(b?.[k])}">${pronNum(b?.[k])}</b></td></tr>`).join('')}
+    </table><div style="font-size:11px;color:var(--faint);margin-top:6px;line-height:1.6">同一段錄音、兩個語系各評一次。「—」是那個語系沒有這項分數。</div>`;
+  }catch(e){
+    console.error('換口音評分失敗:',e);
+    box.innerHTML=`<span style="color:var(--bad)">${escHTML(aiErrorMsg(e,'比較失敗，請重試'))}</span>`;
+  }
+}
+function compareHTML(){
+  return `<div style="margin-top:14px"><button class="next-btn" style="margin:0" onclick="compareAccent()">用另一種口音評一次，比較分數</button><div id="cmpBox"></div></div>`;
+}
 function paceHTML(pron,refText){
   const info=paceInfo(pron,refText), items=[];
   if(info) [...info.pauses].sort((a,b)=>b.gap-a.gap).slice(0,3).forEach(p=>items.push(p.kind==='mid'
@@ -5116,6 +5171,7 @@ function pronCardHTML(pron,opts={}){
       <div class="stat-tile"><div class="stat-label">流暢度</div><div class="stat-value ${pronClass(pron.fluency)}">${pronNum(pron.fluency)}</div></div>
       <div class="stat-tile"><div class="stat-label">語調</div><div class="stat-value ${pronClass(pron.prosody)}">${pronNum(pron.prosody)}</div></div>
     </div>
+    ${pron.prosody==null&&pron.accuracy!=null?`<div style="font-size:11px;color:var(--faint);margin:-4px 0 10px">這個口音沒有語調分數（微軟只有美式提供）</div>`:''}
     ${pron.pron!=null?`<div style="font-size:12px;color:var(--dim);margin-bottom:12px">綜合發音分數 <b class="${pronClass(pron.pron)}">${pronNum(pron.pron)}</b>${
       opts.miscue&&pron.completeness!=null?` · 完整度 <b class="${pronClass(pron.completeness)}">${pronNum(pron.completeness)}</b>`:''}</div>`:''}
     ${w.length&&!opts.noWords?`<div class="pron-words">${w.map((x,i)=>
@@ -5127,6 +5183,7 @@ function pronCardHTML(pron,opts={}){
     </div>`:''}
     ${opts.refText!=null?paceHTML(pron,opts.refText):''}
     ${opts.player?recPlayerHTML():''}
+    ${opts.compare?compareHTML():''}
     ${opts.note?`<div style="font-size:11px;color:var(--faint);margin-top:12px;line-height:1.65">${opts.note}</div>`:''}
   </div>`;
 }
@@ -5139,7 +5196,8 @@ function togglePhonemes(i){
   box.innerHTML=`<div style="margin-top:10px;padding:10px;background:var(--inset);border-radius:10px">
     <div style="font-size:11px;color:var(--dim);margin-bottom:6px">「${escHTML(w.word)}」逐音素</div>
     <div class="pron-words">${w.phonemes.map(p=>
-      `<span class="pron-w ${pronClass(p.acc)}">${escHTML(p.p)}<sub>${pronNum(p.acc)}</sub></span>`).join('')}</div>
+      `<span class="pron-w ${pronClass(p.acc)}">${escHTML(p.p||'第'+(w.phonemes.indexOf(p)+1)+'音')}<sub>${pronNum(p.acc)}</sub></span>`).join('')}</div>
+    ${w.phonemes.some(p=>!p.p)?`<div style="font-size:11px;color:var(--faint);margin-top:6px">這個口音沒有音素名稱，只能看每個音的分數</div>`:''}
   </div>`;
 }
 
@@ -5153,7 +5211,7 @@ function renderSpeakResult(res){
       <div class="prac-zh" style="font-size:17px">${escHTML(res.target.text)}</div>
       <div class="sent-def">辨識到：${escHTML(res.pron.text)}</div>
     </div>
-    ${pronCardHTML(res.pron,{miscue:true,player:true,refText:res.target.text})}
+    ${pronCardHTML(res.pron,{miscue:true,player:true,compare:true,refText:res.target.text})}
     <button class="prac-submit" onclick="startReadAloudAgain()">再唸一次</button>
     <button class="next-btn" style="margin-top:8px" onclick="renderSpeakHome()">換一句</button>`;
     return;
@@ -5266,6 +5324,7 @@ function saveSpeakHistory({q,transcript,content,pron,seconds}){
     chinglish_issues:content.chinglish_issues||[], precision_note:content.precision_note||'',
     b2_example:content.b2_example||'', c1_example:content.c1_example, tip:content.tip||'',
     pron:{accuracy:pron.accuracy,fluency:pron.fluency,prosody:pron.prosody,pron:pron.pron},
+    accent:speakAccent,
     speakSeconds:Math.round(seconds*10)/10,
     ts:Date.now()
   };
